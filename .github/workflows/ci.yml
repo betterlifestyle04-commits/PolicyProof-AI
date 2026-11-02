@@ -11,6 +11,10 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install pytest
+      - name: Environment preflight (informational, no GPU required)
+        run: python -m scripts.preflight
+      - name: Syntax-check optional dashboard and helper scripts
+        run: python -m py_compile research_dashboard.py scripts/audit_dataset.py scripts/preflight.py
       - name: Generate synthetic fixtures
         run: python -m scripts.prepare
       - name: Audit provenance, split isolation, and citations
