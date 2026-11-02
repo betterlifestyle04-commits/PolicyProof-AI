@@ -152,6 +152,26 @@ def normalize(text):
 
 
 def score(gold, prediction):
+    # Independent, non-semantic diagnostics. Never reinterpret malformed
+    # structured outputs as valid task completions.
+    try:
+        raw_object = json.loads(prediction)
+    except (TypeError, ValueError):
+        raw_object = None
+    raw_json_valid = isinstance(raw_object, dict)
+    missing_schema_fields = bool(raw_json_valid and (
+        {"answer", "source_id", "abstain"} - set(raw_object)))
+    response_text = raw_object.get("answer") if raw_json_valid else None
+    raw_non_abstaining_claim = bool(
+        isinstance(response_text, str) and response_text.strip()
+        and response_text != ABSTAIN
+    )
+    inconsistent_abstention = bool(raw_json_valid and (
+        (raw_object.get("abstain") is True and (
+            raw_non_abstaining_claim or raw_object.get("source_id") is not None))
+        or (raw_object.get("abstain") is False and (
+            response_text == ABSTAIN or raw_object.get("source_id") is None))
+    ))
     p = parse_prediction(prediction)
     answer = bool(p and p["abstain"] is False)
     abstain = bool(p and p["abstain"] and p["source_id"] is None and
@@ -165,8 +185,17 @@ def score(gold, prediction):
                 citation_correct=int(not gold["should_abstain"] and source_ok),
                 abstention_needed=int(gold["should_abstain"]),
                 abstention_correct=int(gold["should_abstain"] and abstain),
-                unsupported_claim=int(gold["should_abstain"] and answer),
-                answered=int(answer))
+                # Count an unsupported claim even when output schema is wrong
+                # or abstain=true contradicts the non-empty answer.
+                unsupported_claim=int(gold["should_abstain"] and raw_non_abstaining_claim),
+                answered=int(answer),
+                raw_json_object_valid=int(raw_json_valid),
+                missing_required_field=int(missing_schema_fields),
+                contradictory_abstention=int(inconsistent_abstention),
+                raw_citation_correct=int(
+                    not gold["should_abstain"] and raw_json_valid
+                    and raw_object.get("source_id") == gold["expected_source_id"]
+                ))
 
 
 def aggregate(scores):
@@ -177,6 +206,10 @@ def aggregate(scores):
     total = lambda k, group=scores: sum(r[k] for r in group)
     out = dict(samples=n, strict_accuracy_pct=pct(total("correct"), n),
                json_schema_valid_pct=pct(total("format_valid"), n),
+               raw_json_object_valid_pct=pct(total("raw_json_object_valid"), n),
+               missing_required_field_pct=pct(total("missing_required_field"), n),
+               contradictory_abstention_pct=pct(total("contradictory_abstention"), n),
+               raw_citation_match_pct=pct(total("raw_citation_correct"), total("supported_total")),
                correct_citation_pct=pct(total("citation_correct"), total("supported_total")),
                supported_answer_exact_match_pct=pct(total("supported_answer_correct"), total("supported_total")),
                abstention_recall_pct=pct(total("abstention_correct"), total("abstention_needed")),
