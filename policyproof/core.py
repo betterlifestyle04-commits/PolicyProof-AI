@@ -204,12 +204,17 @@ def aggregate(scores):
     n = len(scores)
     pct = lambda x, denom: round(x / denom * 100, 2) if denom else None
     total = lambda k, group=scores: sum(r[k] for r in group)
+    # Older historical score rows lack v2 diagnostic fields. Show N/A rather
+    # than inventing zero errors when comparing those archived reports.
+    optional_pct = lambda k, denominator: (
+        pct(total(k), denominator) if all(k in row for row in scores) else None
+    )
     out = dict(samples=n, strict_accuracy_pct=pct(total("correct"), n),
                json_schema_valid_pct=pct(total("format_valid"), n),
-               raw_json_object_valid_pct=pct(total("raw_json_object_valid"), n),
-               missing_required_field_pct=pct(total("missing_required_field"), n),
-               contradictory_abstention_pct=pct(total("contradictory_abstention"), n),
-               raw_citation_match_pct=pct(total("raw_citation_correct"), total("supported_total")),
+               raw_json_object_valid_pct=optional_pct("raw_json_object_valid", n),
+               missing_required_field_pct=optional_pct("missing_required_field", n),
+               contradictory_abstention_pct=optional_pct("contradictory_abstention", n),
+               raw_citation_match_pct=optional_pct("raw_citation_correct", total("supported_total")),
                correct_citation_pct=pct(total("citation_correct"), total("supported_total")),
                supported_answer_exact_match_pct=pct(total("supported_answer_correct"), total("supported_total")),
                abstention_recall_pct=pct(total("abstention_correct"), total("abstention_needed")),
