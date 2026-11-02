@@ -11,8 +11,15 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install pytest
-      - run: python -m scripts.prepare
-      - run: python -m pytest -q
-      - run: python -m scripts.evaluate --split unseen-policy --engine mock-abstain --output artifacts/mock.json
-      - run: python -m scripts.evaluate --split paraphrase --engine mock-oracle --output artifacts/mock-paraphrase.json
-      - run: python -m scripts.train
+      - name: Generate synthetic fixtures
+        run: python -m scripts.prepare
+      - name: Audit provenance, split isolation, and citations
+        run: python -m scripts.audit_dataset --data-dir data --output artifacts/dataset-audit.json
+      - name: Unit and regression tests
+        run: python -m pytest -q
+      - name: Smoke-test conservative mock evaluator (NOT MODEL QUALITY)
+        run: python -m scripts.evaluate --split unseen-policy --engine mock-abstain --output artifacts/mock.json
+      - name: Smoke-test perfect-format oracle (NOT MODEL QUALITY)
+        run: python -m scripts.evaluate --split paraphrase --engine mock-oracle --output artifacts/mock-paraphrase.json
+      - name: Training dry-run (no GPU or model access)
+        run: python -m scripts.train
