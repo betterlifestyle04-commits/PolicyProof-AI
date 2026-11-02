@@ -10,6 +10,7 @@ Status: active research prototype; **no actual GPU model training, validated imp
 python -m scripts.prepare
 python -m pip install pytest
 python -m pytest -q
+python -m scripts.audit_dataset --data-dir data --output artifacts/audit.json
 python -m scripts.evaluate --split unseen-policy --engine mock-abstain --output artifacts/mock.json
 python -m scripts.train # safe dry run; --execute required for GPU
 ```
@@ -30,3 +31,18 @@ The fixture builder creates 78 training examples, 42 paraphrase tests, and 48 un
 Mock evaluation checks software only, not real model quality. Direct external prediction imports are unverified and cannot be used as confirmed model improvement. Never commit Hugging Face tokens or private banking data. Review the Lexsi library licenses before use outside research. Full experimental training remains blocked on GPU and Hugging Face access.
 
 Official resources: https://hackathon.lexsi.ai · https://github.com/Lexsi-Labs/CuratorKIT · https://github.com/Lexsi-Labs/aligntune · https://github.com/Lexsi-Labs/AuditKIT
+
+## Inspect and review the experiment
+
+Install the optional dashboard dependency and start the read-only research observer:
+
+```bash
+python -m pip install "streamlit>=1.40"
+streamlit run research_dashboard.py
+```
+
+The dashboard shows real source fixtures and recorded outputs and prominently distinguishes mock evaluation runs from genuine model inference. It does not perform inference itself.
+
+See [Research Protocol](docs/RESEARCH_PROTOCOL.md) and [Submission Readiness](docs/SUBMISSION_READINESS.md). The dataset integrity guard now rejects source-policy leakage, malformed labels, duplicated sample IDs, and stale checksums. Run it before using a dataset to train.
+
+**Current local verification:** The sister working copy passed 15 software tests; the GitHub Actions run status has not been independently confirmed. Training and official Lexsi package integration remain pending.
