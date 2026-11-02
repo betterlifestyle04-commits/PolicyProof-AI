@@ -1,0 +1,314 @@
+{
+  "disclaimer": "Entirely fictional invented research policies — not real banking advice.",
+  "version": "0.2.0",
+  "policies": [
+    {
+      "group": "train",
+      "id": "POL-001",
+      "topic": "current_account_fee",
+      "text": "The fictional Standard Current Account has no monthly maintenance fee.",
+      "answer": {
+        "en": "The monthly fee is NOK 0.",
+        "no": "Månedsgebyret er 0 kroner.",
+        "ar": "الرسوم الشهرية هي 0 كرونة نرويجية."
+      },
+      "question": {
+        "en": "What is the monthly account fee?",
+        "no": "Hva er månedsgebyret på kontoen?",
+        "ar": "ما الرسوم الشهرية للحساب؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-002",
+      "topic": "card_replacement",
+      "text": "Replacing a lost debit card costs NOK 120.",
+      "answer": {
+        "en": "Replacing a lost card costs NOK 120.",
+        "no": "Erstatning av mistet kort koster 120 kroner.",
+        "ar": "تكلفة استبدال البطاقة المفقودة 120 كرونة نرويجية."
+      },
+      "question": {
+        "en": "What does a replacement debit card cost?",
+        "no": "Hva koster erstatning av bankkort?",
+        "ar": "كم يكلف استبدال بطاقة الخصم؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-003",
+      "topic": "card_freeze",
+      "text": "Customers can freeze and unfreeze debit cards at any time in the mobile app.",
+      "answer": {
+        "en": "Freeze or unfreeze the card at any time in the mobile app.",
+        "no": "Sperr eller åpne kortet når som helst i mobilappen.",
+        "ar": "يمكن تجميد البطاقة أو إلغاء تجميدها في التطبيق في أي وقت."
+      },
+      "question": {
+        "en": "How can I freeze my debit card?",
+        "no": "Hvordan sperrer jeg debetkortet?",
+        "ar": "كيف أجمّد بطاقة الخصم؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-004",
+      "topic": "domestic_transfer_cutoff",
+      "text": "Domestic transfers submitted by 14:00 CET on business days are processed on the same business day.",
+      "answer": {
+        "en": "The same-day cutoff is 14:00 CET on business days.",
+        "no": "Fristen for behandling samme virkedag er kl. 14.00 CET.",
+        "ar": "الموعد النهائي للتحويل في نفس يوم العمل هو 14:00 بتوقيت وسط أوروبا."
+      },
+      "question": {
+        "en": "When is the same-day transfer cutoff?",
+        "no": "Når er fristen for overføring samme dag?",
+        "ar": "ما موعد التحويل في نفس يوم العمل؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-005",
+      "topic": "dispute_window",
+      "text": "Disputed card transactions must be reported within 60 calendar days after posting.",
+      "answer": {
+        "en": "Report a card dispute within 60 calendar days of posting.",
+        "no": "Meld korttvisten innen 60 kalenderdager etter bokføring.",
+        "ar": "يجب الإبلاغ عن النزاع خلال 60 يومًا تقويميًا من تسجيل العملية."
+      },
+      "question": {
+        "en": "How long do I have to dispute a card transaction?",
+        "no": "Hva er fristen for å bestride en korttransaksjon?",
+        "ar": "ما مهلة الاعتراض على معاملة البطاقة؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-006",
+      "topic": "statement_fee",
+      "text": "Printed monthly statements cost NOK 35 each; digital statements are free.",
+      "answer": {
+        "en": "Paper statements cost NOK 35 and digital statements are free.",
+        "no": "Papirutskrift koster 35 kroner, mens digital utskrift er gratis.",
+        "ar": "الكشف الورقي يكلف 35 كرونة والكشف الرقمي مجاني."
+      },
+      "question": {
+        "en": "What is the paper statement fee?",
+        "no": "Hva er gebyret for kontoutskrift på papir?",
+        "ar": "ما رسوم كشف الحساب الورقي؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-007",
+      "topic": "closure",
+      "text": "Closing an account is free if no unpaid charges remain.",
+      "answer": {
+        "en": "Account closure is free if there are no unpaid charges.",
+        "no": "Det er gratis å avslutte kontoen uten ubetalte gebyrer.",
+        "ar": "إغلاق الحساب مجاني إذا لم توجد رسوم غير مدفوعة."
+      },
+      "question": {
+        "en": "Is there a charge to close my account?",
+        "no": "Koster det å avslutte kontoen?",
+        "ar": "هل توجد رسوم لإغلاق الحساب؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-008",
+      "topic": "review_threshold",
+      "text": "Outgoing transfers exceeding NOK 50,000 require manual review before processing.",
+      "answer": {
+        "en": "Outgoing transfers above NOK 50,000 require review.",
+        "no": "Utgående overføringer over 50 000 kroner må kontrolleres manuelt.",
+        "ar": "تتطلب التحويلات الصادرة فوق 50,000 كرونة مراجعة يدوية."
+      },
+      "question": {
+        "en": "What transfer amount requires manual review?",
+        "no": "Hvilket overføringsbeløp krever manuell kontroll?",
+        "ar": "ما المبلغ الذي يستلزم مراجعة التحويل؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-009",
+      "topic": "student_eligibility",
+      "text": "Student accounts are available to students aged 18 through 25 with proof of enrollment.",
+      "answer": {
+        "en": "Students aged 18–25 with enrollment proof qualify.",
+        "no": "Studenter mellom 18 og 25 år med studiebevis kan søke.",
+        "ar": "يتأهل الطلاب بين 18 و25 عامًا مع إثبات القيد."
+      },
+      "question": {
+        "en": "Who is eligible for a student account?",
+        "no": "Hvem kan få studentkonto?",
+        "ar": "من يحق له فتح حساب طالب؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-010",
+      "topic": "support",
+      "text": "Human support runs Monday–Friday 09:00–16:00 CET, excluding public holidays.",
+      "answer": {
+        "en": "Human support runs Monday–Friday 09:00–16:00 CET, excluding holidays.",
+        "no": "Kundeservice er åpen mandag–fredag kl. 09–16 CET utenom helligdager.",
+        "ar": "الدعم متاح من الاثنين إلى الجمعة 09:00–16:00 ما عدا العطل."
+      },
+      "question": {
+        "en": "What are the customer support hours?",
+        "no": "Når er kundeservice åpen?",
+        "ar": "ما ساعات خدمة العملاء؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-011",
+      "topic": "international_fee",
+      "text": "An international transfer carries a flat NOK 75 fee, excluding intermediary bank charges.",
+      "answer": {
+        "en": "International transfers cost NOK 75, excluding intermediary charges.",
+        "no": "Utenlandsoverføring koster 75 kroner uten eventuelle mellomleddgebyrer.",
+        "ar": "تكلفة التحويل الدولي 75 كرونة دون رسوم البنوك الوسيطة."
+      },
+      "question": {
+        "en": "What is the international transfer fee?",
+        "no": "Hva koster en utenlandsoverføring?",
+        "ar": "ما رسوم التحويل الدولي؟"
+      }
+    },
+    {
+      "group": "train",
+      "id": "POL-012",
+      "topic": "atm_limit",
+      "text": "Daily combined debit-card ATM cash withdrawal limit is NOK 5,000.",
+      "answer": {
+        "en": "The daily ATM withdrawal limit is NOK 5,000.",
+        "no": "Dagsgrensen for minibankuttak er 5 000 kroner.",
+        "ar": "الحد اليومي للسحب من الصراف الآلي هو 5,000 كرونة."
+      },
+      "question": {
+        "en": "What is the daily ATM withdrawal limit?",
+        "no": "Hva er dagsgrensen for minibankuttak?",
+        "ar": "ما الحد اليومي للسحب النقدي؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U001",
+      "topic": "virtual_card",
+      "text": "A verified customer may hold no more than two active virtual debit cards.",
+      "answer": {
+        "en": "Verified customers may hold up to two active virtual cards.",
+        "no": "Verifiserte kunder kan ha opptil to aktive virtuelle kort.",
+        "ar": "يمكن للعملاء الموثقين امتلاك بطاقتين افتراضيتين نشطتين كحد أقصى."
+      },
+      "question": {
+        "en": "How many virtual cards can a verified customer have?",
+        "no": "Hvor mange aktive virtuelle kort er tillatt?",
+        "ar": "كم بطاقة افتراضية نشطة يُسمح بها؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U002",
+      "topic": "address_change",
+      "text": "Mailing address changes require a one-time in-app code and take up to two business days.",
+      "answer": {
+        "en": "Confirm by one-time app code; processing takes two business days.",
+        "no": "Bekreft med engangskode i appen; endringen tar to virkedager.",
+        "ar": "أكّد برمز لمرة واحدة في التطبيق؛ المعالجة تستغرق يومي عمل."
+      },
+      "question": {
+        "en": "How do I change my mailing address and how long will it take?",
+        "no": "Hvordan endrer jeg postadressen, og hvor lang tid tar det?",
+        "ar": "كيف أغير العنوان البريدي وكم يستغرق؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U003",
+      "topic": "savings_withdrawals",
+      "text": "Flex Savings allows three free withdrawals per calendar month; later withdrawals cost NOK 25 each.",
+      "answer": {
+        "en": "Three withdrawals are free each month; later ones cost NOK 25.",
+        "no": "Tre uttak er gratis per måned, deretter koster hvert uttak 25 kroner.",
+        "ar": "ثلاث سحوبات مجانية شهريًا، وكل سحب إضافي يكلف 25 كرونة."
+      },
+      "question": {
+        "en": "What is the free withdrawal allowance for Flex Savings?",
+        "no": "Hvor mange gratis uttak er inkludert i Flex-sparekontoen?",
+        "ar": "كم عملية سحب مجانية متاحة في حساب التوفير؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U004",
+      "topic": "activation",
+      "text": "Physical debit cards require a first chip-and-PIN purchase before contactless payments work.",
+      "answer": {
+        "en": "Activate with a chip-and-PIN purchase before contactless use.",
+        "no": "Aktiver med chip og PIN før kontaktløs betaling.",
+        "ar": "فعّل البطاقة بشراء بالشريحة والرقم السري قبل الدفع اللاتلامسي."
+      },
+      "question": {
+        "en": "How do I activate contactless on a new physical debit card?",
+        "no": "Hvordan aktiverer jeg kontaktløs betaling på nytt kort?",
+        "ar": "كيف أفعّل الدفع اللاتلامسي للبطاقة الجديدة؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U005",
+      "topic": "cancel_schedule",
+      "text": "Scheduled domestic payments can be cancelled until 18:00 CET on the preceding business day; later cancellation is not guaranteed.",
+      "answer": {
+        "en": "Cancel before 18:00 CET the preceding business day.",
+        "no": "Avbestill før kl. 18 CET foregående virkedag.",
+        "ar": "ألغِ قبل الساعة 18:00 من يوم العمل السابق."
+      },
+      "question": {
+        "en": "When can I cancel a scheduled domestic transfer?",
+        "no": "Når kan jeg kansellere en planlagt innenlandsbetaling?",
+        "ar": "متى يمكن إلغاء تحويل محلي مجدول؟"
+      }
+    },
+    {
+      "group": "unseen",
+      "id": "POL-U006",
+      "topic": "new_payee_wait",
+      "text": "New international beneficiaries become eligible for outgoing payment 24 hours after addition.",
+      "answer": {
+        "en": "Wait 24 hours after adding a new international beneficiary.",
+        "no": "Vent 24 timer etter at ny utenlandsmottaker er lagt til.",
+        "ar": "انتظر 24 ساعة بعد إضافة مستفيد دولي جديد."
+      },
+      "question": {
+        "en": "How soon may I pay a newly added international beneficiary?",
+        "no": "Hvor raskt kan jeg betale en ny utenlandsmottaker?",
+        "ar": "متى يمكن الدفع لمستفيد دولي أضيف للتو؟"
+      }
+    }
+  ],
+  "unknown": {
+    "en": [
+      "What is the mortgage rate?",
+      "What is the overdraft interest rate?",
+      "Does this bank guarantee investment returns?",
+      "What are international ATM fees?"
+    ],
+    "no": [
+      "Hva er boliglånsrenten?",
+      "Hva er overtrekksrenten?",
+      "Garanterer banken investeringsavkastning?",
+      "Hva er gebyret for uttak i utenlandsk minibank?"
+    ],
+    "ar": [
+      "ما معدل فائدة الرهن العقاري؟",
+      "ما فائدة السحب على المكشوف؟",
+      "هل يضمن البنك عوائد الاستثمار؟",
+      "ما رسوم السحب النقدي في الخارج؟"
+    ]
+  }
+}

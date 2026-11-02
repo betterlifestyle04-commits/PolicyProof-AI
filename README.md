@@ -1,30 +1,32 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
-Track 1 research project: multilingual, evidence-grounded policy QA with measurable abstention and citation quality.
+**Track 1 · Fine-tuning & Data Curation**. Reproducible research into multilingual, evidence-grounded policy answering, citation correctness and abstention.
 
-**Status:** Under development. No real model training, quality gain, or final hackathon submission has yet been verified.
+Status: active research prototype; **no actual GPU model training, validated improvements or final hackathon submission claimed**. All policies and evaluation examples are fictional, never actual bank information.
 
-The bundled policy corpus is entirely fictional. The experiment is designed for English, Norwegian and Arabic; it evaluates a held-out-policy set separately from paraphrases. Simulated evaluation outputs are tests of the harness, not research results.
-
-## Scientific protocol
-
-1. Prepare training and evaluation data from fictional source policies, keeping unseen document IDs completely separate.
-2. Curate training data using official Lexsi CuratorKIT and inspect provenance before proceeding.
-3. Evaluate the gated `CohereLabs/tiny-aya-global` base model against unchanged test sets.
-4. Train using Lexsi AlignTune on approved GPU hardware. Record exact configs and save checkpoints.
-5. Re-evaluate with AuditKIT and deterministic validators. Publish raw predictions and a paired comparison with uncertainty.
-
-## Development commands
+## Quick start
 
 ```bash
 python -m scripts.prepare
+python -m pip install pytest
 python -m pytest -q
 python -m scripts.evaluate --split unseen-policy --engine mock-abstain --output artifacts/mock.json
-python -m scripts.train  # dry-run only; training requires --execute
+python -m scripts.train # safe dry run; --execute required for GPU
 ```
 
-## Research integrity
+The fixture builder creates 78 training examples, 42 paraphrase tests, and 48 unseen-policy tests (including 3 prompt-injection probes). Synthetic question templates in the generated fixture are *not* human-reviewed; stronger real evaluation must be added before claims. The unseen-policy split uses distinct fictional documents and validates ID separation.
 
-Do not report mock scores as performance. Model access, GPU training, and the real external Lexsi integration have not been confirmed. Never commit secrets or private banking documents.
+## Scientific protocol
 
-Official event: https://hackathon.lexsi.ai · CuratorKIT: https://github.com/Lexsi-Labs/CuratorKIT · AlignTune: https://github.com/Lexsi-Labs/aligntune · AuditKIT: https://github.com/Lexsi-Labs/AuditKIT
+1. Prepare synthetic, versioned data with policy-level split isolation.
+2. Curate with Lexsi CuratorKIT and save its provenance report.
+3. Run base-model evaluation for CohereLabs/tiny-aya-global on unmodified tests.
+4. Run AlignTune supervised fine-tuning on an approved GPU with the accepted HF model license.
+5. Evaluate with AuditKIT and deterministic citation/abstention scorers; compare real model results via paired bootstrap intervals.
+6. Publish data cards, model checkpoints, raw predictions, configs, limitations and a research write-up.
+
+## Integrity and caveats
+
+Mock evaluation checks software only, not real model quality. Direct external prediction imports are unverified and cannot be used as confirmed model improvement. Never commit Hugging Face tokens or private banking data. Review the Lexsi library licenses before use outside research. Full experimental training remains blocked on GPU and Hugging Face access.
+
+Official resources: https://hackathon.lexsi.ai · https://github.com/Lexsi-Labs/CuratorKIT · https://github.com/Lexsi-Labs/aligntune · https://github.com/Lexsi-Labs/AuditKIT

@@ -1,0 +1,14 @@
+[project]
+name = "policyproof-ai"
+version = "0.2.0"
+description = "Multilingual evidence-grounded research for Lexsi Labs Hackathon 2026"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+ml = ["curatorkit", "aligntune", "auditkit", "datasets", "transformers", "torch", "accelerate", "peft"]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
