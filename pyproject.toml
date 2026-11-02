@@ -12,3 +12,5 @@ dev = ["pytest>=8.0"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+dashboard = ["streamlit>=1.40"]
