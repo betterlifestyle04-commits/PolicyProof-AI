@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
+dashboard = ["streamlit>=1.40"]
 ml = ["curatorkit", "aligntune", "auditkit", "datasets", "transformers", "torch", "accelerate", "peft"]
 dev = ["pytest>=8.0"]
 
@@ -13,4 +14,3 @@ dev = ["pytest>=8.0"]
 testpaths = ["tests"]
 pythonpath = ["."]
 
-dashboard = ["streamlit>=1.40"]
