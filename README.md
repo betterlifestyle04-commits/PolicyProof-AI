@@ -1,5 +1,9 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
+## Stage 2: CuratorKIT curation in Google Colab
+
+**[Open the CuratorKIT data curation notebook in Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/02_curatorkit_training_data.ipynb)** — use a fresh CPU runtime. This prepares *training data only*, verifies manifests and exports a ZIP for inspection. **No training or GPU needed.**
+
 ## Start the real Tiny Aya baseline in Colab
 
 **[Open the secure T4 baseline notebook in Google Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/01_tiny_aya_baseline_t4.ipynb)** — runs GPU preflight, private interactive Hugging Face login, dataset integrity checks, and unchanged-model inference. Never commit or paste access tokens. This notebook does not train a model.
