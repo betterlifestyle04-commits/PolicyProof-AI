@@ -46,3 +46,7 @@ The dashboard shows real source fixtures and recorded outputs and prominently di
 See [Research Protocol](docs/RESEARCH_PROTOCOL.md) and [Submission Readiness](docs/SUBMISSION_READINESS.md). The dataset integrity guard now rejects source-policy leakage, malformed labels, duplicated sample IDs, and stale checksums. Run it before using a dataset to train.
 
 **Current local verification:** The sister working copy passed 15 software tests; the GitHub Actions run status has not been independently confirmed. Training and official Lexsi package integration remain pending.
+
+## Resource preflight
+
+Run `python -m scripts.preflight` to inspect Python, installed ML packages, CUDA device availability and whether an HF environment token exists (never its value). The optional `--strict` flag exits nonzero when prerequisites are missing. A passing preflight does **not** verify Hugging Face gated-license acceptance or compute credit balance.
