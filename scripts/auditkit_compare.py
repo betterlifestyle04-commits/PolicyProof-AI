@@ -24,9 +24,11 @@ def validate_pair(base: dict, candidate: dict, rows: list[dict], checksum: str):
         raise ValueError("Missing actual adapter SHA; not reproducible")
     b = check_saved_outputs(base, rows, checksum)
     c = check_saved_outputs(candidate, rows, checksum)
-    if list(b) != list(c):
-        # Sets are already checked; this is only a defensive sanity check.
-        raise ValueError("Prediction ordering differs")
+    # Prediction order does not matter: the saved reports may be in different
+    # iteration orders while both cover precisely the same frozen IDs.
+    # check_saved_outputs already validates uniqueness and full ID coverage.
+    if set(b) != set(c):
+        raise ValueError("Prediction sample IDs differ")
     return b, c
 
 
