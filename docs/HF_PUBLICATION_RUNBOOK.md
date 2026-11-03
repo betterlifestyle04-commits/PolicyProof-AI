@@ -2,7 +2,7 @@
 
 **Status:** Nothing here proves that an HF repository has been created or is judge-accessible. The dataset, logs and model card templates are ready in GitHub; the **actual trained adapter does not yet exist**. Do not publish an empty model repo or claim a successful fine-tuning result.
 
-The official Lexsi rules require public Hugging Face artifacts for datasets, adapters/models and logs, plus an HF Article. Publication requires the owner's own approved Hugging Face account and credentials. Never paste an HF token into chat, a notebook cell, README, or GitHub Issues.
+The official Lexsi rules require public Hugging Face artifacts for datasets, adapters/models and logs, **plus separate public model and dataset collections**. An HF Article is welcome; Lexsi now also accepts a GitHub README/write-up when HF Articles are unavailable. Publication requires the owner's own approved Hugging Face account and credentials. Never paste an HF token into chat, a notebook cell, README, or GitHub Issues.
 
 ## 1. Prepare a private authenticated environment
 
@@ -58,6 +58,31 @@ hf upload YOUR_HF_USERNAME/policyproof-tiny-aya-global-lora templates/huggingfac
 \`\`\`
 
 **Before uploading** replace the explicit "NOT A TRAINED MODEL" disclaimer with real evidence, without inventing results. Keep noncommercial base-model license and acceptable-use obligations; check that the base model permits your intended adapter distribution. If the adapter was trained using the direct PyTorch fallback, say so; do **not** claim the AlignTune trainer completed.
+
+## Latest official submission fields: two public HF collections
+
+Lexsi's official website now asks for **both a Hugging Face model collection and a dataset collection**, with all included items public and not gated. The model collection is not the same as a model repository, and the dataset collection is not the same as a dataset repository. The submission abstract must be **under 500 words**. The organizers accept a readable GitHub README/write-up if HF Articles are unavailable.
+
+The collection creation commands below require the project owner's authenticated Hugging Face session. They are **instructions, not completed actions**:
+
+```bash
+# Complete only after verifying you own the namespace and have publishing rights.
+hf collections create "PolicyProof AI — Models and Adapters" --namespace YOUR_HF_USERNAME
+hf collections create "PolicyProof AI — Datasets and Evaluation" --namespace YOUR_HF_USERNAME
+
+# Copy the exact returned collection slugs. Do not invent their random suffixes.
+hf collections add-item YOUR_MODEL_COLLECTION_SLUG YOUR_HF_USERNAME/policyproof-tiny-aya-global-lora model
+hf collections add-item YOUR_DATASET_COLLECTION_SLUG YOUR_HF_USERNAME/policyproof-curatorkit-v1 dataset
+hf collections info YOUR_MODEL_COLLECTION_SLUG
+hf collections info YOUR_DATASET_COLLECTION_SLUG
+```
+
+**Stop conditions:** Do not add the **gated** original Tiny Aya Global model as a supposedly ungated submission model; a genuine, license-compliant, publicly accessible trained adapter must first exist. Do not set `external_access_verified` or `public_items_ungated_verified` in [HF publication manifest](hf_publication_manifest.json) until each collection and every required item opens for an independent visitor without account/token gates.
+
+The [247-word submission abstract](LEXSI_SUBMISSION_ABSTRACT.md) is prepared, but it explicitly discloses that Track 1 fine-tuning, model comparison, and complete HF collections remain incomplete.
+
+**Official collection requirement:** https://hackathon.lexsi.ai/ .  
+**Hugging Face collection CLI:** https://huggingface.co/docs/huggingface_hub/package_reference/cli#hf-collections
 
 ## 5. HF Article and final URLs
 
