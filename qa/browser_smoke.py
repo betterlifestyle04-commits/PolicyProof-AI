@@ -38,6 +38,8 @@ def main():
                 exact=False
             ).first.wait_for()
             page.get_by_text("New 72-case challenge",exact=False).first.wait_for()
+            page.get_by_text("Official toolkits executed",exact=True).first.wait_for()
+            page.get_by_text("Verified toolkit chain: CuratorKIT 0.1.22",exact=False).first.wait_for()
             page.screenshot(path=str(ARTIFACTS/"safety_benchmark.png"),full_page=True)
             print("Benchmark page loaded: 48 evaluated, 72 explicitly unscored",flush=True)
 
