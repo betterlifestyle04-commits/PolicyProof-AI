@@ -57,6 +57,18 @@ def validate_final_holdout(
             raise ValueError("Missing supported answer")
         all_ids_in_final |= found
 
+    # Always compare against original source IDs even if generated
+    # train/test JSONL files do not yet exist in a fresh Git checkout.
+    original_policies = ROOT / "data/policies.json"
+    if original_policies.exists():
+        original_ids = {
+            p["id"] for p in json.loads(original_policies.read_text(
+                encoding="utf-8"
+            ))["policies"]
+        }
+        if ids & original_ids:
+            raise ValueError("Final policy source ID overlaps original fixture policies")
+
     for other_file in (existing_train, prior_dev):
         if Path(other_file).exists():
             existing = read_jsonl(other_file)
