@@ -74,6 +74,11 @@ def repair_trainable_precision(trainer_wrapper) -> dict:
         raise ValueError("Unsupported trainable dtype for safe FP32 adapter cast")
 
     before = trainable_dtype_report(model)
+    if before["all_trainable_are_fp32"]:
+        raise ValueError(
+            "All trainable adapter parameters are already FP32; the BF16 "
+            "GradScaler error needs a different diagnosis. No changes made."
+        )
 
     # The first attempt's optimizer/scaler must never be reused. Discard the
     # failed HF Trainer but retain the already-loaded quantized PEFT model.
