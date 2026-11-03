@@ -16,22 +16,15 @@
 **AuditKIT:** [real-output replay runner](scripts/auditkit_replay.py), based on the official `ak.evaluate(model="precomputed")` interface; no fabricated model generations.  
 **Submission tracker:** [readiness and risk register](docs/SUBMISSION_READINESS.md).
 
-## Active Colab rescue (November 3, 2026)
+## GPU quota reached — free Kaggle alternative (November 3, 2026)
 
-The repeated T4 training error was caused by AlignTune 0.1.28 re-applying stale `fp16=True` in `config.train.extra_params`, overriding the corrected FP32/no-AMP training policy. This is now handled at the source.
+Google Colab currently returned **"Cannot connect to GPU backend"** for the user. The original **78-row CuratorKIT ZIP restored successfully** on CPU, but no new Tiny Aya model has been loaded or trained since the Colab quota restriction. Google does **not** publish a guaranteed GPU quota reset time.
 
-On an already-loaded and validated 4-bit Tiny Aya + 78-example curated training session, **one cell** can recover, train 10 optimizer steps, verify adapter files, and download a checkpoint ZIP:
+**Kaggle route:** [open the Kaggle GPU fallback notebook](notebooks/04_kaggle_gpu_fallback.ipynb). In Kaggle Settings, enable Internet and use GPU T4 x2 if offered (alternatively P100); add the original CuratorKIT training ZIP as a private input; configure an approved read-only HF token in Kaggle Secrets; then run the notebook in order. It prepares the quantized model and tokenizes all 78 examples, with *actual training disabled* until explicitly opted in. Hardware availability and project-specific success on Kaggle have **not been verified**.
 
-```python
-%cd /content/PolicyProof-AI
-!git pull --ff-only
-from scripts.complete_t4_training import recover_train_save
-from google.colab import files
-archive = recover_train_save(trainer, model_revision=globals().get("MODEL_SHA"))
-files.download(str(archive))
-```
+**No GPU needed:** `python -m scripts.prepare`, `python -m scripts.validate_final_holdout`, and `python -m pytest -q` perform fixture generation and structural tests on CPU. They do **not** prove model improvement.
 
-This is a guarded, real GPU training action and requires a running Colab T4 with existing `trainer`. The fix and CPU regression tests are committed; **no successful real GPU training has yet been observed**. Never commit HF tokens or claim accuracy improvement from this smoke test.
+**Do not retry the old `recover_train_save` cell.** In the user's previous run, AlignTune/TRL still encountered BF16/FP16 precision conflicts. The documented direct PyTorch fallback was built to avoid those training-loop issues, but has not yet produced a successfully verified checkpoint.
 
 ## Last-resort T4 fallback: plain PyTorch optimizer on the existing LoRA adapter
 
@@ -48,7 +41,7 @@ archive = train_existing_t4(trainer, model_sha=globals().get("MODEL_SHA"))
 files.download(str(archive))
 ```
 
-A successful run prints ten numbered optimizer steps and downloads `policyproof_t4_torch_fallback.zip`. **This GPU step has not been executed or verified here**. Do not run repeatedly: the fixed runner permits at most one targeted retry when the previous receipt confirms the known zero-step `tokenizers.Encoding` TypeError. All other prior failures require inspection.
+A successful run prints ten numbered optimizer steps and makes `policyproof_t4_torch_fallback.zip` available in the runtime's working directory. **This GPU step has not been executed or verified here**. Do not run repeatedly: the fixed runner permits at most one targeted retry when the previous receipt confirms the known zero-step `tokenizers.Encoding` TypeError. All other prior failures require inspection.
 
 ## Stage 3: controlled AlignTune QLoRA compatibility test
 
