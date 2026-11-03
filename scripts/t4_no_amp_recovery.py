@@ -1,0 +1,123 @@
+"""T4 mixed-precision recovery for AlignTune + TRL after BF16 GradScaler failure.
+
+The failure "_amp_foreach_non_finite_check_and_unscale_cuda not implemented for
+BFloat16" can persist even after casting LoRA trainable weights to FP32,
+because a new HF Trainer is constructed with FP16 automatic mixed precision
+and GradScaler. This module prepares *unscaled training* by setting the
+AlignTune precision policy to FP32; 4-bit frozen base quantization and NF4
+compute dtype are left untouched. It does NOT call train() or load weights.
+
+Works only before ANY optimizer step. A completed partial run must be
+checkpointed and restarted, not modified in-place.
+"""
+from __future__ import annotations
+import gc
+from collections import Counter
+
+
+def audit_training_state(wrapper) -> dict:
+    """Read-only state inspection. No GPU operations."""
+    import torch
+    model = getattr(wrapper, "model", None)
+    if model is None:
+        raise ValueError("Model not loaded")
+    tensors = [(name, p) for name, p in model.named_parameters() if p.requires_grad]
+    if not tensors:
+        raise ValueError("No trainable model parameters")
+    old = getattr(wrapper, "trainer", None)
+    steps = int(getattr(getattr(old, "state", None), "global_step", 0)) if old else 0
+    param_dtypes = Counter()
+    grad_dtypes = Counter()
+    for _name, p in tensors:
+        param_dtypes[str(p.dtype)] += p.numel()
+        if p.grad is not None:
+            grad_dtypes[str(p.grad.dtype)] += p.numel()
+    return {
+        "existing_optimizer_steps": steps,
+        "trainable_tensor_count": len(tensors),
+        "trainable_elements": sum(p.numel() for _, p in tensors),
+        "trainable_element_dtypes": dict(param_dtypes),
+        "gradient_element_dtypes": dict(grad_dtypes),
+        "precision": str(wrapper.config.model.precision),
+        "training_fp16": bool(wrapper.config.train.fp16),
+        "training_bf16": bool(wrapper.config.train.bf16),
+        "base_quantization_4bit": bool(wrapper.config.model.quantization.get("load_in_4bit")),
+        "base_4bit_compute_dtype": wrapper.config.model.quantization.get("bnb_4bit_compute_dtype"),
+    }
+
+
+def prepare_t4_no_scaler(wrapper) -> dict:
+    """Disable FP16 AMP/GradScaler; retain frozen 4-bit base and FP32 LoRA.
+
+    Fails closed if training was partially completed, LoRA weights are not
+    FP32, or unsupported trainable parameters appear. Does not train.
+    """
+    import torch
+    from aligntune.core.sft.config import PrecisionType
+    from aligntune.core.sft.training_args_builder import build_sft_config
+
+    before = audit_training_state(wrapper)
+    if before["existing_optimizer_steps"] != 0:
+        raise ValueError(
+            f"{before['existing_optimizer_steps']} optimizer steps completed: "
+            "cannot change precision mid-run"
+        )
+    if not before["base_quantization_4bit"]:
+        raise ValueError("This recovery is only for the already-quantized QLoRA model")
+    if before["trainable_element_dtypes"] != {"torch.float32": before["trainable_elements"]}:
+        raise ValueError("Expected repaired FP32 adapters; inspect parameter dtypes first")
+    model = wrapper.model
+    trainable_names = [name for name, p in model.named_parameters() if p.requires_grad]
+    if any("lora_" not in name and "modules_to_save" not in name for name in trainable_names):
+        raise ValueError("Unexpected trainable weights beyond LoRA")
+    frozen_before = {id(p): (p.dtype, p.requires_grad)
+                     for p in model.parameters() if not p.requires_grad}
+    if getattr(wrapper, "train_dataset", None) is None:
+        raise ValueError("Training data not set up; run setup_data()")
+    if len(wrapper.train_dataset) != 78:
+        raise ValueError("Expected the 78 validated training-only samples")
+
+    # Change the policy that is read when AlignTune builds the NEW TRL SFTConfig.
+    wrapper.config.model.precision = PrecisionType.FP32
+    wrapper.config.train.fp16 = False
+    wrapper.config.train.bf16 = False
+
+    # Verify SFTConfig actually omits FP16/BF16 AMP. This constructs arguments
+    # only; it does not instantiate SFTTrainer or start gradient training.
+    config = build_sft_config(
+        config=wrapper.config,
+        train_dataset=wrapper.train_dataset,
+        eval_dataset=getattr(wrapper, "eval_dataset", None),
+        output_dir=str(wrapper.config.logging.output_dir),
+    )
+    if config.fp16 or config.bf16:
+        raise RuntimeError("TRL would still enable mixed precision; abort recovery")
+
+    # Do not reuse the old HF Trainer/scaler/optimizer after a failed step.
+    old_trainer = getattr(wrapper, "trainer", None)
+    if old_trainer is not None:
+        wrapper.trainer = None
+        del old_trainer
+        gc.collect()
+    model.zero_grad(set_to_none=True)
+    assert all(
+        (p.dtype, p.requires_grad) == frozen_before[id(p)]
+        for p in model.parameters() if id(p) in frozen_before
+    ), "Unexpected frozen weight modification"
+
+    after = audit_training_state(wrapper)
+    if after["gradient_element_dtypes"]:
+        raise RuntimeError("Failed to clear previous gradients")
+    return {
+        "status": "ready_for_no_amp_retry",
+        "training_performed": False,
+        "model_reloaded": False,
+        "frozen_base_converted": False,
+        "trl_config_fp16": bool(config.fp16),
+        "trl_config_bf16": bool(config.bf16),
+        "trl_max_steps": int(config.max_steps),
+        "trl_gradient_accumulation": int(config.gradient_accumulation_steps),
+        "before": before,
+        "after": after,
+        "caveat": "This prevents FP16 GradScaler use. It does not guarantee the next training step will succeed.",
+    }
