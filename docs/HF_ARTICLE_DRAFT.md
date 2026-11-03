@@ -58,7 +58,17 @@ The 39 answerable questions consist of 36 standard cases and three injection pro
 
 We also implemented a deterministic output validator that checks three-key JSON shape, source-ID presence in the supplied policy text, invalid citations to untrusted markers, and contradictory abstention fields. It never examines the reference answer and therefore cannot act as an oracle. The output is normalized to explicit abstention when any validation fails.
 
-**IMPORTANT:** This layer does not verify the substantive truth of a valid-shaped answer, and may reduce answer coverage. The measured before-and-after on saved baseline outputs will be inserted only after the CPU experiment and integrity checks pass. Even if successful, this would be an **inference-time output safeguard**, not a trained-model improvement or an AlignTune result.
+The CPU experiment has now been run against all 48 preserved model responses and published through the project's [verification documentation](INFERENCE_GUARD_RESULTS_2026-11-03.md). The results show that this syntactic safety layer can normalize **15 incomplete-schema responses and five contradictory abstentions**, retaining the 20 previously accepted answer-shaped responses and eight valid abstentions.
+
+| Development metric | Original Tiny Aya output | Same output after guard |
+| --- | ---: | ---: |
+| Strict end-to-end exact match | 8/48 = 16.67% | 9/48 = 18.75% |
+| Complete three-field JSON schema | 33/48 = 68.75% | 48/48 = 100% |
+| Correct unsupported-case abstention | 8/9 = 88.89% | 9/9 = 100% |
+| Unsupported-case substantive claim emission | 1/9 = 11.11% | 0/9 = 0% |
+| Exact supported answer match | 0/39 = 0% | 0/39 = 0% |
+
+**Interpretation:** The improvements in JSON format and abstention are achieved by a deterministic fail-closed validator and can be expected by construction. There is **no measured improvement in supported-answer content correctness**. This is an inference-time output safeguard, **not** a new model, fine-tuning, AlignTune completion, or evidence that the system is ready for financial use. This is an inspected development set, not an independent final benchmark.
 
 ## Fine-tuning status and negative engineering findings
 
