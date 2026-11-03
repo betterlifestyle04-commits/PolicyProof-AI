@@ -138,3 +138,44 @@ jobs:
             artifacts/track2a_challenge_unscored/
           if-no-files-found: error
           retention-days: 30
+
+  browser-e2e:
+    name: Live Chromium Streamlit navigation and guard regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install CPU demo dependencies and Playwright browser
+        run: |
+          python -m pip install -r requirements-demo.txt 'playwright>=1.55,<2'
+          python -m playwright install --with-deps chromium
+      - name: Regenerate actual saved Tiny Aya/AuditKIT/guard evidence (CPU only)
+        run: python -m scripts.build_public_demo
+      - name: Start local public observatory
+        run: |
+          nohup bash scripts/start_public_demo.sh > /tmp/policyproof_streamlit.log 2>&1 &
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:10000/_stcore/health; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:10000/_stcore/health
+      - name: Interact with dashboard pages and forged-source rejection in Chromium
+        run: python qa/browser_smoke.py
+      - name: Save browser screenshots for judge QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-streamlit-chromium-browser-screenshots
+          path: artifacts/browser-qa/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Report Streamlit logs if browser check fails
+        if: failure()
+        run: tail -100 /tmp/policyproof_streamlit.log || true
