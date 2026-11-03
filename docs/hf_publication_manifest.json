@@ -7,5 +7,10 @@
   "external_access_verified": false,
   "submission_url": null,
   "submission_confirmation_verified": false,
-  "notes": "Fill only with actually published, judge-accessible HTTPS Hugging Face links. Never fabricate."
+  "notes": "Fill only with actually published, judge-accessible HTTPS Hugging Face links. Never fabricate.",
+  "model_collection_url": null,
+  "dataset_collection_url": null,
+  "public_items_ungated_verified": false,
+  "abstract_word_count_verified": false,
+  "official_submission_form_url": null
 }
