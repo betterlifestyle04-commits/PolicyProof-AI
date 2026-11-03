@@ -11,7 +11,9 @@ This report distinguishes **verified CPU checks** from **unverified runtime/mode
 | [#111](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41634264913) | **79 passed; 2 skipped** | Added static Python syntax, no-saved-output, default-off training, and obvious-secret checks on notebooks |
 | [#116](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41634618707) | **81 passed; 2 skipped** | Added real AuditKIT API precomputed synthetic-oracle evaluation contract, no model generation |
 
-GitHub logs for the final run report **81 passed, 2 skipped in 1.65 seconds** (excluding package installation and setup). The skipped modules depend on PyTorch, which is not installed in the lightweight CI. Therefore **GPU/LoRA-specific tests are not proven by the CI result**.
+| [#122](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908) | **81 passed; 2 skipped** in standard suite **plus 7 passed** in a separate CPU-PyTorch job | Previously skipped LoRA FP32 precision repair, failed optimizer-state guard and combined recovery tests |
+
+GitHub logs for the standard runner report **81 passed, 2 skipped** (excluding package installation and setup). The two skipped modules depend on PyTorch, absent from the lightweight CI; a **separate CPU-only PyTorch 2.10 job executed those seven guard tests successfully**. CUDA, actual LoRA training and GPU memory behavior remain unverified.
 
 ## Changes actually merged to main
 
@@ -19,6 +21,8 @@ GitHub logs for the final run report **81 passed, 2 skipped in 1.65 seconds** (e
 - [PR #5](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/5): actual Streamlit dashboard-page smoke tests, and block legacy 3.35B full-parameter `scripts.train --execute` path before a dangerous unsupported attempt.
 - [PR #6](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/6): static validation of Colab/Kaggle notebooks, default-off GPU flags and obvious hard-coded credentials.
 - [PR #7](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/7): real AuditKIT `ak.evaluate(model="precomputed")` interface exercised with clearly labeled **synthetic oracle responses**.
+
+- [PR #8](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/8): dedicated official PyTorch CPU wheel runner for seven LoRA training-state safety tests. All seven passed.
 
 ## Independently checked original conversation evidence
 
