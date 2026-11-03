@@ -17,6 +17,23 @@ files.download(str(archive))
 
 This is a guarded, real GPU training action and requires a running Colab T4 with existing `trainer`. The fix and CPU regression tests are committed; **no successful real GPU training has yet been observed**. Never commit HF tokens or claim accuracy improvement from this smoke test.
 
+## Last-resort T4 fallback: plain PyTorch optimizer on the existing LoRA adapter
+
+**Why this exists:** In the exact installed TRL **1.7.1** source, `SFTTrainer` unconditionally casts trainable parameters to **BF16** when the model is 4-bit quantized; coupled with FP16 `GradScaler`, it caused the reported `_amp_foreach_non_finite_check_and_unscale_cuda` error. Attempts to alter AlignTune's factory flags alone did not resolve the second trainer-level behavior.
+
+A [guarded Torch fallback](scripts/t4_torch_fallback.py) avoids the TRL/AlignTune **trainer loop** entirely while reusing the **already-loaded AlignTune PEFT/4-bit model**, tokenizer, and validated **CuratorKIT 78-row training export**. It masks the user/policy prompt from the loss, uses FP16 autocast with FP32 LoRA master parameters and **no GradScaler**, performs at most ten optimizer steps, and saves/checks adapter hashes. It refuses to overwrite an existing training receipt. This fallback does **not** count as demonstrated AlignTune trainer execution, nor is it evidence of improved safety.
+
+In the same live Colab T4 kernel, after `git pull --ff-only`:
+
+```python
+from scripts.t4_torch_fallback import train_existing_t4
+from google.colab import files
+archive = train_existing_t4(trainer, model_sha=globals().get("MODEL_SHA"))
+files.download(str(archive))
+```
+
+A successful run prints ten numbered optimizer steps and downloads `policyproof_t4_torch_fallback.zip`. **This GPU step has not been executed or verified here**. Do not run again if a failure receipt was written; inspect the exact traceback first.
+
 ## Stage 3: controlled AlignTune QLoRA compatibility test
 
 **[Open Stage 3 T4 training notebook in Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/03_aligntune_qlora_t4.ipynb)** — starts with GPU check and [CuratorKIT archive verification](scripts/verify_curator_archive.py); training and heavyweight dependencies are OFF by default. Requires separately confirming package installation and trainer compatibility. **No successful training or adapter claimed yet.**
