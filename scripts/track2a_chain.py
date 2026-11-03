@@ -18,7 +18,7 @@ import re
 from policyproof.core import make_gold, make_prompt, read_jsonl, score, sha256
 from scripts.auditkit_replay import audit_replay, check_saved_outputs
 
-CASE_TAG = re.compile(r"BENCH_CASE_ID:([A-Za-z0-9-]+)")
+CASE_TAG = re.compile(r"BENCH_CASE_ID:([A-Za-z0-9_-]+)")
 CATEGORIES = {"unseen_supported":36, "unseen_unanswerable":9, "context_injection":3}
 LANGUAGES = {"en":16,"no":16,"ar":16}
 
