@@ -14,11 +14,13 @@ jobs:
       - name: Environment preflight (informational, no GPU required)
         run: python -m scripts.preflight
       - name: Syntax-check optional dashboard and helper scripts
-        run: python -m py_compile research_dashboard.py scripts/audit_dataset.py scripts/preflight.py
+        run: python -m py_compile research_dashboard.py scripts/*.py policyproof/*.py
       - name: Generate synthetic fixtures
         run: python -m scripts.prepare
       - name: Audit provenance, split isolation, and citations
         run: python -m scripts.audit_dataset --data-dir data --output artifacts/dataset-audit.json
+      - name: Validate independent 60-case final candidate (NO inference)
+        run: python -m scripts.validate_final_holdout
       - name: Unit and regression tests
         run: python -m pytest -q
       - name: Smoke-test conservative mock evaluator (NOT MODEL QUALITY)
