@@ -1,5 +1,22 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
+## Active Colab rescue (November 3, 2026)
+
+The repeated T4 training error was caused by AlignTune 0.1.28 re-applying stale `fp16=True` in `config.train.extra_params`, overriding the corrected FP32/no-AMP training policy. This is now handled at the source.
+
+On an already-loaded and validated 4-bit Tiny Aya + 78-example curated training session, **one cell** can recover, train 10 optimizer steps, verify adapter files, and download a checkpoint ZIP:
+
+```python
+%cd /content/PolicyProof-AI
+!git pull --ff-only
+from scripts.complete_t4_training import recover_train_save
+from google.colab import files
+archive = recover_train_save(trainer, model_revision=globals().get("MODEL_SHA"))
+files.download(str(archive))
+```
+
+This is a guarded, real GPU training action and requires a running Colab T4 with existing `trainer`. The fix and CPU regression tests are committed; **no successful real GPU training has yet been observed**. Never commit HF tokens or claim accuracy improvement from this smoke test.
+
 ## Stage 3: controlled AlignTune QLoRA compatibility test
 
 **[Open Stage 3 T4 training notebook in Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/03_aligntune_qlora_t4.ipynb)** — starts with GPU check and [CuratorKIT archive verification](scripts/verify_curator_archive.py); training and heavyweight dependencies are OFF by default. Requires separately confirming package installation and trainer compatibility. **No successful training or adapter claimed yet.**
