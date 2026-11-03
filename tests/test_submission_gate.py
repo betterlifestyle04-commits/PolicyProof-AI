@@ -28,3 +28,34 @@ def test_strict_command_fails_when_submission_not_ready():
         cwd=ROOT,capture_output=True,text=True,timeout=20)
     assert result.returncode==2
     assert '"status": "NOT_READY"' in result.stdout
+
+def test_two_separate_hf_collections_required_even_if_urls_present(tmp_path):
+    import json
+    d=tmp_path/"docs"
+    d.mkdir()
+    manifest={
+        "dataset_url":"https://huggingface.co/datasets/example/data",
+        "adapter_url":"https://huggingface.co/example/lora",
+        "logs_url":"https://huggingface.co/datasets/example/logs",
+        "model_collection_url":"https://huggingface.co/collections/example/models-123",
+        "dataset_collection_url":"https://huggingface.co/collections/example/data-123",
+        "external_access_verified":True,
+        "public_items_ungated_verified":False,
+    }
+    (d/"hf_publication_manifest.json").write_text(json.dumps(manifest))
+    state=evaluate_readiness(tmp_path)
+    assert state["checks"]["huggingface_artifacts"]["passed"] is True
+    assert state["checks"]["public_hf_collections"]["passed"] is False
+    manifest["public_items_ungated_verified"]=True
+    (d/"hf_publication_manifest.json").write_text(json.dumps(manifest))
+    state=evaluate_readiness(tmp_path)
+    assert state["checks"]["public_hf_collections"]["passed"] is True
+    assert state["ready_for_submission"] is False
+
+
+def test_abstract_is_less_than_500_words_and_does_not_claim_finished_training():
+    draft=(ROOT/"docs/LEXSI_SUBMISSION_ABSTRACT.md").read_text(encoding="utf-8")
+    body=draft.split("\n\n",2)[2].split("\n\n---",1)[0]
+    assert len(body.split()) < 500
+    assert "no model-training success" in body
+    assert "48 outputs" in body
