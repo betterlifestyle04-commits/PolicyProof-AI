@@ -45,6 +45,7 @@ jobs:
             artifacts/verified_real_baseline.json
             artifacts/auditkit_actual_baseline_replay.json
             artifacts/guarded_development_evaluation.json
+            artifacts/paired_guard_uncertainty.json
             artifacts/submission_gate.json
           retention-days: 30
       - name: Audit provenance, split isolation, and citations
