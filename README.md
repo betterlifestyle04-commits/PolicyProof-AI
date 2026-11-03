@@ -1,14 +1,14 @@
+# PolicyProof AI — Lexsi Labs Hackathon 2026
+
 ## Public research dashboard
 
-**[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with seven tested pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
+**[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with eight tested pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
 
-**[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Submission status](docs/SUBMISSION_READINESS.md)**
-
-# PolicyProof AI — Lexsi Labs Hackathon 2026
+**[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Track 2a research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Track 1 submission status](docs/SUBMISSION_READINESS.md)**
 
 ## Automated QA — November 3, 2026
 
-**Latest expanded CPU QA:** [102 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41669627454) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, seven Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
+**Latest expanded CPU QA:** [116 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41697842205) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, eight Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
 
 [Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
 
@@ -21,12 +21,13 @@
 | AlignTune training | **Not completed:** 4-bit LoRA model/config loaded but original trainer hit BF16 GradScaler |
 | Direct PyTorch fallback | **Fix committed:** `tokenizers.Encoding` conversion and full preflight; actual GPU retry pending |
 | AuditKIT | **Executed:** 48 saved Tiny Aya base outputs successfully replayed with real AuditKIT 1.1.3; fingerprint ae297dd84f990566 |
+| Track 2a safety benchmark | **Actual CuratorKIT → AuditKIT chain completed on 48 recorded Tiny Aya outputs**; additional **72 curated synthetic attack cases are UNSCORED**. [Research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md) · [alternate abstract](docs/TRACK2A_SUBMISSION_ABSTRACT.md); official HF collections and submission pending |
 | Candidate final holdout | **Draft frozen in GitHub:** 60 independent multilingual cases; reviewer approval pending |
 | Submission | **Research article and HF cards drafted:** [publication draft](docs/HF_ARTICLE_DRAFT.md); trained adapter, paired model evaluation, HF public URLs and official submission still missing |
 
 **Fresh evaluation:** [60-case candidate](data/final_holdout_v1.jsonl) · [integrity checker](scripts/validate_final_holdout.py). Do not train on or tune against this set.  
 **AuditKIT:** [48 actual saved baseline predictions](artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json) were replayed successfully through real AuditKIT 1.1.3 on GitHub Actions, with no newly generated inference. [Guarded output results](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md) are a separate deterministic *inference-time* experiment, not a trained adapter.  
-**Submission tracker:** [readiness and risk register](docs/SUBMISSION_READINESS.md).
+**Submission tracker:** [Track 1 status](docs/SUBMISSION_READINESS.md) · [Track 2a separate gate](scripts/track2a_readiness.py). Neither track is officially submitted. The Track 2a gate does NOT require a fictitious fine-tuned model.
 
 ## GPU quota reached — free Kaggle alternative (November 3, 2026)
 
