@@ -120,8 +120,11 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     checked = check_train_data(source)
     if checked["dataset_sha256"] != TRAIN_SHA:
         raise RuntimeError("CuratorKIT training hash differs from verified archive")
-    if not torch.cuda.is_available() or "T4" not in torch.cuda.get_device_name(0):
-        raise RuntimeError("Current Colab runtime must have a Tesla T4 GPU")
+    if not torch.cuda.is_available():
+        raise RuntimeError("GPU not available; connect a CUDA notebook runtime")
+    gpu = torch.cuda.get_device_name(0)
+    if not any(name in gpu for name in ("T4", "P100")):
+        raise RuntimeError(f"Only T4/P100 accelerator paths have been prepared; got {gpu}")
     model = getattr(trainer, "model", None)
     tokenizer = getattr(trainer, "tokenizer", None)
     if not isinstance(model, PeftModel) or tokenizer is None:
@@ -237,7 +240,7 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             "trainer_backend": "manual_torch_smoke_fallback",
             "aligntune_trainer_completed": False,
             "model": "CohereLabs/tiny-aya-global",
-            "model_revision": model_sha,
+            "model_revision": model_sha, "gpu": gpu,
             "examples": 78, "dataset_sha256": checked["dataset_sha256"],
             "optimizer_steps": finished, "gradient_accumulation": 4,
             "learning_rate": 2e-4, "max_length": 1024,
@@ -252,7 +255,7 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             "performance_improvement_verified": False,
         }
         receipt.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        archive = Path("/content/policyproof_t4_torch_fallback.zip")
+        archive = root.parent / "policyproof_t4_torch_fallback.zip"
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as z:
             for p in sorted(out.rglob("*")):
                 if p.is_file():
