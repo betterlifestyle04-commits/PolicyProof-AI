@@ -19,6 +19,35 @@ from pathlib import Path
 TRAIN_SHA = "4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c"
 
 
+def normalize_token_ids(value, *, field):
+    """Convert a single Hugging Face/Tokenizers encoding to plain integer IDs.
+
+    Transformers/tokenizers versions return list[int], BatchEncoding,
+    tokenizers.Encoding, tensor, or sometimes a single-item list of Encodings.
+    Refuse ambiguous multi-sequence batches rather than flattening examples.
+    """
+    from numbers import Integral
+
+    if isinstance(value, dict):
+        if "input_ids" not in value:
+            raise TypeError(f"{field}: mapping has no input_ids")
+        value = value["input_ids"]
+    elif hasattr(value, "ids"):
+        value = value.ids
+    elif hasattr(value, "input_ids"):
+        value = value.input_ids
+
+    if hasattr(value, "tolist"):
+        value = value.tolist()
+    if isinstance(value, (tuple, list)) and len(value) == 1 and not isinstance(value[0], Integral):
+        return normalize_token_ids(value[0], field=field)
+    if not isinstance(value, (tuple, list)) or not value:
+        raise TypeError(f"{field}: expected a non-empty single token ID sequence, got {type(value).__name__}")
+    if any(not isinstance(x, Integral) or isinstance(x, bool) or x < 0 for x in value):
+        raise TypeError(f"{field}: contains non-integer/invalid IDs; first element type={type(value[0]).__name__}")
+    return [int(x) for x in value]
+
+
 def encode_pair(tokenizer, row, max_length=1024):
     """Mask user/policy tokens; loss only on the JSON assistant completion."""
     question = row["instruction"] + ("\n" + row["input"] if row.get("input") else "")
@@ -26,12 +55,15 @@ def encode_pair(tokenizer, row, max_length=1024):
         [{"role": "user", "content": question}], tokenize=True,
         add_generation_prompt=True
     )
-    if isinstance(prefix, dict):
-        prefix = prefix["input_ids"]
-    output_ids = tokenizer.encode(row["output"], add_special_tokens=False)
+    prefix = normalize_token_ids(prefix, field="chat template")
+    output_ids = normalize_token_ids(
+        tokenizer.encode(row["output"], add_special_tokens=False),
+        field="JSON completion"
+    )
     if tokenizer.eos_token_id is None:
         raise ValueError("No tokenizer EOS token")
-    target = output_ids + [tokenizer.eos_token_id]
+    target = output_ids + ([] if output_ids[-1] == tokenizer.eos_token_id
+                           else [int(tokenizer.eos_token_id)])
     if len(target) >= max_length:
         raise ValueError("Target exceeds sequence limit")
     prefix = prefix[-(max_length - len(target)):]
@@ -39,6 +71,30 @@ def encode_pair(tokenizer, row, max_length=1024):
     labels = [-100] * len(prefix) + target
     assert len(ids) == len(labels) and len(target) > 1
     return {"input_ids": ids, "attention_mask": [1] * len(ids), "labels": labels}
+
+
+def preflight_tokenization(tokenizer, rows, *, max_length=1024):
+    """Validate every row before changing a model, optimizer or run receipt."""
+    if not rows:
+        raise ValueError("No training rows to encode")
+    lengths = []
+    for index, row in enumerate(rows):
+        try:
+            sample = encode_pair(tokenizer, row, max_length=max_length)
+        except Exception as exc:
+            raise ValueError(
+                f"Training row {index} cannot be encoded: {type(exc).__name__}: {exc}"
+            ) from exc
+        if len(sample["input_ids"]) > max_length or not all(
+            isinstance(t, int) for t in sample["input_ids"]
+        ):
+            raise ValueError(f"Training row {index}: token IDs are invalid")
+        if not any(t != -100 for t in sample["labels"]):
+            raise ValueError(f"Training row {index}: assistant loss labels missing")
+        lengths.append(len(sample["input_ids"]))
+    return {"checked_rows": len(rows), "max_tokens": max(lengths),
+            "min_tokens": min(lengths),
+            "assistant_loss_masking": True, "training_performed": False}
 
 
 def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None):
@@ -73,11 +129,40 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     if (len(weights) != 288 or sum(p.numel() for _, p in weights) != 3_833_856
             or any("lora_" not in n for n, _ in weights)):
         raise RuntimeError("Unexpected trainable adapter configuration")
+    # Tokenizer-only preflight across ALL rows: catch unsupported Encoding
+    # return types before touching model weights, optimizer or run receipts.
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    encoded = preflight_tokenization(tokenizer, rows)
+    assert encoded["checked_rows"] == 78
+    print("Tokenizer preflight passed:", encoded, flush=True)
+
     out = root / "artifacts/torch_fallback_qlora_smoke"
     receipt = out / "run_info.json"
-    if receipt.exists() or (out / "adapter/adapter_config.json").exists():
-        raise FileExistsError("Previous run exists; inspect before another attempt")
+    prior_failed_receipt = None
+    if (out / "adapter/adapter_config.json").exists():
+        raise FileExistsError("Existing adapter checkpoint found; refusing overwrite")
+    if receipt.exists():
+        previous = json.loads(receipt.read_text(encoding="utf-8"))
+        # One targeted retry is allowed ONLY for the known tokenizer.Encoding
+        # TypeError at zero optimizer steps, preserving the original evidence.
+        if not (
+            previous.get("status") == "failed"
+            and previous.get("completed_steps") == 0
+            and previous.get("error_type") == "TypeError"
+            and "tokenizers.Encoding" in previous.get("error", "")
+        ):
+            raise FileExistsError(
+                "Previous training attempt exists with a different outcome; "
+                "do not overwrite or retry blindly"
+            )
+        prior_failed_receipt = out / "run_info.failed_encoding_typeerror.json"
+        if prior_failed_receipt.exists():
+            raise FileExistsError("Already retried tokenizer failure once; stop")
     out.mkdir(parents=True, exist_ok=True)
+    if prior_failed_receipt is not None:
+        receipt.replace(prior_failed_receipt)
+        print("Original zero-step failure preserved:", prior_failed_receipt, flush=True)
     frozen_before = [(id(p), p.dtype) for p in model.parameters() if not p.requires_grad]
     if old_trainer is not None:
         trainer.trainer = None
@@ -96,7 +181,6 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     if hasattr(model, "enable_input_require_grads"):
         model.enable_input_require_grads()
 
-    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
     shuffled = list(range(len(rows)))
     random.Random(42).shuffle(shuffled)
     optimizer = torch.optim.AdamW([p for _, p in weights], lr=2e-4)
