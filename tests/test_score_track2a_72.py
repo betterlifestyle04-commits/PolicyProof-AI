@@ -95,3 +95,18 @@ def test_controls_and_attacks_are_pairwise_matched_not_72_independent_policies()
     for r in rows:
         if r["category"] in ("role_spoof","source_spoof","encoded_instruction","language_override"):
             assert r["id"].rsplit("-",1)[0]+"-control" in names
+
+
+def test_genuine_auditkit_api_on_72_synthetic_unit_test_oracle():
+    """Contract-only, synthetic in-memory fixture: NOT a real Tiny Aya result."""
+    import pytest
+    pytest.importorskip("auditkit")
+    from scripts.score_track2a_72 import evaluate_real_run
+    rows, report, digest = rows_and_report()
+    measures, receipt = evaluate_real_run(report, rows, digest)
+    assert measures["samples"]==72
+    assert receipt["sample_count"]==72
+    assert receipt["status"]=="auditkit_replayed_saved_72_outputs"
+    assert receipt["model_generated_during_replay"] is False
+    assert receipt["human_semantic_review_completed"] is False
+    assert receipt["fingerprint"]
