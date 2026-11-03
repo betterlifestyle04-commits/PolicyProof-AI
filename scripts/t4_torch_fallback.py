@@ -97,6 +97,17 @@ def preflight_tokenization(tokenizer, rows, *, max_length=1024):
             "assistant_loss_masking": True, "training_performed": False}
 
 
+def known_safe_encoding_retry(previous: dict) -> bool:
+    """A single retry is safe only when the prior failure did zero steps."""
+    return bool(
+        isinstance(previous, dict)
+        and previous.get("status") == "failed"
+        and previous.get("completed_steps") == 0
+        and previous.get("error_type") == "TypeError"
+        and "tokenizers.Encoding" in previous.get("error", "")
+    )
+
+
 def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None):
     import torch
     import bitsandbytes as bnb
@@ -146,12 +157,7 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
         previous = json.loads(receipt.read_text(encoding="utf-8"))
         # One targeted retry is allowed ONLY for the known tokenizer.Encoding
         # TypeError at zero optimizer steps, preserving the original evidence.
-        if not (
-            previous.get("status") == "failed"
-            and previous.get("completed_steps") == 0
-            and previous.get("error_type") == "TypeError"
-            and "tokenizers.Encoding" in previous.get("error", "")
-        ):
+        if not known_safe_encoding_retry(previous):
             raise FileExistsError(
                 "Previous training attempt exists with a different outcome; "
                 "do not overwrite or retry blindly"
