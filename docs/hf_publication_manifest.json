@@ -1,0 +1,11 @@
+{
+  "project": "PolicyProof AI / Lexsi 2026",
+  "dataset_url": null,
+  "adapter_url": null,
+  "logs_url": null,
+  "article_url": null,
+  "external_access_verified": false,
+  "submission_url": null,
+  "submission_confirmation_verified": false,
+  "notes": "Fill only with actually published, judge-accessible HTTPS Hugging Face links. Never fabricate."
+}
