@@ -165,8 +165,9 @@ elif page == "Safety benchmark":
             mapping = check_saved_outputs(base, rows, sha256(DATA / "unseen_policy_test.jsonl"))
             a,b,c = st.columns(3)
             a.metric("Saved real model outputs", len(mapping))
-            b.metric("Official toolkit chain", "CuratorKIT → AuditKIT")
+            b.metric("Official toolkits executed", "2")
             c.metric("GPU used in replay", "None")
+            st.caption("Verified toolkit chain: CuratorKIT 0.1.22 → AuditKIT 1.1.3. Full native receipts are available in GitHub Actions.")
             table = [
                 {"Category": category.replace("_"," ").title(),
                  **aggregate_slice([r for r in rows if r["category"] == category], mapping)}
@@ -369,6 +370,22 @@ elif page == "Try the output guard":
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
     st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
+    st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
+    st.success(
+        "Research verification: CuratorKIT → AuditKIT evaluated the 48 saved Tiny Aya "
+        "responses, and CuratorKIT curated 72 additional UNSCORED adversarial cases. "
+        "Actual model inference on those 72 cases has NOT occurred."
+    )
+    st.warning(
+        "Track 2a submission still requires public ungated Hugging Face collections "
+        "and confirmation about the mandatory model-collection field for a benchmark-only entry. "
+        "The official Lexsi submission has not been completed."
+    )
+    st.markdown(
+        "[Actual two-toolkit CI evidence](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41697842205)"
+        " · [Track 2a research report](https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)"
+    )
+
     gate = load_json(ARTIFACTS / "submission_gate.json")
     receipt = load_json(ARTIFACTS / "auditkit_actual_baseline_replay.json")
     verified = load_json(ARTIFACTS / "verified_real_baseline.json")
