@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: policyproof-ai-observatory
+    env: python
+    region: frankfurt
+    plan: free
+    repo: https://github.com/betterlifestyle04-commits/PolicyProof-AI
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements-demo.txt && python -m scripts.build_public_demo
+    startCommand: bash scripts/start_public_demo.sh
+    healthCheckPath: /_stcore/health

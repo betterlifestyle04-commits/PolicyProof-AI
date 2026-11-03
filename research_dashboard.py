@@ -38,7 +38,7 @@ st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
 st.warning("No verified model fine-tuning or safety improvement yet. All policies are fictional and benchmark questions are synthetic.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Protocol & next steps"]
+pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Output guard experiment", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -143,6 +143,112 @@ elif page == "Evaluation runs":
                      "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
             st.dataframe(report.get("scores", []), use_container_width=True)
+
+elif page == "Output guard experiment":
+    st.subheader("Actual saved model responses: raw vs deterministic output guard")
+    st.warning(
+        "This is NOT a tuned model. Both columns use the SAME 48 saved original "
+        "Tiny Aya responses; the guard is a deterministic schema/citation filter. "
+        "These synthetic development cases were inspected during debugging."
+    )
+    report = load_json(ARTIFACTS / "guarded_development_evaluation.json")
+    if not report:
+        st.info("The guarded evaluation is built offline with python -m scripts.build_public_demo.")
+    else:
+        a, b, c = st.columns(3)
+        a.metric("Saved model responses", report.get("samples", 0))
+        b.metric("Model training", "None")
+        c.metric("New inference", "None")
+        before, after = report["before"], report["after"]
+        metrics = [
+            ("Complete JSON schema", "json_schema_valid_pct", "All 48 cases"),
+            ("Strict exact match", "strict_accuracy_pct", "All 48 cases"),
+            ("Correct unsupported abstention", "abstention_recall_pct", "9 unsupported cases"),
+            ("Unsupported substantive claims", "unsupported_claim_rate_pct", "9 unsupported cases"),
+            ("Exact supported answer", "supported_answer_exact_match_pct", "39 answerable cases"),
+            ("Strict valid citation", "correct_citation_pct", "39 answerable cases"),
+        ]
+        st.dataframe([
+            {"Metric": label, "Before": f"{before[k]:.2f}%" if before.get(k) is not None else "N/A",
+             "After": f"{after[k]:.2f}%" if after.get(k) is not None else "N/A",
+             "Denominator": base}
+            for label, k, base in metrics
+        ], use_container_width=True, hide_index=True)
+        st.info(
+            "100% schema compliance follows mechanically from forcing canonical JSON. "
+            "The guard cannot prove the answers are semantically correct; exact "
+            "supported-answer matching remains 0/39 both before and after."
+        )
+        st.markdown("**Guard actions on recorded responses**")
+        st.bar_chart(report.get("decision_counts", {}))
+        st.markdown("**Inspect one response pair**")
+        original = load_json(
+            ARTIFACTS / "real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json"
+        )
+        raw_by_id = {
+            p["id"]: p["raw"] for p in (original or {}).get("predictions", [])
+        }
+        items = report.get("guarded_predictions", [])
+        if items:
+            chosen_id = st.selectbox("Sample ID", [r["id"] for r in items])
+            event = next(r for r in items if r["id"] == chosen_id)
+            left, right = st.columns(2)
+            left.caption("Original model response, preserved verbatim")
+            left.code(raw_by_id.get(chosen_id, "Missing"), language="json")
+            right.caption(f"Guarded output · action: {event['action']}")
+            right.code(event["raw"], language="json")
+        st.download_button(
+            "Download exact guarded evaluation JSON",
+            data=json.dumps(report, ensure_ascii=False, indent=2),
+            file_name="policyproof_guarded_development_evaluation.json",
+            mime="application/json",
+        )
+
+elif page == "Judge verification":
+    st.subheader("Reproducibility and submission integrity")
+    st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
+    gate = load_json(ARTIFACTS / "submission_gate.json")
+    receipt = load_json(ARTIFACTS / "auditkit_actual_baseline_replay.json")
+    verified = load_json(ARTIFACTS / "verified_real_baseline.json")
+    if not gate:
+        st.error("No evidence gate receipt found. Deployment build may be incomplete.")
+    else:
+        st.error(
+            "Submission gate: NOT READY — no verified trained adapter, paired "
+            "fine-tuned evaluation or public HF release."
+            if not gate.get("ready_for_submission")
+            else "Submission gate passed locally; external proof still required."
+        )
+        st.dataframe([
+            {"Requirement": name.replace("_", " ").title(),
+             "Local evidence": "Verified" if item.get("passed") else "Missing",
+             "Scope": item.get("details", "")}
+            for name, item in gate.get("checks", {}).items()
+        ], use_container_width=True, hide_index=True)
+    if receipt:
+        st.success(
+            f"AuditKIT version {receipt.get('auditkit_version', 'unknown')} "
+            f"processed {receipt.get('sample_count', 0)} previously saved model outputs."
+        )
+        st.code(receipt.get("auditkit_fingerprint", "unknown"))
+    if verified:
+        st.caption(
+            "Verified baseline dataset SHA-256: " +
+            verified.get("baseline", {}).get("dataset_sha256", "unavailable")
+        )
+    st.markdown(
+        "[Judge quickstart](https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/JUDGE_QUICKSTART.md)"
+        " · [Full findings](https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)"
+        " · [Source code](https://github.com/betterlifestyle04-commits/PolicyProof-AI)"
+    )
+    st.warning("The 48-case set is an inspected synthetic development benchmark, not a blind real-world safety study.")
+    if gate:
+        st.download_button(
+            "Download release evidence gate receipt",
+            data=json.dumps(gate, ensure_ascii=False, indent=2),
+            file_name="submission_gate.json",
+            mime="application/json",
+        )
 
 else:
     st.subheader("Experimental protocol")

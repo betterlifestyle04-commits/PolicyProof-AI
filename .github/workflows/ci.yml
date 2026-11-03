@@ -49,6 +49,8 @@ jobs:
           retention-days: 30
       - name: Audit provenance, split isolation, and citations
         run: python -m scripts.audit_dataset --data-dir data --output artifacts/dataset-audit.json
+      - name: Validate reproducible public demo build (NO GPU or external tokens)
+        run: python -m scripts.build_public_demo
       - name: Validate notebook syntax and safe training defaults (NO GPU)
         run: python -m scripts.validate_notebooks
       - name: Validate independent 60-case final candidate (NO inference)
