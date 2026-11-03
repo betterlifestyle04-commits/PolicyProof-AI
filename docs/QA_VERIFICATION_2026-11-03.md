@@ -15,6 +15,16 @@ This report distinguishes **verified CPU checks** from **unverified runtime/mode
 
 GitHub logs for the standard runner report **81 passed, 2 skipped** (excluding package installation and setup). The two skipped modules depend on PyTorch, absent from the lightweight CI; a **separate CPU-only PyTorch 2.10 job executed those seven guard tests successfully**. CUDA, actual LoRA training and GPU memory behavior remain unverified.
 
+## November 3 release candidate: real-output evaluation, not synthetic oracle
+
+The [release PR #9](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/9) added the original **saved 48 Tiny Aya baseline outputs** to the repo, verified the exact sample IDs and dataset SHA-256 against the generated version, and executed official **AuditKIT 1.1.3** using real saved model responses. AuditKIT fingerprint `ae297dd84f990566`.
+
+The latest [CPU workflow](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41640840381) reported **93 tests passed, 2 skipped**, along with the separate pre-existing PyTorch CPU job which passed seven adapter-recovery tests. The 48-case baseline and output-guard receipts can be downloaded from the workflow's evidence artifact.
+
+A deterministic **inference-time output guard** was also tested against the same saved responses: complete schema 68.75% → 100%; correct unsupported abstention 88.89% → 100%; substantive unsupported claim 11.11% → 0%; strict exact 16.67% → 18.75%. This only normalizes output shapes and inconsistent abstentions—**no new inference, no fine-tuning, and no improvement in exact supported-answer content**. See [full denominator and coverage table](INFERENCE_GUARD_RESULTS_2026-11-03.md).
+
+All new results use the previously inspected **development benchmark** and must NOT be reported as independent blind evaluation, measured semantic grounding, or a newly trained model.
+
 ## Changes actually merged to main
 
 - [PR #4](https://github.com/betterlifestyle04-commits/PolicyProof-AI/pull/4): baseline prediction completeness, deterministic metric and checksum verification; compare paired samples by ID rather than order.
@@ -35,7 +45,7 @@ The supplied `policyproof_curatorkit_train_v1.zip` was examined without needing 
 - No mismatch in the dedicated internal checksum list
 - Verified Alpaca JSONL SHA256: `4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c`
 
-The supplied actual-model rescored baseline JSON was also inspected: **48 predictions with 48 unique IDs**, 48 score rows and matching recalculations from the stored score rows for strict accuracy (16.67%), schema validity (68.75%), unsupported abstention recall (88.89%), unsupported claim rate (11.11%), and raw citation-ID match (97.44%). This verifies **internal report consistency only**. An independent fresh GPU inference from its original model/weights and exact matching dataset bytes was **not** executed here.
+The supplied actual-model rescored baseline JSON was inspected and has now been committed to the release branch and verified against the exact generated dataset in CPU GitHub Actions: **48 predictions with 48 unique IDs**, 48 score rows and matching recalculations from the stored score rows for strict accuracy (16.67%), schema validity (68.75%), unsupported abstention recall (88.89%), unsupported claim rate (11.11%), and raw citation-ID match (97.44%). This verifies **internal report consistency only**. An independent fresh GPU inference from its original model/weights and exact matching dataset bytes was **not** executed here.
 
 ## Verified functionality versus remaining gaps
 
@@ -44,9 +54,9 @@ The supplied actual-model rescored baseline JSON was also inspected: **48 predic
 | CuratorKIT | Original archived ZIP integrity, balanced 78-row training data, no held-out policy IDs in its training instructions | Semantic data review, near-duplicate analysis, human validation |
 | Dataset generation and provenance | CPU CI builds 78 train, 42 paraphrase, 48 development cases, checks source-ID separation and manifest | Real-world/generalization relevance |
 | Candidate final benchmark | 60 rows, 20 per language, 8 new policy IDs, no overlap, structural checks | Independent bilingual gold-label review; no true blind evaluation yet |
-| Dashboard | All four Streamlit pages render with AppTest without exceptions | Public hosting, external browser/mobile QA, judge access |
+| Dashboard | All four Streamlit pages passed AppTest; real saved-model baseline is now exposed in the Evaluation runs page | Public hosting and external browser/mobile QA; judges can inspect the public code |
 | Colab/Kaggle notebooks | JSON/Python static syntax, training-off flags, no committed outputs | External service authorization, GPU availability, full notebook execution |
-| AuditKIT | Installed in CI; actual library evaluates 48 precomputed **synthetic-oracle** examples using project scorers | Replay of original real-model baseline JSON on exact dataset; later real tuned checkpoint |
+| AuditKIT | Native library validated with both synthetic oracle smoke tests **and actual saved 48-case Tiny Aya baseline responses**, using exact dataset SHA-256 | Real trained-model evaluation and independent semantic scoring |
 | Training | Unsafe old `scripts.train --execute` route disabled; fallback scripts and integrity guards present | **No verified trained adapter; no completed optimizer step; no T4/P100 runtime test on fallback** |
 | Hugging Face artifacts | Publication requirements documented | Adapter/model logs/dataset publication and license verification |
 | Competition submission | Honest draft, risk register, protocol and deadlines prepared | Actual public artifacts, before/after measurements, submission confirmation |
