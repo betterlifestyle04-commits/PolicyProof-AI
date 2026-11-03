@@ -82,6 +82,22 @@ def prepare_t4_no_scaler(wrapper) -> dict:
     wrapper.config.train.fp16 = False
     wrapper.config.train.bf16 = False
 
+    # ROOT CAUSE (verified in AlignTune 0.1.28):
+    # create_sft_trainer stores ORIGINAL factory kwargs in train.extra_params.
+    # extract_extra_and_missing_params backfills them AFTER building SFTConfig,
+    # unconditionally overriding fp16=False with the original fp16=True.
+    # Changing model.precision and train.fp16 alone is therefore insufficient.
+    old_extras = getattr(wrapper.config.train, "extra_params", None)
+    if not isinstance(old_extras, dict):
+        raise ValueError("Missing AlignTune train.extra_params dict; do not retry")
+    # Make the explicit kwargs agree with the new precision policy.
+    old_extras["fp16"] = False
+    old_extras["bf16"] = False
+    # An explicit precision kwarg is not an SFTConfig field but keep it
+    # consistent in metadata, if present, for diagnostics.
+    if "precision" in old_extras:
+        old_extras["precision"] = "fp32"
+
     # Verify SFTConfig actually omits FP16/BF16 AMP. This constructs arguments
     # only; it does not instantiate SFTTrainer or start gradient training.
     config = build_sft_config(
@@ -91,7 +107,11 @@ def prepare_t4_no_scaler(wrapper) -> dict:
         output_dir=str(wrapper.config.logging.output_dir),
     )
     if config.fp16 or config.bf16:
-        raise RuntimeError("TRL would still enable mixed precision; abort recovery")
+        raise RuntimeError(
+            "TRL would still enable mixed precision after synchronizing "
+            "train.extra_params: fp16=" + str(config.fp16) +
+            ", bf16=" + str(config.bf16) + "; abort recovery"
+        )
 
     # Do not reuse the old HF Trainer/scaler/optimizer after a failed step.
     old_trainer = getattr(wrapper, "trainer", None)
@@ -117,6 +137,8 @@ def prepare_t4_no_scaler(wrapper) -> dict:
         "trl_config_bf16": bool(config.bf16),
         "trl_max_steps": int(config.max_steps),
         "trl_gradient_accumulation": int(config.gradient_accumulation_steps),
+        "factory_extra_params_fp16": old_extras.get("fp16"),
+        "factory_extra_params_bf16": old_extras.get("bf16"),
         "before": before,
         "after": after,
         "caveat": "This prevents FP16 GradScaler use. It does not guarantee the next training step will succeed.",
