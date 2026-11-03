@@ -54,3 +54,10 @@ def test_reject_missing_model():
     w.model = None
     with pytest.raises(ValueError, match="No loaded model"):
         repair_trainable_precision(w)
+
+
+def test_already_fp32_requires_different_diagnosis():
+    w = ToyWrapper(model=ToyLoRA(dtype=torch.float32))
+    with pytest.raises(ValueError, match="already FP32"):
+        repair_trainable_precision(w)
+    assert w.trainer is not None
