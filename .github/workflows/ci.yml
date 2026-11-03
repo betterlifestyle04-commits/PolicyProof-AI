@@ -35,6 +35,8 @@ jobs:
           --baseline artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json
           --dataset data/unseen_policy_test.jsonl
           --output artifacts/guarded_development_evaluation.json
+      - name: Generate paired report before evidence upload
+        run: python -m scripts.paired_guard_uncertainty
       - name: Report release readiness accurately (may be NOT_READY)
         run: python -m scripts.submission_gate --output artifacts/submission_gate.json
       - name: Retain real baseline, AuditKIT and output-guard evidence (not model training)
