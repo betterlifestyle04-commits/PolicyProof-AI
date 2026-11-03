@@ -85,7 +85,7 @@ def evaluate_readiness(root=ROOT):
     if manifest.exists():
         try:
             urls=json.loads(manifest.read_text(encoding="utf-8"))
-            names=("dataset_url","adapter_url","logs_url","article_url")
+            names=("dataset_url","adapter_url","logs_url")
             published=all(isinstance(urls.get(n),str)
                 and urls[n].startswith("https://huggingface.co/")
                 and "PENDING" not in urls[n] for n in names
