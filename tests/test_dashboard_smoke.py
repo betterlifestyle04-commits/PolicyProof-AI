@@ -14,6 +14,7 @@ from streamlit.testing.v1 import AppTest
     "Dataset explorer",
     "Evaluation runs",
     "Output guard experiment",
+    "Try the output guard",
     "Judge verification",
     "Protocol & next steps",
 ])
