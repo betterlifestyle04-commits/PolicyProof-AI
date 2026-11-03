@@ -1,0 +1,8 @@
+{
+  "review_complete": false,
+  "dataset_file": "data/final_holdout_v1.jsonl",
+  "dataset_sha256": null,
+  "reviewers": [],
+  "review_procedure": "At least two independent English/Norwegian/Arabic/evidence reviewers must adjudicate all 60 cases and sign off on translations, unsupported cases and gold labels before model evaluation.",
+  "notes": "TEMPLATE ONLY. No human review has been completed or claimed."
+}
