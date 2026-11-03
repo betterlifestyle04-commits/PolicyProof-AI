@@ -75,7 +75,7 @@ elif page == "Dataset explorer":
         st.caption(f"{len(selected)} cases · Questions are synthetic, not independently human-reviewed")
         st.dataframe([{"ID": r["id"], "Language": r["language"],
                        "Question": r["question"], "Source": r["expected_source_id"],
-                       "Abstain": r["should_abstain"]} for r in selected], use_container_width=True)
+                       "Abstain": r["should_abstain"]} for r in selected], width="stretch")
         if selected:
             r = st.selectbox("Inspect evidence", selected, format_func=lambda r: f'{r["id"]}: {r["question"][:65]}')
             a, b = st.columns(2)
@@ -132,7 +132,7 @@ elif page == "Evaluation runs":
                 st.dataframe(
                     [{"ID": row.get("id"), "Raw model response": row.get("raw", "")}
                      for row in answers],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
         with st.expander("Raw score rows and file provenance"):
@@ -142,7 +142,7 @@ elif page == "Evaluation runs":
                      "is_finetuned": report.get("is_finetuned"),
                      "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
-            st.dataframe(report.get("scores", []), use_container_width=True)
+            st.dataframe(report.get("scores", []), width="stretch")
 
 elif page == "Safety benchmark":
     from collections import Counter
@@ -165,14 +165,15 @@ elif page == "Safety benchmark":
             mapping = check_saved_outputs(base, rows, sha256(DATA / "unseen_policy_test.jsonl"))
             a,b,c = st.columns(3)
             a.metric("Saved real model outputs", len(mapping))
-            b.metric("Official toolkit chain", "CuratorKIT → AuditKIT")
+            b.metric("Official toolkits executed", "2")
             c.metric("GPU used in replay", "None")
+            st.caption("Verified toolkit chain: CuratorKIT 0.1.22 → AuditKIT 1.1.3. Full native receipts are available in GitHub Actions.")
             table = [
                 {"Category": category.replace("_"," ").title(),
                  **aggregate_slice([r for r in rows if r["category"] == category], mapping)}
                 for category in ("unseen_supported","unseen_unanswerable","context_injection")
             ]
-            st.dataframe(table,use_container_width=True,hide_index=True)
+            st.dataframe(table,width="stretch",hide_index=True)
             st.caption(
                 "These fixed 48 responses were generated earlier by the unchanged Tiny Aya model. "
                 "The official CuratorKIT 0.1.22 and AuditKIT 1.1.3 run is independently "
@@ -187,7 +188,7 @@ elif page == "Safety benchmark":
     st.dataframe(
         [{"Attack family":k.replace("_"," ").title(),"Cases":v,"Model evaluation":"NOT performed"}
          for k,v in sorted(mix.items())],
-        use_container_width=True,hide_index=True)
+        width="stretch",hide_index=True)
     a,b=st.columns(2)
     with a:
         selected_language=st.selectbox("Challenge language",["en","no","ar"])
@@ -258,7 +259,7 @@ elif page == "Output guard experiment":
              "After": f"{after[k]:.2f}%" if after.get(k) is not None else "N/A",
              "Denominator": base}
             for label, k, base in metrics
-        ], use_container_width=True, hide_index=True)
+        ], width="stretch", hide_index=True)
         st.info(
             "100% schema compliance follows mechanically from forcing canonical JSON. "
             "The guard cannot prove the answers are semantically correct; exact "
@@ -300,7 +301,7 @@ elif page == "Output guard experiment":
                         "Exploratory two-sided p": value["exploratory_exact_mcnemar_two_sided_p"],
                     }
                     for key,value in uncertainty["metrics"].items()
-                ], use_container_width=True, hide_index=True)
+                ], width="stretch", hide_index=True)
                 st.caption(
                     "Only ONE unsupported abstention changed (8/9 to 9/9); "
                     "its paired exact p-value is 1.00. Schema change is enforced by "
@@ -369,6 +370,22 @@ elif page == "Try the output guard":
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
     st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
+    st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
+    st.success(
+        "Research verification: CuratorKIT → AuditKIT evaluated the 48 saved Tiny Aya "
+        "responses, and CuratorKIT curated 72 additional UNSCORED adversarial cases. "
+        "Actual model inference on those 72 cases has NOT occurred."
+    )
+    st.warning(
+        "Track 2a submission still requires public ungated Hugging Face collections "
+        "and confirmation about the mandatory model-collection field for a benchmark-only entry. "
+        "The official Lexsi submission has not been completed."
+    )
+    st.markdown(
+        "[Actual two-toolkit CI evidence](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41697842205)"
+        " · [Track 2a research report](https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)"
+    )
+
     gate = load_json(ARTIFACTS / "submission_gate.json")
     receipt = load_json(ARTIFACTS / "auditkit_actual_baseline_replay.json")
     verified = load_json(ARTIFACTS / "verified_real_baseline.json")
@@ -386,7 +403,7 @@ elif page == "Judge verification":
              "Local evidence": "Verified" if item.get("passed") else "Missing",
              "Scope": item.get("details", "")}
             for name, item in gate.get("checks", {}).items()
-        ], use_container_width=True, hide_index=True)
+        ], width="stretch", hide_index=True)
     if receipt:
         st.success(
             f"AuditKIT version {receipt.get('auditkit_version', 'unknown')} "

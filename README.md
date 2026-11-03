@@ -6,6 +6,14 @@
 
 **[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Track 2a research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Track 1 submission status](docs/SUBMISSION_READINESS.md)**
 
+## Verified browser usability — November 3, 2026
+
+A complete **headless Chromium** session navigated the live-style local Streamlit site, loaded the Track 2a safety benchmark, submitted a synthetic forged citation appearing inside an untrusted note and observed the guard reject it, then opened the judge submission gate and confirmed NOT READY. This is a real browser interaction, **not** a cloud-hosted third-party visitor test or a live model evaluation.
+
+- [Real browser workflow and execution logs](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41706273198)
+- [Browser navigation and guard test source](qa/browser_smoke.py)
+- Screenshots are retained as downloadable GitHub Actions artifacts.
+
 ## Future 72-case evaluation runner (NOT executed on a real model yet)
 
 The [72-case measurement protocol](docs/TRACK2A_72_EVALUATION_PROTOCOL.md) and [strict AuditKIT scorer](scripts/score_track2a_72.py) are ready for **actual** Tiny Aya inference responses once GPU compute is available. The runner requires 72 unique raw model outputs, the exact frozen benchmark SHA-256, a pinned 40-character model revision, and a generation record. It fails closed on missing/synthetic/incorrectly labeled reports, and explicitly separates matched control-versus-attack outcomes. **No new-model result or 72-case performance statistic is claimed at present.**
@@ -16,7 +24,7 @@ The **48 evaluated + 72 unscored** Track 2a dataset package passed offline ZIP a
 
 ## Automated QA — November 3, 2026
 
-**Latest expanded CPU QA:** [123 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41701590528) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, eight Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
+**Latest expanded CPU QA:** [135 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41706273198) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, eight Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
 
 [Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
 
