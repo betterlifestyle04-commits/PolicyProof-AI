@@ -17,7 +17,7 @@ Small multilingual models are practical for privacy-sensitive, self-hosted docum
 - **Cohere Labs Tiny Aya Global:** the eligible dense open-weights multilingual base model (approximately 3.35 billion parameters), gated noncommercial license accepted by the project owner
 - **CuratorKIT:** completed local schema checking, exact deduplication, cleaning and Alpaca/ShareGPT export for 78 fictional training examples (26 per language)
 - **AlignTune:** v0.1.28 trainer factory and 4-bit LoRA model loading verified on a Colab Tesla T4; initial optimizer runs **failed** at BF16 gradient unscaling. This is a known technical blocker, not a successful fine-tune
-- **AuditKIT:** offline replay script committed, not yet executed in the owner's runtime; it will measure saved genuine model outputs without requiring another GPU inference run
+- **AuditKIT:** actual official AuditKIT 1.1.3 replay executed successfully in CI against all 48 saved user-run Tiny Aya baseline responses; fingerprint `ae297dd84f990566`. A tuned-model comparison remains pending
 - **Possible direct PyTorch fallback:** under investigation. If successful, label separately as a PyTorch training run, not an AlignTune trainer success
 
 ## Methodology
@@ -40,6 +40,20 @@ For the actual comparison, use the same base checkpoint revision, deterministic 
 | Human-reviewed semantic accuracy | **Not measured** | Blank review sheet prepared, no judgments yet |
 
 Reference: [Baseline report](BASELINE_2026-11-02.md). These are baseline diagnostics, not improvements.
+
+## Separately measured inference-time safeguard (NOT model fine-tuning)
+
+A deterministic fail-closed output validator processed the same 48 saved unchanged Tiny Aya responses without new GPU inference. It rejects incomplete JSON schemas and contradictory abstentions, preserving valid answer-shaped outputs. On the **inspected development split**, the following deterministic results were recorded:
+
+| Metric | Raw saved Tiny Aya | After deterministic guard |
+| --- | ---: | ---: |
+| Complete required JSON schema | 68.75% | **100%** |
+| Correct unsupported-case abstention | 88.89% | **100%** |
+| Unsupported-case substantive claim | 11.11% | **0%** |
+| Strict exact end-to-end match | 16.67% | **18.75%** |
+| Exact supported answer match | 0/39 | **0/39** |
+
+This is a real *inference-time validator* improvement, but it is NOT AlignTune training, does not change the model's weights, and does not demonstrate semantic correctness. It is an exploratory safety-repair fallback only. [Full original 48 predictions](../artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json) · [evaluation limitations](INFERENCE_GUARD_RESULTS_2026-11-03.md).
 
 ## Tuned model results — REQUIRED BEFORE SUBMISSION
 
@@ -69,8 +83,8 @@ The T4 environment also exposed a reproducibility problem between AlignTune's ex
 | CuratorKIT report | https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/CURATION_2026-11-03.md |
 | HF adapter | **PENDING** |
 | HF curated dataset | **PENDING** |
-| HF Article / report | **PENDING** |
-| Public live demo | **PENDING / not verified** |
+| HF Article / report | **DRAFT:** [research article](HF_ARTICLE_DRAFT.md), publication pending |
+| Public live demo | **Optional:** public GitHub repository available; hosted Streamlit demo not verified |
 | Submission receipt | **PENDING** |
 
 ## Suggested 3-minute demo storyboard
