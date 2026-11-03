@@ -54,7 +54,8 @@ def test_fallback_does_not_instantiate_trl_or_amp_gradscaler():
     tree = ast.parse(source)
     assert "GradScaler(" not in source
     assert "SFTTrainer(" not in source
-    assert ".train()" not in source
+    assert "trainer.train(" not in source
+    assert "model.train()" in source  # PyTorch training mode is required
     assert "torch.autocast(" in source
     assert "optimizer.step()" in source
 
