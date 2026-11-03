@@ -38,7 +38,7 @@ st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
 st.warning("No verified model fine-tuning or safety improvement yet. All policies are fictional and benchmark questions are synthetic.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Output guard experiment", "Try the output guard", "Judge verification", "Protocol & next steps"]
+pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Safety benchmark", "Output guard experiment", "Try the output guard", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -143,6 +143,91 @@ elif page == "Evaluation runs":
                      "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
             st.dataframe(report.get("scores", []), use_container_width=True)
+
+elif page == "Safety benchmark":
+    from collections import Counter
+    from policyproof.core import sha256
+    from scripts.auditkit_replay import check_saved_outputs
+    from scripts.track2a_chain import aggregate_slice
+    from scripts.generate_track2a_challenge import build_challenge
+    st.subheader("Track 2a — multilingual adversarial safety benchmark")
+    st.warning(
+        "There are TWO DISTINCT data sets: 48 original saved-output development "
+        "cases actually evaluated, and 72 NEW curated but UNscored challenge cases. "
+        "The 120 records are NOT a single 120-response model evaluation."
+    )
+    base = load_json(ARTIFACTS / "real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json")
+    rows = jsonl(DATA / "unseen_policy_test.jsonl")
+    if not base or not rows:
+        st.error("Saved baseline or original development dataset not found.")
+    else:
+        try:
+            mapping = check_saved_outputs(base, rows, sha256(DATA / "unseen_policy_test.jsonl"))
+            a,b,c = st.columns(3)
+            a.metric("Saved real model outputs", len(mapping))
+            b.metric("Official toolkit chain", "CuratorKIT → AuditKIT")
+            c.metric("GPU used in replay", "None")
+            table = [
+                {"Category": category.replace("_"," ").title(),
+                 **aggregate_slice([r for r in rows if r["category"] == category], mapping)}
+                for category in ("unseen_supported","unseen_unanswerable","context_injection")
+            ]
+            st.dataframe(table,use_container_width=True,hide_index=True)
+            st.caption(
+                "These fixed 48 responses were generated earlier by the unchanged Tiny Aya model. "
+                "The official CuratorKIT 0.1.22 and AuditKIT 1.1.3 run is independently "
+                "recorded in GitHub Actions. No independent semantic grading was done."
+            )
+        except (ValueError,KeyError) as exc:
+            st.error("The preserved benchmark failed exact-dataset integrity checks.")
+    st.divider()
+    st.subheader("New 72-case challenge — deliberately unscored")
+    challenge=build_challenge()
+    mix=Counter(r["category"] for r in challenge)
+    st.dataframe(
+        [{"Attack family":k.replace("_"," ").title(),"Cases":v,"Model evaluation":"NOT performed"}
+         for k,v in sorted(mix.items())],
+        use_container_width=True,hide_index=True)
+    a,b=st.columns(2)
+    with a:
+        selected_language=st.selectbox("Challenge language",["en","no","ar"])
+    with b:
+        selected_family=st.selectbox("Challenge attack family",sorted(mix))
+    selection=[r for r in challenge if r["language"]==selected_language
+               and r["category"]==selected_family]
+    sample=st.selectbox("Challenge question",selection,
+                        format_func=lambda r:r["id"])
+    st.markdown("**Question**")
+    st.write(sample["question"])
+    with st.expander("View fictional evidence and untrusted text"):
+        st.code(sample["context"],language=None)
+        st.caption("Attacker-controlled text appears only as an untrusted note.")
+    with st.expander("Proposed synthetic gold label — not human-reviewed"):
+        st.json({
+            "answer":sample["expected_answer"],
+            "source_id":sample["expected_source_id"],
+            "abstain":sample["should_abstain"],
+            "human_reviewed":False,
+            "model_evaluated":False,
+        })
+    st.download_button(
+        "Download 72 unscored synthetic challenge cases (JSONL)",
+        data="".join(json.dumps(row,ensure_ascii=False,sort_keys=True)+"\n"
+                     for row in challenge),
+        file_name="policyproof_track2a_challenge_72_UNSCORED.jsonl",
+        mime="application/x-ndjson",
+    )
+    st.info(
+        "A real CuratorKIT pipeline has structurally curated the new 72 cases "
+        "but no model has answered them. Four fictional policies are reused across "
+        "multiple attack variants, so the examples are not independent domains."
+    )
+    st.markdown(
+        "[Verified two-toolkit Actions run]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41696571904)"
+        " · [Track 2a research report]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)"
+    )
 
 elif page == "Output guard experiment":
     st.subheader("Actual saved model responses: raw vs deterministic output guard")
