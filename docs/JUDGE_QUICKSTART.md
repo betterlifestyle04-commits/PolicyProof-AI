@@ -1,6 +1,7 @@
 # Judge quick start — PolicyProof AI (GPU-free verification)
 
-**Public source:** https://github.com/betterlifestyle04-commits/PolicyProof-AI  
+**Public source:** https://github.com/betterlifestyle04-commits/PolicyProof-AI
+**Live read-only judge demo:** https://policyproof-ai-observatory.onrender.com (Render free tier; startup may be slow after idle). The deployment is an observatory of saved outputs, not a live trained language model.  
 **Official hackathon:** https://hackathon.lexsi.ai  
 **Track:** 1 (Fine-tuning and Data Curation), with an additional experimental inference-time output guard.
 
