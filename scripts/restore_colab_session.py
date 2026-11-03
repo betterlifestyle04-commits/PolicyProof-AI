@@ -91,3 +91,52 @@ def restore_model_and_data(curated_dir: str | Path, *, expected_gpu="T4"):
         "adapter_saved": False,
     }
     return wrapper, details
+
+
+def restore_interactive(root: str | Path = "/content/PolicyProof-AI"):
+    """Colab UI helper: upload ZIP if missing, authenticate, load and verify.
+
+    Returns (live_trainer, model_revision_SHA, diagnostic_report). This helper
+    NEVER starts training or evaluates any held-out dataset.
+    """
+    import torch
+    from huggingface_hub import model_info, notebook_login
+    from scripts.check_align_config import check_train_data
+
+    root = Path(root)
+    curated = root / "artifacts" / "verified_curator_train"
+    train_file = curated / "sft_alpaca.jsonl"
+    if train_file.exists():
+        audited = check_train_data(train_file)
+        if audited["dataset_sha256"] != EXPECTED_SHA:
+            raise ValueError("Existing curated dataset has the wrong SHA256")
+        print("CuratorKIT training data already present and verified (78 rows).")
+    else:
+        from google.colab import files
+        print("Upload the original policyproof_curatorkit_train_v1.zip")
+        uploaded = files.upload()
+        if len(uploaded) != 1:
+            raise ValueError("Upload exactly one original CuratorKIT ZIP")
+        filename = next(iter(uploaded))
+        if not filename.lower().endswith(".zip"):
+            raise ValueError("Expected a .zip archive")
+        audited = restore_curated_archive(filename, curated)
+        print("Archive checked and restored:", audited["row_count"], "rows")
+
+    if not torch.cuda.is_available():
+        raise RuntimeError("No CUDA GPU; select the Colab T4 accelerator first")
+
+    try:
+        revision = model_info("CohereLabs/tiny-aya-global").sha
+    except Exception:
+        print("Approve the gated Tiny Aya model with Hugging Face if prompted.")
+        notebook_login()
+        revision = model_info("CohereLabs/tiny-aya-global").sha
+    if not isinstance(revision, str) or len(revision) < 12:
+        raise RuntimeError("Could not confirm model revision")
+    wrapper, report = restore_model_and_data(curated)
+    print("MODEL RESTORED:", report["rows"], "rows;",
+          report["4bit_layers"], "4-bit layers;",
+          report["trainable_lora_parameters"], "LoRA parameters.")
+    print("RESTORE COMPLETE — no optimizer steps or GPU training performed.")
+    return wrapper, revision, report
