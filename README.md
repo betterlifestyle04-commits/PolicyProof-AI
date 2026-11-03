@@ -2,7 +2,7 @@
 
 ## Automated QA — November 3, 2026
 
-**Latest verified GitHub Actions:** [standard suite 81 passed / 2 skipped, plus dedicated PyTorch CPU safety job 7 passed / 0 failed](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, four Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **No live CUDA training or public deployment is confirmed.**
+**Latest expanded CPU QA:** [93 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41640840381) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, four Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **No live CUDA training or public deployment is confirmed.**
 
 [Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
 
@@ -14,12 +14,12 @@
 | CuratorKIT | **Completed:** 78/78 synthetic examples, three languages and audited archive checksums |
 | AlignTune training | **Not completed:** 4-bit LoRA model/config loaded but original trainer hit BF16 GradScaler |
 | Direct PyTorch fallback | **Fix committed:** `tokenizers.Encoding` conversion and full preflight; actual GPU retry pending |
-| AuditKIT | **Offline replay script ready:** baseline predictions can be evaluated without GPU; execution pending |
+| AuditKIT | **Executed:** 48 saved Tiny Aya base outputs successfully replayed with real AuditKIT 1.1.3; fingerprint ae297dd84f990566 |
 | Candidate final holdout | **Draft frozen in GitHub:** 60 independent multilingual cases; reviewer approval pending |
-| Submission | **Draft created:** [write-up](docs/LEXSI_SUBMISSION_DRAFT.md); trained adapter and final metrics still missing |
+| Submission | **Research article and HF cards drafted:** [publication draft](docs/HF_ARTICLE_DRAFT.md); trained adapter, paired model evaluation, HF public URLs and official submission still missing |
 
 **Fresh evaluation:** [60-case candidate](data/final_holdout_v1.jsonl) · [integrity checker](scripts/validate_final_holdout.py). Do not train on or tune against this set.  
-**AuditKIT:** [real-output replay runner](scripts/auditkit_replay.py), based on the official `ak.evaluate(model="precomputed")` interface; no fabricated model generations.  
+**AuditKIT:** [48 actual saved baseline predictions](artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json) were replayed successfully through real AuditKIT 1.1.3 on GitHub Actions, with no newly generated inference. [Guarded output results](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md) are a separate deterministic *inference-time* experiment, not a trained adapter.  
 **Submission tracker:** [readiness and risk register](docs/SUBMISSION_READINESS.md).
 
 ## GPU quota reached — free Kaggle alternative (November 3, 2026)
@@ -76,7 +76,11 @@ python -m pip install pytest
 python -m pytest -q
 python -m scripts.audit_dataset --data-dir data --output artifacts/audit.json
 python -m scripts.evaluate --split unseen-policy --engine mock-abstain --output artifacts/mock.json
-python -m scripts.train # safe dry run; --execute required for GPU
+python -m scripts.train  # safe dry run; --execute intentionally DISABLED
+python -m scripts.verify_evidence --baseline artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json --dataset data/unseen_policy_test.jsonl
+python -m scripts.auditkit_replay --report artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json --dataset data/unseen_policy_test.jsonl
+python -m scripts.inference_guard --baseline artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json --dataset data/unseen_policy_test.jsonl
+python -m scripts.submission_gate  # must print NOT_READY before a legitimate checkpoint
 ```
 
 The fixture builder creates 78 training examples, 42 paraphrase tests, and 48 unseen-policy tests (including 3 prompt-injection probes). Synthetic question templates in the generated fixture are *not* human-reviewed; stronger real evaluation must be added before claims. The unseen-policy split uses distinct fictional documents and validates ID separation.
@@ -109,7 +113,7 @@ The dashboard shows real source fixtures and recorded outputs and prominently di
 
 See [Research Protocol](docs/RESEARCH_PROTOCOL.md) and [Submission Readiness](docs/SUBMISSION_READINESS.md). The dataset integrity guard now rejects source-policy leakage, malformed labels, duplicated sample IDs, and stale checksums. Run it before using a dataset to train.
 
-**Current local verification:** The sister working copy passed 15 software tests; the GitHub Actions run status has not been independently confirmed. Training and official Lexsi package integration remain pending.
+**Current verification:** Official GitHub Actions successfully reproduced original saved-model baseline diagnostics, executed the AuditKIT integration, and ran the deterministic output guard. Separate PyTorch CPU tests passed. Real GPU training and a tuned-model comparison remain pending; see [QA report](docs/QA_VERIFICATION_2026-11-03.md).
 
 ## Resource preflight
 
