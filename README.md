@@ -1,3 +1,9 @@
+## Public research dashboard
+
+**[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with six read-only pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
+
+**[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Submission status](docs/SUBMISSION_READINESS.md)**
+
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
 ## Automated QA — November 3, 2026
