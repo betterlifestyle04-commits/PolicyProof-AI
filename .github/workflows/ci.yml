@@ -19,6 +19,8 @@ jobs:
         run: python -m scripts.prepare
       - name: Audit provenance, split isolation, and citations
         run: python -m scripts.audit_dataset --data-dir data --output artifacts/dataset-audit.json
+      - name: Validate notebook syntax and safe training defaults (NO GPU)
+        run: python -m scripts.validate_notebooks
       - name: Validate independent 60-case final candidate (NO inference)
         run: python -m scripts.validate_final_holdout
       - name: Unit and regression tests
