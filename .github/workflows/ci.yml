@@ -125,6 +125,10 @@ jobs:
           test -s artifacts/track2a_challenge_unscored/challenge_manifest.json
           test -s artifacts/track2a_challenge_unscored/challenge_curator_output/sft_alpaca.jsonl
           python -c "import json; x=json.load(open('artifacts/track2a_challenge_unscored/challenge_manifest.json')); assert x['cases']==72 and x['model_predictions_available'] is False and x['independent_human_review'] is False"
+      - name: Check Track 2a research release status (must not claim published)
+        run: |
+          python -m scripts.track2a_readiness --output artifacts/track2a_safety/track2a_readiness.json
+          python -c "import json; r=json.load(open('artifacts/track2a_safety/track2a_readiness.json')); assert r['status']=='RESEARCH_READY_HF_PUBLICATION_BLOCKED' and r['ready_to_submit'] is False"
       - name: Preserve actual toolkit execution evidence and curated safety benchmark
         uses: actions/upload-artifact@v4
         with:
