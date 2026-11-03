@@ -13,6 +13,7 @@ from streamlit.testing.v1 import AppTest
     "Research overview",
     "Dataset explorer",
     "Evaluation runs",
+    "Safety benchmark",
     "Output guard experiment",
     "Try the output guard",
     "Judge verification",
