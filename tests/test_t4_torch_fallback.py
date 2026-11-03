@@ -7,7 +7,7 @@ import inspect
 import pytest
 
 from scripts.t4_torch_fallback import (encode_pair, train_existing_t4,
-    normalize_token_ids, preflight_tokenization)
+    normalize_token_ids, preflight_tokenization, known_safe_encoding_retry)
 
 
 class FakeTokenizer:
@@ -126,3 +126,17 @@ def test_tensors_will_receive_plain_lists():
     assert isinstance(sample["labels"], list)
     assert isinstance(sample["attention_mask"], list)
     assert all(isinstance(v, int) for key in sample for v in sample[key])
+
+
+def test_only_prior_zero_step_tokenizer_typeerror_allows_targeted_retry():
+    original = {
+        "status": "failed",
+        "completed_steps": 0,
+        "error_type": "TypeError",
+        "error": "'tokenizers.Encoding' object cannot be interpreted as an integer",
+    }
+    assert known_safe_encoding_retry(original) is True
+    assert known_safe_encoding_retry({**original, "completed_steps": 1}) is False
+    assert known_safe_encoding_retry({**original, "status": "completed"}) is False
+    assert known_safe_encoding_retry({**original, "error": "GPU out of memory"}) is False
+    assert known_safe_encoding_retry({**original, "error_type": "RuntimeError"}) is False
