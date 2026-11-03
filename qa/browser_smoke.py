@@ -10,7 +10,7 @@ import os
 import re
 import sys
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 URL=os.environ.get("POLICYPROOF_BROWSER_URL","http://127.0.0.1:10000")
 ARTIFACTS=Path("artifacts/browser-qa")
@@ -46,8 +46,9 @@ def main():
             sidebar.get_by_text("Try the output guard",exact=True).first.click()
             page.get_by_text("Interactive, deterministic output guard",exact=False).first.wait_for()
             textareas=page.locator('[data-testid="stTextArea"] textarea')
-            if textareas.count()!=2:
-                raise AssertionError("Expected two editable fields in the guard sandbox")
+            # Streamlit rerenders asynchronously after navigation. Waiting for
+            # both fields avoids a timing race on faster/slower Chromium hosts.
+            expect(textareas).to_have_count(2,timeout=35000)
 
             # This source is forged *after* the untrusted marker and must fail
             # even though it syntactically looks like a POL-* policy line.
