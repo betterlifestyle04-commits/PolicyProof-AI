@@ -1,5 +1,21 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
+## Current project milestones (updated November 3, 2026)
+
+| Workstream | Actual status |
+| --- | --- |
+| Baseline inference | **Completed:** 48 genuine Tiny Aya outputs on Colab T4; honest limitations documented |
+| CuratorKIT | **Completed:** 78/78 synthetic examples, three languages and audited archive checksums |
+| AlignTune training | **Not completed:** 4-bit LoRA model/config loaded but original trainer hit BF16 GradScaler |
+| Direct PyTorch fallback | **Fix committed:** `tokenizers.Encoding` conversion and full preflight; actual GPU retry pending |
+| AuditKIT | **Offline replay script ready:** baseline predictions can be evaluated without GPU; execution pending |
+| Candidate final holdout | **Draft frozen in GitHub:** 60 independent multilingual cases; reviewer approval pending |
+| Submission | **Draft created:** [write-up](docs/LEXSI_SUBMISSION_DRAFT.md); trained adapter and final metrics still missing |
+
+**Fresh evaluation:** [60-case candidate](data/final_holdout_v1.jsonl) · [integrity checker](scripts/validate_final_holdout.py). Do not train on or tune against this set.  
+**AuditKIT:** [real-output replay runner](scripts/auditkit_replay.py), based on the official `ak.evaluate(model="precomputed")` interface; no fabricated model generations.  
+**Submission tracker:** [readiness and risk register](docs/SUBMISSION_READINESS.md).
+
 ## Active Colab rescue (November 3, 2026)
 
 The repeated T4 training error was caused by AlignTune 0.1.28 re-applying stale `fp16=True` in `config.train.extra_params`, overriding the corrected FP32/no-AMP training policy. This is now handled at the source.
@@ -21,7 +37,7 @@ This is a guarded, real GPU training action and requires a running Colab T4 with
 
 **Why this exists:** In the exact installed TRL **1.7.1** source, `SFTTrainer` unconditionally casts trainable parameters to **BF16** when the model is 4-bit quantized; coupled with FP16 `GradScaler`, it caused the reported `_amp_foreach_non_finite_check_and_unscale_cuda` error. Attempts to alter AlignTune's factory flags alone did not resolve the second trainer-level behavior.
 
-A [guarded Torch fallback](scripts/t4_torch_fallback.py) avoids the TRL/AlignTune **trainer loop** entirely while reusing the **already-loaded AlignTune PEFT/4-bit model**, tokenizer, and validated **CuratorKIT 78-row training export**. It masks the user/policy prompt from the loss, uses FP16 autocast with FP32 LoRA master parameters and **no GradScaler**, performs at most ten optimizer steps, and saves/checks adapter hashes. It refuses to overwrite an existing training receipt. This fallback does **not** count as demonstrated AlignTune trainer execution, nor is it evidence of improved safety.
+A [guarded Torch fallback](scripts/t4_torch_fallback.py) avoids the TRL/AlignTune **trainer loop** entirely while reusing the **already-loaded AlignTune PEFT/4-bit model**, tokenizer, and validated **CuratorKIT 78-row training export**. It masks the user/policy prompt from the loss, uses FP16 autocast with FP32 LoRA master parameters and **no GradScaler**, performs at most ten optimizer steps, and saves/checks adapter hashes. It refuses to overwrite an existing training receipt. This fallback does **not** count as demonstrated AlignTune trainer execution, nor is it evidence of improved safety. **November 3 tokenizer fix:** Hugging Face `tokenizers.Encoding` objects are now normalized to plain integer IDs; a CPU-side preflight checks all 78 rows first. The exact initial zero-step TypeError report is preserved if the corrected code is retried once.
 
 In the same live Colab T4 kernel, after `git pull --ff-only`:
 
@@ -32,7 +48,7 @@ archive = train_existing_t4(trainer, model_sha=globals().get("MODEL_SHA"))
 files.download(str(archive))
 ```
 
-A successful run prints ten numbered optimizer steps and downloads `policyproof_t4_torch_fallback.zip`. **This GPU step has not been executed or verified here**. Do not run again if a failure receipt was written; inspect the exact traceback first.
+A successful run prints ten numbered optimizer steps and downloads `policyproof_t4_torch_fallback.zip`. **This GPU step has not been executed or verified here**. Do not run repeatedly: the fixed runner permits at most one targeted retry when the previous receipt confirms the known zero-step `tokenizers.Encoding` TypeError. All other prior failures require inspection.
 
 ## Stage 3: controlled AlignTune QLoRA compatibility test
 
