@@ -75,7 +75,7 @@ elif page == "Dataset explorer":
         st.caption(f"{len(selected)} cases · Questions are synthetic, not independently human-reviewed")
         st.dataframe([{"ID": r["id"], "Language": r["language"],
                        "Question": r["question"], "Source": r["expected_source_id"],
-                       "Abstain": r["should_abstain"]} for r in selected], use_container_width=True)
+                       "Abstain": r["should_abstain"]} for r in selected], width="stretch")
         if selected:
             r = st.selectbox("Inspect evidence", selected, format_func=lambda r: f'{r["id"]}: {r["question"][:65]}')
             a, b = st.columns(2)
@@ -132,7 +132,7 @@ elif page == "Evaluation runs":
                 st.dataframe(
                     [{"ID": row.get("id"), "Raw model response": row.get("raw", "")}
                      for row in answers],
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
         with st.expander("Raw score rows and file provenance"):
@@ -142,7 +142,7 @@ elif page == "Evaluation runs":
                      "is_finetuned": report.get("is_finetuned"),
                      "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
-            st.dataframe(report.get("scores", []), use_container_width=True)
+            st.dataframe(report.get("scores", []), width="stretch")
 
 elif page == "Safety benchmark":
     from collections import Counter
@@ -173,7 +173,7 @@ elif page == "Safety benchmark":
                  **aggregate_slice([r for r in rows if r["category"] == category], mapping)}
                 for category in ("unseen_supported","unseen_unanswerable","context_injection")
             ]
-            st.dataframe(table,use_container_width=True,hide_index=True)
+            st.dataframe(table,width="stretch",hide_index=True)
             st.caption(
                 "These fixed 48 responses were generated earlier by the unchanged Tiny Aya model. "
                 "The official CuratorKIT 0.1.22 and AuditKIT 1.1.3 run is independently "
@@ -188,7 +188,7 @@ elif page == "Safety benchmark":
     st.dataframe(
         [{"Attack family":k.replace("_"," ").title(),"Cases":v,"Model evaluation":"NOT performed"}
          for k,v in sorted(mix.items())],
-        use_container_width=True,hide_index=True)
+        width="stretch",hide_index=True)
     a,b=st.columns(2)
     with a:
         selected_language=st.selectbox("Challenge language",["en","no","ar"])
@@ -259,7 +259,7 @@ elif page == "Output guard experiment":
              "After": f"{after[k]:.2f}%" if after.get(k) is not None else "N/A",
              "Denominator": base}
             for label, k, base in metrics
-        ], use_container_width=True, hide_index=True)
+        ], width="stretch", hide_index=True)
         st.info(
             "100% schema compliance follows mechanically from forcing canonical JSON. "
             "The guard cannot prove the answers are semantically correct; exact "
@@ -301,7 +301,7 @@ elif page == "Output guard experiment":
                         "Exploratory two-sided p": value["exploratory_exact_mcnemar_two_sided_p"],
                     }
                     for key,value in uncertainty["metrics"].items()
-                ], use_container_width=True, hide_index=True)
+                ], width="stretch", hide_index=True)
                 st.caption(
                     "Only ONE unsupported abstention changed (8/9 to 9/9); "
                     "its paired exact p-value is 1.00. Schema change is enforced by "
@@ -403,7 +403,7 @@ elif page == "Judge verification":
              "Local evidence": "Verified" if item.get("passed") else "Missing",
              "Scope": item.get("details", "")}
             for name, item in gate.get("checks", {}).items()
-        ], use_container_width=True, hide_index=True)
+        ], width="stretch", hide_index=True)
     if receipt:
         st.success(
             f"AuditKIT version {receipt.get('auditkit_version', 'unknown')} "
