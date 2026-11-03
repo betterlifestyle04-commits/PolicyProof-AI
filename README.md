@@ -1,5 +1,11 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
+## Stage 3: controlled AlignTune QLoRA compatibility test
+
+**[Open Stage 3 T4 training notebook in Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/03_aligntune_qlora_t4.ipynb)** — starts with GPU check and [CuratorKIT archive verification](scripts/verify_curator_archive.py); training and heavyweight dependencies are OFF by default. Requires separately confirming package installation and trainer compatibility. **No successful training or adapter claimed yet.**
+
+**[Verified CuratorKIT run: 78 synthetic examples](docs/CURATION_2026-11-03.md)** — contains archival hashes, version, provenance caveats, and the research risks to resolve before judging.
+
 ## Stage 2: CuratorKIT curation in Google Colab
 
 **[Open the CuratorKIT data curation notebook in Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/02_curatorkit_training_data.ipynb)** — use a fresh CPU runtime. This prepares *training data only*, verifies manifests and exports a ZIP for inspection. **No training or GPU needed.**
