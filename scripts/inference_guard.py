@@ -108,6 +108,17 @@ def evaluate_saved_guard(baseline: dict, rows: list[dict], dataset_sha: str) -> 
         "samples": len(rows),
         "before": aggregate(original_scores),
         "after": aggregate(guarded_scores),
+        "answer_coverage": {
+            "original_answered_cases": sum(x["answered"] for x in original_scores),
+            "guarded_answered_cases": sum(x["answered"] for x in guarded_scores),
+            "original_answered_supported_cases": sum(
+                x["answered"] for x in original_scores if x["supported_total"]
+            ),
+            "guarded_answered_supported_cases": sum(
+                x["answered"] for x in guarded_scores if x["supported_total"]
+            ),
+            "total_supported_cases": sum(x["supported_total"] for x in original_scores),
+        },
         "decision_counts": dict(sorted(actions.items())),
         "guarded_predictions": transformed,
         "guard_limitations": [
