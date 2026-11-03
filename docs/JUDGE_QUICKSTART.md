@@ -3,7 +3,7 @@
 **Public source:** https://github.com/betterlifestyle04-commits/PolicyProof-AI
 **Live read-only judge demo:** https://policyproof-ai-observatory.onrender.com (Render free tier; startup may be slow after idle). The deployment is an observatory of saved outputs, not a live trained language model.  
 **Official hackathon:** https://hackathon.lexsi.ai  
-**Track:** 1 (Fine-tuning and Data Curation), with an additional experimental inference-time output guard.
+**Track status:** Track 1 fine-tuning attempt **unfinished**. Track 2a **actual CPU benchmark/toolkit chain completed**; official HF publication and submission pending.
 
 ## What works today
 
@@ -11,8 +11,10 @@
 - 48 saved real-model-labelled Tiny Aya Global development responses; exact dataset checksum and deterministic metrics verified on GitHub Actions.
 - Actual native **AuditKIT 1.1.3** replay against those saved baseline responses; fingerprint \`ae297dd84f990566\`.
 - Fail-closed output schema/citation/abstention guard with real *before-and-after system-level* development metrics, no GPU.
-- A four-page Streamlit **read-only** research observer, verified using Streamlit AppTest (not separately hosted).
-- 93 passing CPU tests in the expanded suite, plus seven separate CPU-PyTorch recovery tests (two ML tests skipped in lightweight runner).
+- An eight-page publicly deployed Streamlit observer with an interactive **synthetic-only** guard playground and separate 48-scored versus 72-unscored safety benchmark explorer; each page is covered by AppTest.
+- **116 passing standard CPU tests, 2 skipped**, plus 7 separate PyTorch CPU safety tests. The real two-toolkit Track 2a job passed independently.
+
+- Real **CuratorKIT 0.1.22 → AuditKIT 1.1.3** chain on the 48 preserved synthetic base-model responses, plus 72 additional CuratorKIT-curated **UNSCORED** multilingual challenge cases (no independent semantic review, no model inference on these 72 cases). Read [Track 2a report](TRACK2A_SAFETY_BENCHMARK_2026-11-03.md) and [alternative abstract](TRACK2A_SUBMISSION_ABSTRACT.md).
 
 **What does NOT work yet:** completed AlignTune finetuning, trained adapter, genuine base-vs-tuned model evaluation, HF-public artifacts and confirmed final submission. These remain critical for full Track 1 eligibility. The guard is not a trained model.
 
@@ -57,7 +59,23 @@ These are the *already-inspected synthetic development* cases. The original mode
 1. **Research overview:** see train/test counts, limits and manifest.
 2. **Dataset explorer:** view fictional policy evidence and multilingual questions, never sensitive banking data.
 3. **Evaluation runs:** select the preserved Tiny Aya baseline (nested in \`artifacts/real_baseline\`); inspect metrics and all 48 original raw outputs. Distinguish simulated test-harness artifacts from model outputs.
-4. **Protocol & next steps:** see requirements for successful GPU training and measured model improvement.
+4. **Safety benchmark:** compare the 48 actually scored cases with the 72 separate, unscored new adversarial cases; inspect proposed labels without pretending they are human-reviewed.
+5. **Output guard experiment:** raw vs deterministic guarded results and small-sample uncertainty; schema compliance is enforced by construction.
+6. **Try the output guard:** use fictional sample policy text to test the validator, without model inference.
+7. **Judge verification:** current Track 1 not-ready release gate and actual AuditKIT provenance.
+8. **Protocol & next steps:** see remaining GPU fine-tuning and official HF collection requirements.
+
+## Reproduce the Track 2a actual two-toolkit chain separately (CPU only)
+
+Use a separate clean Python 3.11 environment to avoid changing the original GPU training dependencies:
+
+- Install the pinned official CuratorKIT 0.1.22 and AuditKIT 1.1.3 packages.
+- Run the project data-prepare module.
+- Run the scripts.track2a_chain Python module with output directory artifacts/track2a_safety.
+- Run scripts.generate_track2a_challenge with --curate and output directory artifacts/track2a_challenge_unscored.
+- Run scripts.track2a_readiness to produce the separate Track 2a release gate receipt.
+
+The expected output is 48 evaluated base-model saved responses, 72 synthetic **unscored** challenge cases, and a Track 2a status of RESEARCH_READY_HF_PUBLICATION_BLOCKED, not a completed official submission. The exact command sequence is in the [CI job](../.github/workflows/ci.yml) and the [Track 2a report](TRACK2A_SAFETY_BENCHMARK_2026-11-03.md).
 
 ## Where to read more
 
