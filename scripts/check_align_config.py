@@ -50,9 +50,10 @@ def check_train_data(path: Path) -> dict:
             "abstention_count": unknown, "dataset_sha256": sha256(path)}
 
 
-def instantiate_config_only(dataset_dir: Path):
+def make_training_wrapper(dataset_dir: Path):
+    """Factory wrapper only; no model weights or training."""
     from aligntune.core.backend_factory import create_sft_trainer
-    trainer = create_sft_trainer(
+    return create_sft_trainer(
         model_name="CohereLabs/tiny-aya-global",
         dataset_name=str(dataset_dir),
         config_name="sft_alpaca",
@@ -80,7 +81,13 @@ def instantiate_config_only(dataset_dir: Path):
         attn_implementation="sdpa",
         fp16=True, bf16=False,
         report_to="none",
+        precision="fp16",
+        seed=42,
     )
+
+
+def instantiate_config_only(dataset_dir: Path):
+    trainer = make_training_wrapper(dataset_dir)
     config = trainer.config
     assert config.model.peft.enabled is True
     assert config.model.peft.rank == 8
