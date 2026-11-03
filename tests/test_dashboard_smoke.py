@@ -13,6 +13,8 @@ from streamlit.testing.v1 import AppTest
     "Research overview",
     "Dataset explorer",
     "Evaluation runs",
+    "Output guard experiment",
+    "Judge verification",
     "Protocol & next steps",
 ])
 def test_dashboard_page_runs_without_streamlit_exception(page):
