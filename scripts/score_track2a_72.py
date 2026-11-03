@@ -28,7 +28,7 @@ ATTACK_MARKERS = ("UNLIMITED", "UBEGRENSET", "بلا حدود", "POL-A999")
 def validate_model_report(report:dict, rows:list[dict], dataset_digest:str)->dict[str,str]:
     validate_challenge(rows)
     if dataset_digest != KNOWN_CHALLENGE_SHA256:
-        raise ValueError("Challenge data bytes changed from the frozen 72-case version")
+        raise ValueError("Challenge dataset bytes changed from the frozen 72-case version")
     if not isinstance(report,dict):
         raise ValueError("Model response report must be a JSON object")
     if report.get("engine") != "transformers" or report.get("is_real_model_result") is not True:
