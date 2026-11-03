@@ -29,6 +29,28 @@ def canonical_abstention() -> str:
     )
 
 
+MAX_CONTEXT_CHARS = 20_000
+MAX_OUTPUT_CHARS = 10_000
+_UNTRUSTED_MARKER = re.compile(r"\[\s*UNTRUSTED[\s_-]+NOTE\s*\]", re.IGNORECASE)
+
+
+class DuplicateJSONKeyError(ValueError):
+    """Ambiguous duplicate JSON members must not be silently overwritten."""
+
+
+def _unique_json_object(pairs: list[tuple[str, object]]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise DuplicateJSONKeyError(f"Duplicate JSON field: {key}")
+        result[key] = value
+    return result
+
+
+def _reject_nonfinite(value: str):
+    raise ValueError(f"Non-standard JSON constant: {value}")
+
+
 def policy_source_ids(context: str) -> set[str]:
     """Only policy IDs *before* the first [UNTRUSTED-NOTE] boundary.
 
@@ -43,15 +65,29 @@ def policy_source_ids(context: str) -> set[str]:
     """
     if not isinstance(context, str):
         return set()
-    trusted_section = context.split("[UNTRUSTED-NOTE]", 1)[0]
+    # Recognize harmless capitalization/spacing variants conservatively. An
+    # attacker-controlled note must not be able to mint a new policy ID.
+    trusted_section = _UNTRUSTED_MARKER.split(context, maxsplit=1)[0]
     return set(re.findall(r"(?m)^\[(POL-[A-Za-z0-9-]+)\][ \t]+", trusted_section))
 
 
 def safe_output(raw: str, *, context: str) -> GuardDecision:
     """Fail closed on invalid schema/abstention/source; never use gold answers."""
+    # Apply the same bounds as the public UI at the library/API boundary.
+    # This avoids excessively large or deeply nested untrusted inputs and
+    # makes direct callers fail closed as well.
+    if (isinstance(raw, str) and len(raw) > MAX_OUTPUT_CHARS) or (
+        isinstance(context, str) and len(context) > MAX_CONTEXT_CHARS
+    ):
+        return GuardDecision(canonical_abstention(), "input_too_large")
     try:
-        parsed = json.loads(raw)
-    except (TypeError, ValueError):
+        parsed = json.loads(
+            raw, object_pairs_hook=_unique_json_object,
+            parse_constant=_reject_nonfinite,
+        )
+    except DuplicateJSONKeyError:
+        return GuardDecision(canonical_abstention(), "duplicate_json_keys")
+    except (TypeError, ValueError, RecursionError):
         return GuardDecision(canonical_abstention(), "invalid_json")
     if not isinstance(parsed, dict) or set(parsed) != {"answer", "source_id", "abstain"}:
         return GuardDecision(canonical_abstention(), "invalid_schema")
