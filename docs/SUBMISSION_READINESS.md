@@ -26,6 +26,14 @@ Official rules: https://hackathon.lexsi.ai
 | Public project/demo | **GitHub repo available** | Research dashboard code exists; public hosted site and real judge access not yet verified |
 | Submission/write-up | **Draft in repository** | Fill real metrics only after evaluation. Submit through official process; verify receipt |
 
+## Compute access update — November 3, 2026
+
+- The owner's Google Colab session hit the **GPU usage limit**; the dialog explicitly says it cannot connect to a GPU backend. Google provides no fixed reset time.
+- The original CuratorKIT ZIP **passed verification again (78 rows)**, but the model restoration stopped at the CUDA availability guard. **No fine-tuning checkpoint has been completed.**
+- Prepared a separate [Kaggle GPU notebook](../notebooks/04_kaggle_gpu_fallback.ipynb) targeting offered GPU T4 x2 or P100 hardware; execution, compatible drivers, and trainer success **not yet verified**.
+- While GPU access is absent, proceed with CPU-only structural validation, baseline provenance review, independent bilingual gold-label review and submission completeness. Do not replace live-model evidence with mock output.
+- Free/paid GPU services have quotas, restrictions and availability variations. Prefer available free quota or the organizer's confirmed eligible credits before making a purchase.
+
 ## Risk register and mitigation
 
 | Risk | Severity | Mitigation |
