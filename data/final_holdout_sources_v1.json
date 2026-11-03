@@ -1,0 +1,223 @@
+{
+  "dataset": "policyproof_frozen_candidate_holdout_v1",
+  "synthetic": true,
+  "human_reviewed": false,
+  "train_test_isolation": "new POL-F source IDs only; no training or original development POL/POL-U IDs",
+  "policies": [
+    {
+      "id": "POL-F101",
+      "topic": "rounding_threshold",
+      "text": "For the fictional RoundUp Jar product, purchase amounts are rounded up to the next whole NOK 10. The difference is saved, but no more than NOK 40 can be moved to the jar per calendar day.",
+      "q": {
+        "en": [
+          "To what amount are purchases rounded for RoundUp Jar?",
+          "What rounding increment does RoundUp Jar use?"
+        ],
+        "no": [
+          "Til hvilket beløp avrundes kjøp i RoundUp Jar?",
+          "Hvilket avrundingstrinn bruker RoundUp Jar?"
+        ],
+        "ar": [
+          "إلى أي مبلغ تُقرَّب المشتريات في خدمة RoundUp Jar؟",
+          "ما وحدة التقريب المستخدمة في RoundUp Jar؟"
+        ]
+      },
+      "a": {
+        "en": "The next whole NOK 10.",
+        "no": "Opp til neste hele 10 kroner.",
+        "ar": "إلى أقرب مضاعف أعلى من 10 كرونات نرويجية."
+      }
+    },
+    {
+      "id": "POL-F102",
+      "topic": "joint_approval",
+      "text": "Activating the fictional Joint Pocket account requires approval from both adult account owners. The second approval must arrive within 48 hours of the first; otherwise the application expires and must be restarted.",
+      "q": {
+        "en": [
+          "How long may the second Joint Pocket approval take?",
+          "What is the second owner's approval deadline?"
+        ],
+        "no": [
+          "Hvor lang tid kan det gå før den andre godkjenningen for Joint Pocket?",
+          "Hva er fristen for godkjenning fra den andre kontoeieren?"
+        ],
+        "ar": [
+          "ما المهلة المتاحة للموافقة الثانية على حساب Joint Pocket؟",
+          "متى تنتهي مهلة موافقة صاحب الحساب الثاني؟"
+        ]
+      },
+      "a": {
+        "en": "Within 48 hours of the first approval.",
+        "no": "Innen 48 timer etter den første godkjenningen.",
+        "ar": "خلال 48 ساعة من الموافقة الأولى."
+      }
+    },
+    {
+      "id": "POL-F103",
+      "topic": "travel_reauth",
+      "text": "Travel Access, a fictional card travel feature, automatically expires 45 calendar days after activation. Customers who need longer access must activate a new 45-day period; extending an active period is not supported.",
+      "q": {
+        "en": [
+          "How long does a Travel Access activation remain valid?",
+          "After how many days does Travel Access expire?"
+        ],
+        "no": [
+          "Hvor lenge er en Travel Access-aktivering gyldig?",
+          "Etter hvor mange dager utløper Travel Access?"
+        ],
+        "ar": [
+          "كم تستمر صلاحية تفعيل Travel Access؟",
+          "بعد كم يوم تنتهي صلاحية Travel Access؟"
+        ]
+      },
+      "a": {
+        "en": "45 calendar days.",
+        "no": "45 kalenderdager.",
+        "ar": "45 يومًا تقويميًا."
+      }
+    },
+    {
+      "id": "POL-F104",
+      "topic": "batch_payroll_limit",
+      "text": "The fictional Small Team Payroll tool accepts a maximum of 18 recipients per payroll batch. Larger groups must be split into multiple separate batches.",
+      "q": {
+        "en": [
+          "How many recipients can one Small Team Payroll batch include?",
+          "What is the maximum payroll batch size?"
+        ],
+        "no": [
+          "Hvor mange mottakere kan én Small Team Payroll-batch ha?",
+          "Hva er maksimal størrelse på en lønnsbatch?"
+        ],
+        "ar": [
+          "كم مستفيدًا يمكن إدراجه في دفعة واحدة من Small Team Payroll؟",
+          "ما الحد الأقصى لعدد المستفيدين في دفعة الرواتب؟"
+        ]
+      },
+      "a": {
+        "en": "At most 18 recipients.",
+        "no": "Maksimalt 18 mottakere.",
+        "ar": "بحد أقصى 18 مستفيدًا."
+      }
+    },
+    {
+      "id": "POL-F105",
+      "topic": "merchant_refund_notifications",
+      "text": "Merchant refunds for the fictional ShopShield service trigger an email notification only when the refund value is at least NOK 200. Lower-value refunds appear in account history but do not generate an email.",
+      "q": {
+        "en": [
+          "What is the minimum refund that triggers a ShopShield email?",
+          "At what refund amount is an email notification sent?"
+        ],
+        "no": [
+          "Hva er minste refusjonsbeløp som utløser e-post fra ShopShield?",
+          "Fra hvilket refusjonsbeløp sendes e-postvarsel?"
+        ],
+        "ar": [
+          "ما أقل مبلغ استرداد يؤدي إلى إرسال بريد إلكتروني من ShopShield؟",
+          "ابتداءً من أي مبلغ يُرسل إشعار الاسترداد بالبريد الإلكتروني؟"
+        ]
+      },
+      "a": {
+        "en": "NOK 200.",
+        "no": "200 kroner.",
+        "ar": "200 كرونة نرويجية."
+      }
+    },
+    {
+      "id": "POL-F106",
+      "topic": "document_archive",
+      "text": "Documents uploaded to the fictional Contract Vault are retained for 24 months after an account is closed, then automatically deleted. Customers cannot request an extended retention period.",
+      "q": {
+        "en": [
+          "How long are Contract Vault documents kept after account closure?",
+          "When are uploaded Contract Vault files deleted?"
+        ],
+        "no": [
+          "Hvor lenge lagres dokumenter i Contract Vault etter at kontoen avsluttes?",
+          "Når slettes opplastede filer fra Contract Vault?"
+        ],
+        "ar": [
+          "كم تُحفَظ مستندات Contract Vault بعد إغلاق الحساب؟",
+          "متى تُحذف الملفات المرفوعة إلى Contract Vault؟"
+        ]
+      },
+      "a": {
+        "en": "24 months after account closure.",
+        "no": "24 måneder etter at kontoen avsluttes.",
+        "ar": "بعد 24 شهرًا من إغلاق الحساب."
+      }
+    },
+    {
+      "id": "POL-F107",
+      "topic": "shared_goal_participants",
+      "text": "A fictional Shared Goal savings workspace may have one owner and up to five invited contributors. Contributors may view the goal but cannot withdraw its funds.",
+      "q": {
+        "en": [
+          "How many contributors may be invited to one Shared Goal workspace?",
+          "What is the invited contributor limit for Shared Goal?"
+        ],
+        "no": [
+          "Hvor mange bidragsytere kan inviteres til ett Shared Goal-område?",
+          "Hva er grensen for inviterte bidragsytere i Shared Goal?"
+        ],
+        "ar": [
+          "كم مساهمًا يمكن دعوته إلى مساحة Shared Goal واحدة؟",
+          "ما الحد الأقصى للمساهمين المدعوين في Shared Goal؟"
+        ]
+      },
+      "a": {
+        "en": "Up to five invited contributors.",
+        "no": "Opptil fem inviterte bidragsytere.",
+        "ar": "حتى خمسة مساهمين مدعوين."
+      }
+    },
+    {
+      "id": "POL-F108",
+      "topic": "scheduled_report_dispatch",
+      "text": "For the fictional Monthly Insights report, subscribers choose a delivery day from the 1st through the 25th of the month. Days 26 through 31 are not available for scheduling.",
+      "q": {
+        "en": [
+          "What is the latest selectable delivery day for Monthly Insights?",
+          "Can Monthly Insights be scheduled for a day after the 25th?"
+        ],
+        "no": [
+          "Hva er den siste valgbare leveringsdagen for Monthly Insights?",
+          "Kan Monthly Insights planlegges etter den 25. dagen?"
+        ],
+        "ar": [
+          "ما آخر يوم يمكن اختياره لإرسال تقرير Monthly Insights؟",
+          "هل يمكن جدولة تقرير Monthly Insights بعد اليوم الخامس والعشرين؟"
+        ]
+      },
+      "a": {
+        "en": "The 25th of the month.",
+        "no": "Den 25. i måneden.",
+        "ar": "اليوم الخامس والعشرون من الشهر."
+      },
+      "a_alt": {
+        "en": "No; the latest selectable delivery day is the 25th.",
+        "no": "Nei, den siste valgbare dagen er den 25.",
+        "ar": "لا، آخر يوم متاح هو الخامس والعشرون."
+      }
+    }
+  ],
+  "unknown_questions": {
+    "en": [
+      "Does the fictional bank offer cryptocurrency staking rewards?",
+      "Is there an interest penalty for cancelling a fixed-rate mortgage?",
+      "Can customers insure musical instruments through their card?"
+    ],
+    "no": [
+      "Tilbyr den fiktive banken belønning for staking av kryptovaluta?",
+      "Er det en rentebot ved å avbryte et fastrentelån?",
+      "Kan kunder forsikre musikkinstrumenter gjennom kortet sitt?"
+    ],
+    "ar": [
+      "هل يقدم البنك الافتراضي مكافآت على إيداع العملات المشفرة؟",
+      "هل توجد غرامة فائدة عند إنهاء قرض عقاري بفائدة ثابتة؟",
+      "هل يستطيع العملاء تأمين الآلات الموسيقية من خلال بطاقتهم؟"
+    ]
+  },
+  "notes": "Hand-authored fictional source documents and translation drafts; human translation accuracy and gold labels require independent review. Freeze before any evaluated candidate."
+}
