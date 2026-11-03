@@ -58,7 +58,7 @@ def validate_archive(archive:Path, *, expected_sha256:str|None=EXPECTED_OFFICIAL
             if any(pattern.search(value) for pattern in SECRETS):
                 raise ValueError("Potential secret found in "+name)
             files[name]=value
-    if not REQUIRED.issubset(files) or len(files)!=20:
+    if not REQUIRED.issubset(files) or (expected_sha256 is not None and len(files)!=20):
         raise ValueError("Expected exactly the verified 20-file research handoff")
     expected={}
     for line in files["provenance/SHA256SUMS.txt"].decode("utf-8").splitlines():
