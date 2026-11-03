@@ -15,6 +15,7 @@ import re
 import tempfile
 from zipfile import ZipFile
 
+EXPECTED_OFFICIAL_ARCHIVE_SHA256="d00832984b6d119fca8f048e470427bf522a14432ef92c99de6c7e35ccf0bdc7"
 LICENSES={"cc-by-4.0","cc0-1.0","cc-by-sa-4.0"}
 REQUIRED={
     "README.md","provenance/SHA256SUMS.txt","provenance/PACKAGE_STATUS.json",
@@ -32,7 +33,11 @@ SECRETS=[re.compile(rb"hf_[a-zA-Z0-9]{30,}"),
 HF_REPO=re.compile(r"^[A-Za-z0-9][\w.-]{0,95}/[A-Za-z0-9][\w.-]{0,95}$")
 
 
-def validate_archive(archive:Path)->dict[str,bytes]:
+def validate_archive(archive:Path, *, expected_sha256:str|None=EXPECTED_OFFICIAL_ARCHIVE_SHA256)->dict[str,bytes]:
+    # The shipping path pins the exact 20-file owner-reviewed archive. Only
+    # synthetic unit tests override this hash with their fixture bytes.
+    if expected_sha256 is not None and sha256(archive.read_bytes()).hexdigest()!=expected_sha256:
+        raise ValueError("Research ZIP hash differs from the verified public handoff")
     files={}
     with ZipFile(archive) as z:
         if len(z.infolist())>100 or z.testzip() is not None:
@@ -53,8 +58,8 @@ def validate_archive(archive:Path)->dict[str,bytes]:
             if any(pattern.search(value) for pattern in SECRETS):
                 raise ValueError("Potential secret found in "+name)
             files[name]=value
-    if not REQUIRED.issubset(files):
-        raise ValueError("Missing required research evidence")
+    if not REQUIRED.issubset(files) or len(files)!=20:
+        raise ValueError("Expected exactly the verified 20-file research handoff")
     expected={}
     for line in files["provenance/SHA256SUMS.txt"].decode("utf-8").splitlines():
         m=re.fullmatch(r"([a-f0-9]{64})  ([^\n]+)",line)
