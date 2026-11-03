@@ -28,6 +28,9 @@ def main():
                    "--dataset", cases, "--output", "artifacts/auditkit_actual_baseline_replay.json")
     execute_module("scripts.inference_guard", "--baseline", original,
                    "--dataset", cases, "--output", "artifacts/guarded_development_evaluation.json")
+    execute_module("scripts.paired_guard_uncertainty", "--baseline", original,
+                   "--dataset", cases,
+                   "--output", "artifacts/paired_guard_uncertainty.json")
     execute_module("scripts.submission_gate", "--output", "artifacts/submission_gate.json")
     # Must be NOT_READY until legitimate fine-tune, paired results & HF evidence exist.
     state=json.loads((ROOT/"artifacts/submission_gate.json").read_text(encoding="utf-8"))

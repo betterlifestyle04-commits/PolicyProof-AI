@@ -38,7 +38,7 @@ st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
 st.warning("No verified model fine-tuning or safety improvement yet. All policies are fictional and benchmark questions are synthetic.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Output guard experiment", "Judge verification", "Protocol & next steps"]
+pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Output guard experiment", "Try the output guard", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -197,12 +197,81 @@ elif page == "Output guard experiment":
             left.code(raw_by_id.get(chosen_id, "Missing"), language="json")
             right.caption(f"Guarded output · action: {event['action']}")
             right.code(event["raw"], language="json")
+        uncertainty = load_json(ARTIFACTS / "paired_guard_uncertainty.json")
+        with st.expander("Statistical uncertainty and limitations of the 48-case experiment"):
+            st.warning(
+                "This is a previously inspected synthetic development sample. "
+                "Descriptive exact paired p-values do NOT establish real-world safety "
+                "and are not adjusted for multiple comparisons."
+            )
+            if uncertainty:
+                st.dataframe([
+                    {
+                        "Measure": key.replace("_", " ").title(),
+                        "Before": f"{value['raw_before']}/{value['denominator']}",
+                        "After": f"{value['raw_after']}/{value['denominator']}",
+                        "Improved pairs": value["improved_cases"],
+                        "Regressed pairs": value["regressed_cases"],
+                        "Exploratory two-sided p": value["exploratory_exact_mcnemar_two_sided_p"],
+                    }
+                    for key,value in uncertainty["metrics"].items()
+                ], use_container_width=True, hide_index=True)
+                st.caption(
+                    "Only ONE unsupported abstention changed (8/9 to 9/9); "
+                    "its paired exact p-value is 1.00. Schema change is enforced by "
+                    "construction; its small p-value cannot imply better model reasoning."
+                )
+            else:
+                st.info("No optional uncertainty output; build with scripts.build_public_demo.")
         st.download_button(
             "Download exact guarded evaluation JSON",
             data=json.dumps(report, ensure_ascii=False, indent=2),
             file_name="policyproof_guarded_development_evaluation.json",
             mime="application/json",
         )
+
+elif page == "Try the output guard":
+    from scripts.inference_guard import safe_output, policy_source_ids
+    st.subheader("Interactive, deterministic output guard")
+    st.caption("Paste synthetic POLICY text and a JSON response. This tests Python validation logic, not Tiny Aya inference.")
+    st.warning(
+        "Use fictional test data only. Do not enter real financial information, "
+        "secrets or private documents: text submitted here reaches the demo server. "
+        "No model API is called, and the validator does not establish factual accuracy."
+    )
+    examples = {
+        "Valid cited answer": '{"answer":"One token per day","source_id":"POL-DEMO-1","abstain":false}',
+        "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
+        "Contradictory abstention": '{"answer":"Secret override","source_id":null,"abstain":true}',
+        "Unknown policy citation": '{"answer":"Fabricated","source_id":"POL-UNKNOWN","abstain":false}',
+        "Well-formed abstention": '{"answer":"INSUFFICIENT_EVIDENCE","source_id":null,"abstain":true}',
+    }
+    scenario = st.selectbox("Try an example", list(examples))
+    policy_text = st.text_area(
+        "Fictional trusted policy context",
+        value="[POL-DEMO-1] A fictional card permits one virtual token per day.",
+        height=100, key="guard_trusted_policy"
+    )
+    proposed = st.text_area(
+        "Model-like JSON output (editable)",
+        value=examples[scenario], height=130, key=f"guard_json_{scenario}"
+    )
+    if len(policy_text) > 20000 or len(proposed) > 10000:
+        st.error("Demo input too large. Maximum 20,000 context and 10,000 output characters.")
+    elif st.button("Validate response", type="primary"):
+        decision = safe_output(proposed, context=policy_text)
+        st.markdown("**Guard decision:** " + decision.action.replace("_", " ").title())
+        st.code(decision.output, language="json")
+        ids = sorted(policy_source_ids(policy_text))
+        st.caption("Policy-like source IDs found: " + (", ".join(ids) if ids else "(none)"))
+        if decision.action != "valid_supported_shape":
+            st.info("Fail-closed behavior: the validator returns canonical abstention instead of guessing an answer.")
+        else:
+            st.warning(
+                "Valid shape and known source ID do NOT prove the answer is supported. "
+                "An attacker could forge policy-looking lines in untrusted context; "
+                "the application must separately authenticate trusted sources."
+            )
 
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
