@@ -105,6 +105,9 @@ def evaluate_readiness(root=ROOT):
                 and "YOUR_" not in info[name]
                 for name in collection_fields
             ) and info.get("external_access_verified") is True
+            collections_valid=bool(
+                collections_valid and info.get("public_items_ungated_verified") is True
+            )
         except (OSError, ValueError):
             pass
     checks["public_hf_collections"]={
