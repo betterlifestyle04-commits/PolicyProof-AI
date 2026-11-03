@@ -34,6 +34,17 @@ Official rules: https://hackathon.lexsi.ai
 - While GPU access is absent, proceed with CPU-only structural validation, baseline provenance review, independent bilingual gold-label review and submission completeness. Do not replace live-model evidence with mock output.
 - Free/paid GPU services have quotas, restrictions and availability variations. Prefer available free quota or the organizer's confirmed eligible credits before making a purchase.
 
+## Official submission form fields verified November 3, 2026
+
+The organizer's current [Submit](https://hackathon.lexsi.ai/) section requires:
+- An abstract **under 500 words** ([247-word truthful draft](LEXSI_SUBMISSION_ABSTRACT.md) is ready)
+- A separate **public, ungated Hugging Face model/adapter collection** — **MISSING**
+- A separate **public, ungated Hugging Face dataset/log/benchmark collection** — **MISSING**
+- An article or write-up; the official page accepts a GitHub README if HF Articles are unavailable
+- Public GitHub repository, explicit toolchains, chosen tracks, and problem statement
+
+A public website alone does not fulfill the two Hugging Face collection fields. The release gate now checks for actual collection URLs and explicit external/ungated verification. The field verification was done from the organizer's live page; the final form URL and completed submission are still unverified.
+
 ## New verified CPU baseline / output guard — November 3, 2026
 
 - [Real saved-model baseline JSON](../artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json) is now committed. Its 48 responses and dataset SHA-256 were verified on CI.

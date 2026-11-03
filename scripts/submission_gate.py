@@ -85,19 +85,40 @@ def evaluate_readiness(root=ROOT):
     if manifest.exists():
         try:
             urls=json.loads(manifest.read_text(encoding="utf-8"))
-            names=("dataset_url","adapter_url","logs_url","article_url")
+            names=("dataset_url","adapter_url","logs_url")
             published=all(isinstance(urls.get(n),str)
                 and urls[n].startswith("https://huggingface.co/")
                 and "PENDING" not in urls[n] for n in names
             ) and urls.get("external_access_verified") is True
         except (OSError,ValueError,TypeError):
             pass
-    checks["huggingface_artifacts"]={"passed":bool(published),"details":"Public dataset/adapter/log/article URLs and verified external access"}
+    checks["huggingface_artifacts"]={"passed":bool(published),"details":"Public dataset/adapter/log URLs and verified external access, with article or source write-up"}
+    collections_valid=False
+    if manifest.exists():
+        try:
+            info=json.loads(manifest.read_text(encoding="utf-8"))
+            collection_fields=("model_collection_url","dataset_collection_url")
+            collections_valid=all(
+                isinstance(info.get(name),str)
+                and info[name].startswith("https://huggingface.co/collections/")
+                and "PENDING" not in info[name]
+                and "YOUR_" not in info[name]
+                for name in collection_fields
+            ) and info.get("external_access_verified") is True
+            collections_valid=bool(
+                collections_valid and info.get("public_items_ungated_verified") is True
+            )
+        except (OSError, ValueError):
+            pass
+    checks["public_hf_collections"]={
+        "passed":bool(collections_valid),
+        "details":"Official Lexsi form requires separate public model/adapter and dataset/log collections; links alone are not proof of non-gated item access"
+    }
 
     public_materials=(root/"README.md").is_file() and (root/"docs/LEXSI_SUBMISSION_DRAFT.md").is_file()
     checks["public_repo_materials"]={"passed":public_materials,"details":"GitHub source and write-up present; external accessibility must still be checked"}
     required=("saved_baseline","trained_adapter","paired_finetuned_evaluation",
-              "huggingface_artifacts","public_repo_materials")
+              "huggingface_artifacts","public_hf_collections","public_repo_materials")
     ready=all(checks[name]["passed"] for name in required)
     return {
         "status":"READY_FOR_MANUAL_REVIEW" if ready else "NOT_READY",
