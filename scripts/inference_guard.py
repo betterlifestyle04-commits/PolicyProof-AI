@@ -30,13 +30,21 @@ def canonical_abstention() -> str:
 
 
 def policy_source_ids(context: str) -> set[str]:
-    """Identifiers at the start of trusted-looking policy lines only.
+    """Only policy IDs *before* the first [UNTRUSTED-NOTE] boundary.
 
-    This is a syntactic source filter, NOT a semantic or cryptographic
-    authenticity verifier. The caller must supply trusted policy context;
-    attacker-controlled text must not be appended as a trusted policy.
+    The benchmark appends attacker-controlled text after that marker. A
+    forged new line like `[POL-A999]` inside the note must never be promoted
+    to a trusted source. Use horizontal whitespace after the closing bracket
+    so a following line cannot accidentally satisfy the ID delimiter.
+
+    IMPORTANT: This is a benchmark-specific, syntactic trust boundary,
+    NOT a cryptographic provenance guarantee. Real applications must fetch
+    trusted policy IDs from an authenticated data store, not user text.
     """
-    return set(re.findall(r"(?m)^\[(POL-[A-Za-z0-9-]+)\]\s+", context))
+    if not isinstance(context, str):
+        return set()
+    trusted_section = context.split("[UNTRUSTED-NOTE]", 1)[0]
+    return set(re.findall(r"(?m)^\[(POL-[A-Za-z0-9-]+)\][ \t]+", trusted_section))
 
 
 def safe_output(raw: str, *, context: str) -> GuardDecision:
