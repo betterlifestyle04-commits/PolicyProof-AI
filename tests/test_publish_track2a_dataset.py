@@ -57,7 +57,7 @@ def fake_package(path:Path, *,tamper=False):
 def test_offline_zip_integrity_and_honest_staging(tmp_path):
     original=tmp_path/"test.zip"
     fake_package(original)
-    files=validate_archive(original)
+    files=validate_archive(original,expected_sha256=None)
     assert len(files)==10
     staged=tmp_path/"staged"
     names=stage(files,staged,"cc-by-4.0")
@@ -75,7 +75,7 @@ def test_tampering_fail_closed(tmp_path):
     original=tmp_path/"bad.zip"
     fake_package(original,tamper=True)
     with pytest.raises(ValueError,match="checksum mismatch"):
-        validate_archive(original)
+        validate_archive(original,expected_sha256=None)
 
 
 def test_network_publish_requires_explicit_user_consent_and_auth(monkeypatch):
@@ -98,7 +98,7 @@ def test_publication_rejects_existing_receipt_or_bad_license(tmp_path):
     p=tmp_path/"test.zip"
     fake_package(p)
     with pytest.raises(ValueError,match="Invalid/undecided"):
-        stage(validate_archive(p),tmp_path/"bad-stage","undefined")
+        stage(validate_archive(p,expected_sha256=None),tmp_path/"bad-stage","undefined")
 
 
 class FakeAPI:
@@ -144,7 +144,7 @@ def test_mock_publish_verifies_anonymous_visibility_without_token(tmp_path):
     p=tmp_path/"test.zip"
     fake_package(p)
     staged=tmp_path/"upload"
-    names=stage(validate_archive(p),staged,"cc0-1.0")
+    names=stage(validate_archive(p,expected_sha256=None),staged,"cc0-1.0")
     authorized=FakeAPI()
     public=FakeAPI()
     # Share only simulated public state, never real access credentials.
@@ -161,8 +161,14 @@ def test_no_claim_on_private_repository(tmp_path):
     p=tmp_path/"test.zip"
     fake_package(p)
     staged=tmp_path/"upload"
-    names=stage(validate_archive(p),staged,"cc0-1.0")
+    names=stage(validate_archive(p,expected_sha256=None),staged,"cc0-1.0")
     with pytest.raises(RuntimeError,match="private"):
         publish(staged,names,"demo/project","fake",
                 new_collection=True,api=FakeAPI(public=False),
                 anonymous_api=FakeAPI())
+
+def test_owner_publisher_rejects_any_nonmatching_unverified_zip(tmp_path):
+    p=tmp_path/"unverified.zip"
+    fake_package(p)
+    with pytest.raises(ValueError,match="ZIP hash differs"):
+        validate_archive(p)
