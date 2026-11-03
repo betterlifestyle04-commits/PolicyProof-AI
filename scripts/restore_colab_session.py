@@ -52,7 +52,7 @@ def restore_model_and_data(curated_dir: str | Path, *, expected_gpu="T4"):
     if not torch.cuda.is_available():
         raise RuntimeError("No CUDA GPU. Choose a Colab T4 runtime.")
     gpu = torch.cuda.get_device_name(0)
-    if expected_gpu not in gpu:
+    if expected_gpu is not None and expected_gpu not in gpu:
         raise RuntimeError(f"Expected {expected_gpu} GPU, got {gpu}")
     wrapper = make_training_wrapper(curated_dir)
     if wrapper.model is not None:
