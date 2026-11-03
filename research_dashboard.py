@@ -197,6 +197,32 @@ elif page == "Output guard experiment":
             left.code(raw_by_id.get(chosen_id, "Missing"), language="json")
             right.caption(f"Guarded output · action: {event['action']}")
             right.code(event["raw"], language="json")
+        uncertainty = load_json(ARTIFACTS / "paired_guard_uncertainty.json")
+        with st.expander("Statistical uncertainty and limitations of the 48-case experiment"):
+            st.warning(
+                "This is a previously inspected synthetic development sample. "
+                "Descriptive exact paired p-values do NOT establish real-world safety "
+                "and are not adjusted for multiple comparisons."
+            )
+            if uncertainty:
+                st.dataframe([
+                    {
+                        "Measure": key.replace("_", " ").title(),
+                        "Before": f"{value['raw_before']}/{value['denominator']}",
+                        "After": f"{value['raw_after']}/{value['denominator']}",
+                        "Improved pairs": value["improved_cases"],
+                        "Regressed pairs": value["regressed_cases"],
+                        "Exploratory two-sided p": value["exploratory_exact_mcnemar_two_sided_p"],
+                    }
+                    for key,value in uncertainty["metrics"].items()
+                ], use_container_width=True, hide_index=True)
+                st.caption(
+                    "Only ONE unsupported abstention changed (8/9 to 9/9); "
+                    "its paired exact p-value is 1.00. Schema change is enforced by "
+                    "construction; its small p-value cannot imply better model reasoning."
+                )
+            else:
+                st.info("No optional uncertainty output; build with scripts.build_public_demo.")
         st.download_button(
             "Download exact guarded evaluation JSON",
             data=json.dumps(report, ensure_ascii=False, indent=2),
