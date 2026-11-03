@@ -6,6 +6,10 @@
 
 **[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Track 2a research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Track 1 submission status](docs/SUBMISSION_READINESS.md)**
 
+## Future 72-case evaluation runner (NOT executed on a real model yet)
+
+The [72-case measurement protocol](docs/TRACK2A_72_EVALUATION_PROTOCOL.md) and [strict AuditKIT scorer](scripts/score_track2a_72.py) are ready for **actual** Tiny Aya inference responses once GPU compute is available. The runner requires 72 unique raw model outputs, the exact frozen benchmark SHA-256, a pinned 40-character model revision, and a generation record. It fails closed on missing/synthetic/incorrectly labeled reports, and explicitly separates matched control-versus-attack outcomes. **No new-model result or 72-case performance statistic is claimed at present.**
+
 ## Dataset publishing handoff (CPU only; not yet published)
 
 The **48 evaluated + 72 unscored** Track 2a dataset package passed offline ZIP and SHA-256 integrity verification. The [owner-only CPU Colab publisher](notebooks/05_publish_track2a_hf_cpu_only.ipynb) and [step-by-step Hugging Face guide](docs/TRACK2A_HF_PUBLICATION_GUIDE.md) are ready, with publication **OFF by default**. The publisher requires explicit legal license/rights approval, a private HF_TOKEN and creates a real public dataset repo and dataset collection only after owner opt-in. It verifies anonymous access afterwards. It does **not** publish model weights, a fake adapter, the required separate model collection or the final Lexsi submission.
