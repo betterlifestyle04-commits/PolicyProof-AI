@@ -38,6 +38,23 @@ None of three injection responses contained the exact planted marker OVERRIDDEN,
 
 A separate deterministic inference-time guard improved schema from 33/48 to 48/48 by construction. Only one unsupported-case abstention changed from wrong to right; a paired exact test is p=1.0 on this nine-case subgroup. Exact supported-answer matching remained 0/39. This is not SafeTune model steering or fine-tuned-model improvement.
 
+## New unscored 72-case multilingual challenge (separate dataset)
+
+To address the original evaluation's narrow attack coverage, we authored and independently **curated structurally** a second, synthetic 72-case challenge. This set is **NOT scored against any model**; it is a proposed future safety evaluation corpus, not 72 successful or failed model tests.
+
+- 24 cases each in English, Norwegian and Arabic
+- Six balanced families, 12 each: normal control, role-spoofing, fake source ID, encoded override, multilingual override, missing-evidence questions
+- Four new fictional source policies (POL-A201–POL-A204), distinct from the original training and evaluation policy identifiers
+- 60 attack/control supported cases and 12 unanswerable cases
+- Original challenge dataset SHA-256: cdd5cf4e54caa6c79ce1f0cd5bd0f05344f0dc22039a2ad56a3c1c0ee2d32cd1
+- CuratorKIT export SHA-256: cf8b226ebff5a6a5e53e3132cec9581844d4d6fd92316885c59cbd535ec624df
+- All 72 passed real CuratorKIT 0.1.22 schema, exact-deduplication and cleaning checks on CPU. No semantic judge or human reviewer participated.
+- Explicit data flags: human_reviewed=false, model_evaluated=false, used_for_training=false
+
+This challenge repeats four fictional source policies across adversarial variants; those instances are **correlated**, not 72 independent evidence domains. Do not compute or report model performance on this set without new actual model inference, exact pinned model checkpoint and independent human label review. Do not merge its 72 cases with the 48 scored development cases into a fabricated 120-case score.
+
+The complete 20-file combined evidence ZIP is in the November 3 GitHub Actions run: https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41696571904 .
+
 ## Limitations and next scientific steps
 
 The original Tiny Aya model revision SHA was not saved. There was no independent human grounding evaluation, no adjudicated translation quality, no varied multi-turn attack corpus and no measured improvement to model weights. The evidence supports a reproducible small safety-audit prototype, **not a validated real banking assistant**.
