@@ -2,7 +2,7 @@
 
 ## Automated QA — November 3, 2026
 
-**Latest verified GitHub Actions:** [81 passed, 2 skipped, 0 failed](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41634618707). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, four Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The two skipped test modules require PyTorch. **No GPU training or public deployment is confirmed.**
+**Latest verified GitHub Actions:** [standard suite 81 passed / 2 skipped, plus dedicated PyTorch CPU safety job 7 passed / 0 failed](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, four Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **No live CUDA training or public deployment is confirmed.**
 
 [Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
 
