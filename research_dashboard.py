@@ -87,7 +87,9 @@ elif page == "Dataset explorer":
 
 elif page == "Evaluation runs":
     st.subheader("Recorded evaluation artifacts")
-    runs = sorted(ARTIFACTS.glob("*.json")) if ARTIFACTS.exists() else []
+    # Read original, preserved user-provided model predictions from a nested
+    # archive directory as well as local mock and evaluation run artifacts.
+    runs = sorted(ARTIFACTS.rglob("*.json")) if ARTIFACTS.exists() else []
     outputs = [(f, load_json(f)) for f in runs]
     outputs = [(f, o) for f, o in outputs if isinstance(o, dict) and "metrics" in o and "engine" in o]
     if not outputs:
@@ -115,9 +117,30 @@ elif page == "Evaluation runs":
         stats = m.get("by_language", {})
         if stats:
             st.bar_chart({k: v["strict_accuracy_pct"] for k, v in stats.items()})
+        if engine == "transformers":
+            st.caption(
+                "Preserved model outputs from the owner's Colab run, not independently "
+                "re-inferred here. The original report lacks a model-revision SHA. "
+                "This is a development benchmark, not a final blind evaluation."
+            )
+            if report.get("is_finetuned") is not True:
+                st.info("This is the **unchanged base model**. No trained adapter or improvement is claimed.")
+        if report.get("predictions"):
+            with st.expander("Inspect saved model responses (all fictional policies)"):
+                # Show raw text; never reinterpret missing JSON keys as correct outputs.
+                answers = report["predictions"]
+                st.dataframe(
+                    [{"ID": row.get("id"), "Raw model response": row.get("raw", "")}
+                     for row in answers],
+                    use_container_width=True,
+                    hide_index=True,
+                )
         with st.expander("Raw score rows and file provenance"):
             st.json({"dataset_sha256": report.get("dataset_sha256"),
+                     "model_revision": report.get("model_revision") or "not recorded",
                      "is_real_model_result": report.get("is_real_model_result"),
+                     "is_finetuned": report.get("is_finetuned"),
+                     "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
             st.dataframe(report.get("scores", []), use_container_width=True)
 

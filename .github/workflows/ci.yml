@@ -17,6 +17,36 @@ jobs:
         run: python -m py_compile research_dashboard.py scripts/*.py policyproof/*.py
       - name: Generate synthetic fixtures
         run: python -m scripts.prepare
+      - name: Verify original Tiny Aya baseline on exact saved 48-case split (NO GPU)
+        run: >-
+          python -m scripts.verify_evidence
+          --baseline artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json
+          --dataset data/unseen_policy_test.jsonl
+          --out artifacts/verified_real_baseline.json
+      - name: Replay actual saved baseline predictions through AuditKIT (NO inference)
+        run: >-
+          python -m scripts.auditkit_replay
+          --report artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json
+          --dataset data/unseen_policy_test.jsonl
+          --output artifacts/auditkit_actual_baseline_replay.json
+      - name: Evaluate fail-closed inference-time guard against real recorded baseline
+        run: >-
+          python -m scripts.inference_guard
+          --baseline artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json
+          --dataset data/unseen_policy_test.jsonl
+          --output artifacts/guarded_development_evaluation.json
+      - name: Report release readiness accurately (may be NOT_READY)
+        run: python -m scripts.submission_gate --output artifacts/submission_gate.json
+      - name: Retain real baseline, AuditKIT and output-guard evidence (not model training)
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-real-baseline-cpu-evidence
+          path: |
+            artifacts/verified_real_baseline.json
+            artifacts/auditkit_actual_baseline_replay.json
+            artifacts/guarded_development_evaluation.json
+            artifacts/submission_gate.json
+          retention-days: 30
       - name: Audit provenance, split isolation, and citations
         run: python -m scripts.audit_dataset --data-dir data --output artifacts/dataset-audit.json
       - name: Validate notebook syntax and safe training defaults (NO GPU)
