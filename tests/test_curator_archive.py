@@ -10,8 +10,8 @@ from scripts.verify_curator_archive import check_zip
 
 def make_archive(path, *, malicious=False, tamper=False):
     prompt = (
-        'Return JSON. Answer in English.\\n'
-        'POLICY: [POL-001] A fictional account has no monthly fee.\\n'
+        'Return JSON. Answer in English.\n'
+        'POLICY: [POL-001] A fictional account has no monthly fee.\n'
         'QUESTION: What is the monthly fee?'
     )
     row = {"instruction": prompt, "input": "",
@@ -21,10 +21,10 @@ def make_archive(path, *, malicious=False, tamper=False):
                                       "tool_versions":{"curatorkit":"0.1.22"}}).encode(),
         "lexsi_provenance.json": b'{"library":"curatorkit"}',
         "rejected.jsonl": b"",
-        "sft_alpaca.jsonl": (json.dumps(row)+"\\n").encode(),
-        "sft_sharegpt.jsonl": b'{"conversations":[{"from":"human","value":"hello"}]}\\n',
+        "sft_alpaca.jsonl": (json.dumps(row)+"\n").encode(),
+        "sft_sharegpt.jsonl": b'{"conversations":[{"from":"human","value":"hello"}]}\n',
     }
-    hashes = "".join(hashlib.sha256(value).hexdigest()+"  "+name+"\\n" for name,value in payload.items())
+    hashes = "".join(hashlib.sha256(value).hexdigest()+"  "+name+"\n" for name,value in payload.items())
     payload["checksums.txt"] = hashes.encode()
     if tamper:
         payload["sft_alpaca.jsonl"] += b"corruption"
