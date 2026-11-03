@@ -117,11 +117,20 @@ jobs:
           test -s artifacts/track2a_safety/curator_output/checksums.txt
           test -s artifacts/track2a_safety/track2a_chain_report.json
           test -s artifacts/track2a_safety/auditkit_native_receipt.json
+      - name: Curate new unscored 72-case multilingual attack benchmark (NO MODEL INFERENCE)
+        run: python -m scripts.generate_track2a_challenge --curate --output-dir artifacts/track2a_challenge_unscored
+      - name: Require new 72-case CuratorKIT files and explicit unscored labels
+        run: |
+          test -s artifacts/track2a_challenge_unscored/challenge_v1.jsonl
+          test -s artifacts/track2a_challenge_unscored/challenge_manifest.json
+          test -s artifacts/track2a_challenge_unscored/challenge_curator_output/sft_alpaca.jsonl
+          python -c "import json; x=json.load(open('artifacts/track2a_challenge_unscored/challenge_manifest.json')); assert x['cases']==72 and x['model_predictions_available'] is False and x['independent_human_review'] is False"
       - name: Preserve actual toolkit execution evidence and curated safety benchmark
         uses: actions/upload-artifact@v4
         with:
           name: policyproof-track2a-real-curatorkit-auditkit-20261103
           path: |
             artifacts/track2a_safety/
+            artifacts/track2a_challenge_unscored/
           if-no-files-found: error
           retention-days: 30
