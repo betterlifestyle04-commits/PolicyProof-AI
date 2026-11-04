@@ -101,3 +101,17 @@ def test_judge_page_links_the_unpublished_native_evidence_handoff():
         "checksum-verified ZIP" in item.value
         for item in app.info
     )
+
+
+
+def test_judge_page_honestly_labels_owner_publication_path():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Judge verification").run()
+    assert not app.exception, str(app.exception)
+    assert any(
+        "No publication has been performed" in item.value for item in app.markdown
+    )
+    assert any(
+        "V2 dataset publication instructions" in item.value for item in app.markdown
+    )

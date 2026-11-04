@@ -583,6 +583,17 @@ elif page == "Judge verification":
         "track2a_release_candidate_v2_UNPUBLISHED.zip",
         language="bash",
     )
+    st.markdown(
+        "**Owner-controlled publication handoff:** the new v2 research ZIP now "
+        "has an independent SHA-pinned publishing tool. An actual upload "
+        "requires rights confirmation, an owner-selected license, private "
+        "credentials and real anonymous post-upload verification. "
+        "No publication has been performed."
+    )
+    st.markdown(
+        "[V2 dataset publication instructions]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_V2_PUBLISHING.md)"
+    )
     st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
     st.success(
         "Research verification: CuratorKIT → AuditKIT evaluated the 48 saved Tiny Aya "

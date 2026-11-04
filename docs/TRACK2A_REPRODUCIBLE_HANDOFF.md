@@ -65,3 +65,7 @@ python -m pytest -q tests/test_build_track2a_release_candidate.py
 Unit tests use **temporary, simulated toolkit receipts** to exercise ZIP generation and integrity checks; they are **never counted** as a genuine CuratorKIT/AuditKIT experiment. The separate Track 2a GitHub Actions job actually runs both official tools and then constructs, inspects, and uploads the fresh handoff on every passing run.
 
 The Lexsi deadline is **November 14, 2026, AoE**. This improvement gives us a versioned and reproducible evidence archive; it does not resolve the separate model-collection requirement or the pending official form submission.
+
+## Newly available separate publisher for the v2 candidate (still owner-controlled)
+
+A separate `scripts.publish_track2a_candidate` path has now been prepared for this **new** ZIP format. It never relaxes the historical publisher's SHA pin. It requires the exact new archive digest from trusted CI, explicit owner-selected dataset license and a private write token plus **two explicit publication/rights confirmations** before any upload. It verifies staging and the final published dataset via anonymous readback, including file hashes. **No rights or public release has been approved or performed in this repository.** See [the owner publication instructions](TRACK2A_V2_PUBLISHING.md). The older publisher is still for the original 20-file archive only.
