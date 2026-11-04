@@ -54,6 +54,8 @@ class AnonymousFakeAPI:
         files.mkdir(exist_ok=True)
         (files / "README.md").write_text("---\nlicense: cc-by-4.0\n---\n# Synthetic")
         (files / "PUBLICATION_SCOPE.json").write_text(json.dumps({
+            "selected_license":"cc-by-4.0",
+            "original_archive_checksums_sha256":"a"*64,
             "evaluated_base_model_cases":48,
             "new_unscored_model_cases":72,
             "independent_human_review_completed":False,
@@ -107,6 +109,8 @@ class AnonymousFakeAPI:
         result = self.files / Path(filename).name
         if self.bad_public_scope and filename.endswith("PUBLICATION_SCOPE.json"):
             result.write_text(json.dumps({
+                "selected_license":"cc-by-4.0",
+                "original_archive_checksums_sha256":"a"*64,
                 "evaluated_base_model_cases":48,
                 "new_unscored_model_cases":72,
                 "independent_human_review_completed":True,
@@ -227,3 +231,11 @@ def test_untrusted_fake_collection_items_cannot_claim_publication(tmp_path):
     api.repo_gated = None  # unknown must not silently mean ungated
     with pytest.raises(ValueError, match="gated"):
         verify_anonymous_access(manifest, api=api)
+
+
+
+def test_public_dataset_card_declares_selected_license(tmp_path):
+    manifest = manifest_file(tmp_path)
+    result = verify_anonymous_access(manifest, api=AnonymousFakeAPI(tmp_path))
+    assert result["declared_dataset_license"] == "cc-by-4.0"
+    assert result["dataset_license_rights_independently_verified"] is False
