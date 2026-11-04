@@ -81,3 +81,11 @@ python -m scripts.verify_hf_collections --dataset-only --verify-network
 ```
 
 The second command uses **only anonymous read-only HF requests** and writes a **separate** `artifacts/hf_dataset_only_receipt.json`. It verifies the real dataset repo, dataset collection and research checksums, but marks `model_collection_requirement_verified: false` and `all_collections_public: false`; this **never satisfies** the release gate. After the organizers resolve the model-collection field, run the regular full-mode `--verify-network` check for both collections, and keep the partial receipt as historical evidence. This is a clean separation between verifiable dataset-publication progress and unsettled competition eligibility.
+
+## Stronger complete-file proof and real SDK compatibility (November 4, 2026)
+
+The anonymous verifier now **downloads and SHA-256-checks every entry** in the public `provenance/SHA256SUMS.txt`, not merely five mandatory research files. It caps the number/size of files, rejects unsafe or duplicate paths, refuses missing/undeclared extras (except Hugging Face-managed `.gitattributes`), and uses the same pinned 40-character dataset Git revision for all API reads. For the new v2 package, it additionally requires the **exact known public 15-file inventory** and an explicit 64-character approved source ZIP digest in the public publication scope. The output receipt includes the checked file count, byte count and full public manifest SHA, and cannot open the release gate unless the complete-file check passed.
+
+Following an owner-authorized v2 upload, the publisher also compares that public source ZIP claim to the independently approved original archive digest and checks that the anonymously visible dataset Git SHA **equals the actual uploaded 40-character commit SHA**. A self-consistent but altered public checksum manifest cannot bypass the original source pin. All these checks are still **internal consistency and public-readability evidence, not digital signatures or proof of legal rights**.
+
+A separate CI job installs the **real** `huggingface_hub` SDK and checks its method signatures and collection/repo object attributes **without making HTTP requests**. This closes a mock-only testing gap; successful SDK compatibility tests do not prove any real public repo exists.
