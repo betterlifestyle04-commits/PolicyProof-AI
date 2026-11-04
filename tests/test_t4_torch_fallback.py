@@ -7,7 +7,8 @@ import inspect
 import pytest
 
 from scripts.t4_torch_fallback import (encode_pair, train_existing_t4,
-    normalize_token_ids, preflight_tokenization, known_safe_encoding_retry)
+    normalize_token_ids, preflight_tokenization, known_safe_encoding_retry,
+    training_plan)
 
 
 class FakeTokenizer:
@@ -140,3 +141,56 @@ def test_only_prior_zero_step_tokenizer_typeerror_allows_targeted_retry():
     assert known_safe_encoding_retry({**original, "status": "completed"}) is False
     assert known_safe_encoding_retry({**original, "error": "GPU out of memory"}) is False
     assert known_safe_encoding_retry({**original, "error_type": "RuntimeError"}) is False
+
+
+
+def test_extended_training_uses_only_training_source_split_and_pinned_steps():
+    plan = training_plan(steps=40)
+    assert plan["steps"] == 40
+    assert plan["gradient_accumulation"] == 4
+    assert plan["training_only_validation"] is True
+    assert plan["final_benchmark_or_challenge_used_for_training"] is False
+    train = plan["train_indices"]
+    val = plan["validation_indices"]
+    assert len(train) == 66
+    assert len(val) == 12
+    assert len(set(train)) == 66
+    assert len(set(val)) == 12
+    assert not set(train).intersection(val)
+    assert set(train + val) == set(range(78))
+    assert plan == training_plan(steps=40)
+
+
+def test_existing_ten_step_smoke_uses_all_78_without_validation():
+    plan = training_plan()
+    assert plan["steps"] == 10
+    assert len(plan["train_indices"]) == 78
+    assert plan["validation_indices"] == []
+    assert plan["training_only_validation"] is False
+
+
+@pytest.mark.parametrize("bad_steps", [0, 1, 9, 39, 41, 80, -1, "40", True])
+def test_training_plan_rejects_unapproved_counts(bad_steps):
+    with pytest.raises(ValueError, match="Only 10-step smoke"):
+        training_plan(steps=bad_steps)
+
+
+@pytest.mark.parametrize("rows", [0, 77, 79, "78", True])
+def test_training_plan_never_trains_on_unrecognized_dataset_shape(rows):
+    with pytest.raises(ValueError, match="Exactly 78"):
+        training_plan(rows, steps=40)
+
+
+def test_extended_fallback_reuses_same_preflight_and_optimizer_without_trl():
+    source = inspect.getsource(train_existing_t4)
+    assert "optimizer_steps == 40" in source
+    assert "model_sha" in source
+    assert "train_indices" in source
+    assert "val_indices" in source
+    assert '"policyproof_t4_torch_extended.zip"' in source
+    assert '"artifacts/torch_fallback_qlora_extended"' in source
+    assert "model.eval()" in source
+    assert "torch.no_grad()" in source
+    assert "optimizer.step()" in source
+    assert "trainer.train(" not in source
+    assert "SFTTrainer(" not in source
