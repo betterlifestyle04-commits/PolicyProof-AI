@@ -221,6 +221,12 @@ def _mark_extended_receipt(directory):
     receipt = json.loads(path.read_text())
     receipt.update({
         "optimizer_steps": 40,
+        "loaded_revision_evidence": {
+            "hub_revision_claim": receipt["model_revision"],
+            "loaded_model_revision_observed": receipt["model_revision"],
+            "loaded_model_revision_verified": True,
+            "validation_method": "loaded_config__commit_hash_if_available",
+        },
         "training_plan": {
             "train_indices": plan["train_indices"],
             "validation_indices": plan["validation_indices"],
@@ -266,4 +272,27 @@ def test_extended_adapter_receipt_rejects_false_training_claims(tmp_path, mutati
     _mark_extended_receipt(folder)
     _edit_info(folder, mutation)
     with pytest.raises(ValueError, match=match):
+        inspect_training_directory(folder)
+
+
+
+def test_unobserved_loaded_revision_is_not_misrepresented_as_pinned(tmp_path):
+    folder = _fixture(tmp_path, backend="manual_torch_extended_fallback")
+    _mark_extended_receipt(folder)
+    _edit_info(folder, lambda r: r["loaded_revision_evidence"].update({
+        "loaded_model_revision_observed": None,
+        "loaded_model_revision_verified": False,
+    }))
+    result = inspect_training_directory(folder)
+    assert result["base_revision_pinned"] is False
+    assert result["track1_submission_evidence_candidate"] is False
+
+
+def test_conflicting_observed_loaded_revision_is_rejected(tmp_path):
+    folder = _fixture(tmp_path, backend="manual_torch_extended_fallback")
+    _mark_extended_receipt(folder)
+    _edit_info(folder, lambda r: r["loaded_revision_evidence"].update({
+        "loaded_model_revision_observed": "c"*40,
+    }))
+    with pytest.raises(ValueError, match="conflicts with declared base"):
         inspect_training_directory(folder)
