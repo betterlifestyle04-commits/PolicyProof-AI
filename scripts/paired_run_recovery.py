@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import os
+import re
 from pathlib import Path
 
 from policyproof.core import aggregate, score
@@ -50,16 +51,22 @@ def write_evidence_once(path: Path, content: dict) -> None:
         raise
 
 
-def validate_saved_base(
+def validate_saved_report(
     path: Path, rows: list[dict], *,
     dataset_sha256: str, revision: str,
     generation_config: dict, model_id: str,
+    is_finetuned: bool = False, adapter_sha256: str | None = None,
 ) -> dict:
     """Validate complete raw outputs AND recomputed deterministic scores.
 
     Self-declared GPU provenance cannot be independently authenticated.
     Reusing a base file ALWAYS requires a separate explicit resume flag.
     """
+    if is_finetuned:
+        if not isinstance(adapter_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", adapter_sha256):
+            raise ValueError("Tuned report must reference a complete adapter SHA-256")
+    elif adapter_sha256 is not None:
+        raise ValueError("Untuned base must not reference an adapter")
     path = Path(path)
     if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_BASE_REPORT_BYTES:
         raise ValueError("Missing, symlinked or oversized saved base report")
@@ -74,10 +81,10 @@ def validate_saved_base(
     expected = {
         "engine": "transformers",
         "is_real_model_result": True,
-        "is_finetuned": False,
+        "is_finetuned": is_finetuned,
         "model": model_id,
         "model_revision": revision,
-        "adapter_sha256": None,
+        "adapter_sha256": adapter_sha256,
         "split": "final_candidate_holdout_v1",
         "dataset_sha256": dataset_sha256,
         "generation_config": generation_config,
@@ -126,3 +133,30 @@ def validate_saved_base(
     if report.get("human_semantic_review_completed") is not False:
         raise ValueError("Saved base makes unsupported human semantic claim")
     return report
+
+
+
+def validate_saved_base(
+    path: Path, rows: list[dict], *,
+    dataset_sha256: str, revision: str,
+    generation_config: dict, model_id: str,
+) -> dict:
+    """Backward-compatible, strictly untuned baseline validator."""
+    return validate_saved_report(
+        path, rows, dataset_sha256=dataset_sha256, revision=revision,
+        generation_config=generation_config, model_id=model_id,
+        is_finetuned=False, adapter_sha256=None,
+    )
+
+
+def validate_saved_tuned(
+    path: Path, rows: list[dict], *,
+    dataset_sha256: str, revision: str,
+    generation_config: dict, model_id: str, adapter_sha256: str,
+) -> dict:
+    """Validate existing adapted model predictions; not independently proven GPU inference."""
+    return validate_saved_report(
+        path, rows, dataset_sha256=dataset_sha256, revision=revision,
+        generation_config=generation_config, model_id=model_id,
+        is_finetuned=True, adapter_sha256=adapter_sha256,
+    )
