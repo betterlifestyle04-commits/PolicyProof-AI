@@ -53,3 +53,20 @@ def test_actual_chain_and_challenge_require_public_hf_collections(tmp_path):
 def test_abstract_is_under_500_words():
     path=ROOT/"docs/TRACK2A_SUBMISSION_ABSTRACT.md"
     assert len(path.read_text(encoding="utf-8").split())<500
+
+
+
+def test_owner_entered_verified_flags_without_live_receipt_are_not_publication_proof(tmp_path):
+    """Manual manifest booleans never unlock the release gate."""
+    path = tmp_path / "docs"
+    path.mkdir(parents=True)
+    (path / "hf_publication_manifest.json").write_text(json.dumps({
+        "dataset_url":"https://huggingface.co/datasets/owner/repo",
+        "model_collection_url":"https://huggingface.co/collections/owner/models",
+        "dataset_collection_url":"https://huggingface.co/collections/owner/datasets",
+        "external_access_verified":True,
+        "public_items_ungated_verified":True,
+    }))
+    result = readiness(tmp_path)
+    assert result["ready_to_submit"] is False
+    assert result["checks"]["public_ungated_hf_collections"]["passed"] is False
