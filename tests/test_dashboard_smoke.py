@@ -60,7 +60,7 @@ def test_review_workbench_is_unsigned_and_can_export_blank_packet():
     app = AppTest.from_file(str(dashboard), default_timeout=30).run()
     app.sidebar.radio[0].set_value("Final benchmark review").run()
     assert not app.exception, str(app.exception)
-    assert any("No reviewer has signed it off" in w.message for w in app.warning)
+    assert any("No reviewer has signed it off" in w.value for w in app.warning)
     assert any("Independent reviewers needed" in m.label for m in app.metric)
     assert any("Download blank independent review pack" in b.label for b in app.get("button"))
 
@@ -72,4 +72,4 @@ def test_review_workbench_rejects_invalid_reviewer_identity():
     assert not app.exception, str(app.exception)
     app.text_input[0].set_value("not an anonymous code").run()
     assert not app.exception, str(app.exception)
-    assert any("Reviewer code" in e.message for e in app.error)
+    assert any("Reviewer code" in e.value for e in app.error)
