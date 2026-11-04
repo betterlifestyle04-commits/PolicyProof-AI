@@ -11,7 +11,7 @@
 - 48 saved real-model-labelled Tiny Aya Global development responses; exact dataset checksum and deterministic metrics verified on GitHub Actions.
 - Actual native **AuditKIT 1.1.3** replay against those saved baseline responses; fingerprint \`ae297dd84f990566\`.
 - Fail-closed output schema/citation/abstention guard with real *before-and-after system-level* development metrics, no GPU.
-- An eight-page publicly deployed Streamlit observer with an interactive **synthetic-only** guard playground and separate 48-scored versus 72-unscored safety benchmark explorer; each page is covered by AppTest.
+- A nine-page Streamlit observer with an interactive **synthetic-only** guard playground and separate 48-scored versus 72-unscored safety benchmark explorer; each page is covered by AppTest.
 - **116 passing standard CPU tests, 2 skipped**, plus 7 separate PyTorch CPU safety tests. The real two-toolkit Track 2a job passed independently.
 
 - Real **CuratorKIT 0.1.22 → AuditKIT 1.1.3** chain on the 48 preserved synthetic base-model responses, plus 72 additional CuratorKIT-curated **UNSCORED** multilingual challenge cases (no independent semantic review, no model inference on these 72 cases). Read [Track 2a report](TRACK2A_SAFETY_BENCHMARK_2026-11-03.md) and [alternative abstract](TRACK2A_SUBMISSION_ABSTRACT.md).
@@ -88,3 +88,8 @@ The expected output is 48 evaluated base-model saved responses, 72 synthetic **u
 - [Submission draft](LEXSI_SUBMISSION_DRAFT.md)
 
 If any command fails, report the exact traceback and **do not convert the failure into a green "ready" status**. The benchmark and logs should remain immutable.
+
+
+## New final-candidate human review workbench
+
+The **Final benchmark review** page lets independent reviewers download **blank** per-reviewer CSVs containing all 60 fictional final candidate questions, evidence and proposed labels. It never runs inference or pretends that reviewers have evaluated them. The CLI `python -m scripts.review_holdout --summarize <reviewer_A.csv> <reviewer_B.csv>` detects altered cases, missing judgments, disagreements and negative labels while deliberately withholding sign-off. See [full review workflow](FINAL_REVIEW_WORKFLOW.md). These are workflow and data-integrity improvements, **not** completed human validation.

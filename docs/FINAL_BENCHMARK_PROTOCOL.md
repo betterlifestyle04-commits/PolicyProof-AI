@@ -48,3 +48,8 @@ Have at least **two independent reviewers**, including Norwegian and Arabic lang
 `scripts.validate_final_holdout` checks counts, categorical balance, unique IDs, policy source isolation, reference sources, abstention schema and known training/dev overlap. Its passing status would establish **structural** validity only. It cannot validate bilingual meaning, answer quality, or reviewer independence.
 
 **Do not include the final benchmark in CuratorKIT training, trainer datasets, prompt selection, hyperparameter tuning, checkpoint choice or debugging feedback loops.** The original 48-case baseline is already a **development diagnostic**, not a fresh final holdout.
+
+
+## Independent reviewer tooling (added November 4, 2026)
+
+For a versioned reviewer-specific CSV with complete fictional evidence and proposed labels, use the dashboard's **Final benchmark review** page or `python -m scripts.review_holdout --export reviewer_A`. Independent reviewers record three `yes`/`no` judgments per case and keep the original dataset digest intact. Reconcile two or more completed CSVs using `python -m scripts.review_holdout --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv`. The reconciliation detects missing/negative/disputed judgments and altered source material, **but intentionally never creates a sign-off**. See [full independent-review workflow](FINAL_REVIEW_WORKFLOW.md).
