@@ -173,3 +173,8 @@ Only after genuinely completed independent benchmark review and a hash-verified,
 ### Recovery if real GPU evaluation is interrupted
 
 After a genuine, authorized 60-case paired evaluation begins, the original-base report is now **persisted immediately after a complete base pass**. If adapted-model inference or AuditKIT fails, the base results are preserved. An explicit `--resume-base` rerun can reuse those same outputs **only** after strict revalidation of frozen dataset bytes, pinned revision, generation settings, 60 unique case IDs, raw outputs, scores, and declared inference metadata. The validator rejects corrupt or mismatched evidence and refuses to overwrite any existing result. This capability reduces duplicate GPU work; it is **not evidence that real GPU inference has occurred**. [Recovery instructions](docs/RECOVERABLE_PAIRED_EVALUATION.md).
+
+
+### New: recover CPU AuditKIT without repeating either model pass
+
+The paired evaluator now preserves **both complete original-base and tuned-model raw outputs** before AuditKIT scores them. If scoring fails *after both GPU passes completed*, `python -m scripts.finish_saved_pair` runs a read-only preflight. The explicit `--finalize --confirm-saved-inference` route validates both saved evidence files, the 60-case dataset hash, common pinned model revision, adapter SHA, exact response coverage and recomputed metrics, then reruns native AuditKIT **on CPU without model inference**. It never overwrites prior evidence or claims to have independently verified original GPU execution. See [paired recovery instructions](docs/RECOVERABLE_PAIRED_EVALUATION.md). These paths are CPU-simulated regression tests only; real GPU training and final evaluation are still pending.
