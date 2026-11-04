@@ -75,3 +75,13 @@ def test_review_workbench_rejects_invalid_reviewer_identity():
     app.text_input[0].set_value("not an anonymous code").run()
     assert not app.exception, str(app.exception)
     assert any("Reviewer code" in e.value for e in app.error)
+
+
+
+def test_judge_page_discloses_final_paired_evaluation_blockers():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Judge verification").run()
+    assert not app.exception, str(app.exception)
+    assert any("Frozen base vs adapter evaluation readiness" in x.value for x in app.markdown)
+    assert any("Paired GPU evaluation: BLOCKED" in warning.value for warning in app.warning)
