@@ -524,6 +524,19 @@ elif page == "Judge verification":
         "Review declarations and training receipts require independent verification."
     )
     st.markdown(
+        "**Human review source gate:** a completed-signoff boolean and reviewer "
+        "pseudonyms no longer qualify on their own. The GPU preflight also needs "
+        "the original 60-case reviewer CSVs (SHA-matched, three yes votes per "
+        "case), the exact independently recomputed reconciliation and each "
+        "reviewer's explicit manual approval declaration. No actual review "
+        "is present in this repository."
+    )
+    st.code("python -m scripts.verify_review_provenance", language="bash")
+    st.markdown(
+        "[Private review-source and signoff instructions]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/REVIEW_SOURCE_PROVENANCE.md)"
+    )
+    st.markdown(
         "[Paired inference protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FROZEN_PAIRED_INFERENCE.md)"
     )
