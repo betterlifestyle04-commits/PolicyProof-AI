@@ -163,7 +163,7 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
     except UnicodeError as exc:
         raise ValueError("Published checksum manifest is unreadable") from exc
     for line in lines:
-        match = re.fullmatch(r"([a-f0-9]{64})  ([^\\n]+)", line)
+        match = re.fullmatch(r"([a-f0-9]{64})  (.+)", line)
         if not match or match.group(2) in declared:
             raise ValueError("Published file checksums malformed or duplicated")
         declared[match.group(2)] = match.group(1)
