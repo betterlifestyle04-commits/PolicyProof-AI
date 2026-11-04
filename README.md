@@ -157,3 +157,14 @@ python -m scripts.verify_training_archive --archive path/to/actual_checkpoint.zi
 ```
 
 It checks PEFT `safetensors` layout, LoRA A/B tensors, both file hashes, audited training dataset SHA-256, source commit, self-reported optimizer-step metadata, pinned base model revision and the declared training backend. A manual PyTorch fallback is **not** presented as completed AlignTune training; malformed dummy files no longer satisfy the submission gate. Even a passing check **does not prove genuine optimizer execution or a model-quality improvement**—those require separately verified GPU logs and paired model evaluations. Full instructions: [Training artifact verification](docs/TRAINING_ARTIFACT_VERIFICATION.md). Current project status remains **NOT READY**.
+
+
+## Gated paired base-vs-adapter evaluation (new)
+
+A future completed AlignTune run can now be evaluated against the same **60-case frozen final candidate** through [`scripts.frozen_pair_inference`](scripts/frozen_pair_inference.py). The **default command is CPU-only preflight** and reports missing human-review signoff and a valid adapter without downloading weights or starting model inference:
+
+```bash
+python -m scripts.frozen_pair_inference
+```
+
+Only after genuinely completed independent benchmark review and a hash-verified, 40-character-revision-pinned LoRA adapter are present can an operator explicitly authorize separate real GPU base and adapter predictions with identical prompts and generation parameters, followed by paired AuditKIT scoring. The runner never uses the already inspected 48-case development outputs as the 60-case baseline and does not auto-report improvement. **Neither this feature nor its CPU tests represent completed GPU inference or fine-tuning.** [Read the frozen evaluation runbook](docs/FROZEN_PAIRED_INFERENCE.md).
