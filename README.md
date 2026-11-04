@@ -178,3 +178,17 @@ After a genuine, authorized 60-case paired evaluation begins, the original-base 
 ### New: recover CPU AuditKIT without repeating either model pass
 
 The paired evaluator now preserves **both complete original-base and tuned-model raw outputs** before AuditKIT scores them. If scoring fails *after both GPU passes completed*, `python -m scripts.finish_saved_pair` runs a read-only preflight. The explicit `--finalize --confirm-saved-inference` route validates both saved evidence files, the 60-case dataset hash, common pinned model revision, adapter SHA, exact response coverage and recomputed metrics, then reruns native AuditKIT **on CPU without model inference**. It never overwrites prior evidence or claims to have independently verified original GPU execution. See [paired recovery instructions](docs/RECOVERABLE_PAIRED_EVALUATION.md). These paths are CPU-simulated regression tests only; real GPU training and final evaluation are still pending.
+
+## New — real anonymous Hugging Face publication verification
+
+The benchmark-publisher script already supports **explicit owner-approved** dataset release, but local status flags cannot prove a judge has access. The new [anonymous Hugging Face verification tool](scripts/verify_hf_collections.py) now rejects self-certified flags and checks the **actual** public collection and individual repository access with `token=False`, reads required dataset files at pinned commit revisions, validates their published SHA256SUMS hashes, checks the selected public license, and confirms the actual 48-base / 72-unscored research scope. It creates a timestamped, manifest-checksum-bound verification receipt only on an **explicit** remote call. No publication or credentials are involved:
+
+```bash
+python -m scripts.verify_hf_collections   # completely offline, read-only
+# After real URLs exist and the owner approves anonymous checking:
+python -m scripts.verify_hf_collections --verify-network
+```
+
+`scripts.track2a_readiness` now ignores manually written `external_access_verified` booleans and requires a matching anonymous receipt no older than 72 hours. The public Judge verification page shows this status. **The project currently has no verified public HF collection links, and this work does not publish any artifacts or resolve the benchmark-only model-collection ambiguity.** See [publication check runbook](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).
+
+**Incremental release:** If the benchmark dataset is publicly published before the model-collection question is resolved, `python -m scripts.verify_hf_collections --dataset-only --verify-network` checks that dataset and its dataset collection independently while deliberately preserving **NOT READY** for the official submission. This mode never fabricates or requires a model artifact; it writes a separate partial receipt. [Details](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).

@@ -69,6 +69,16 @@ jobs:
         run: |
           python -m scripts.frozen_pair_inference
           python -m scripts.finish_saved_pair
+      - name: Verify Hugging Face release links are not self-certified (NO NETWORK)
+        run: |
+          python -m scripts.verify_hf_collections
+          python -m scripts.verify_hf_collections --dataset-only
+          python - <<'PY'
+          from scripts.track2a_readiness import readiness
+          result = readiness()
+          assert result["checks"]["public_ungated_hf_collections"]["passed"] is False
+          assert result["ready_to_submit"] is False
+          PY
           python - <<'PY'
           from scripts.frozen_pair_inference import build_preflight
           report=build_preflight()

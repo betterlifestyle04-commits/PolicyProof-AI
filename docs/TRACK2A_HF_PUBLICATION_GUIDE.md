@@ -50,3 +50,7 @@ The 72 extra challenge questions have **never been answered by the model**, and 
 - Hugging Face collections: https://huggingface.co/docs/huggingface_hub/package_reference/collections
 
 **Last day to submit: November 14, 2026 (AoE).** No official Lexsi submission has yet been confirmed.
+
+## After publication: verify public readability without an owner token
+
+The explicit publishing process above is separate from **read-only independent-access verification**. Enter the real dataset repo, dataset collection and relevant model collection URLs in `docs/hf_publication_manifest.json`. Run `python -m scripts.verify_hf_collections` for an offline URL preflight, then (after obtaining approval) `python -m scripts.verify_hf_collections --verify-network` to check anonymous public/ungated access and published source-file checksums. **Do not set a boolean to true to bypass this check.** The verifier does not upload or change a Hugging Face artifact and its receipt does not establish license rights or compliance with the model-collection requirement. See [full runbook](HF_ANONYMOUS_PUBLICATION_CHECKS.md).

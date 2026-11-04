@@ -10,6 +10,7 @@ import argparse
 import json
 
 from policyproof.core import ROOT
+from scripts.verify_hf_collections import receipt_is_current
 
 
 def readiness(root:Path=ROOT) -> dict:
@@ -56,24 +57,21 @@ def readiness(root:Path=ROOT) -> dict:
         "passed":docs,
         "details":"Track 2a research report and alternative abstract in repository"
     }
+    # NEVER trust booleans manually entered into the publication manifest.
+    # A separate, recent, anonymous HF Hub API verification receipt is
+    # required and must bind exactly to the current manifest SHA256/links.
+    # Such a receipt is still not a signed third-party proof or organizer approval.
     manifest=root/"docs/hf_publication_manifest.json"
-    public=False
-    if manifest.is_file():
-        try:
-            m=json.loads(manifest.read_text(encoding="utf-8"))
-            cols=("model_collection_url","dataset_collection_url")
-            public=(
-                all(isinstance(m.get(k),str)
-                    and m[k].startswith("https://huggingface.co/collections/")
-                    for k in cols)
-                and m.get("external_access_verified") is True
-                and m.get("public_items_ungated_verified") is True
-            )
-        except (OSError,ValueError,TypeError):
-            pass
+    receipt=root/"artifacts/hf_anonymous_access_receipt.json"
+    public=receipt_is_current(receipt,manifest)
     checks["public_ungated_hf_collections"]={
         "passed":bool(public),
-        "details":"Official form asks for public/ungated model AND dataset collections; externally verified access required"
+        "details":(
+            "Recent anonymous HF API receipt matches exact manifest SHA, "
+            "actual model/dataset collection membership, public ungated repos, "
+            "and downloaded 48/72 research-file provenance; publication "
+            "and Track 2a model collection relevance still require human review"
+        )
     }
     mandatory=("real_curatorkit_and_auditkit_chain",
                "unscored_challenge_curated","public_research_writeup",
