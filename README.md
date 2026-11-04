@@ -2,7 +2,7 @@
 
 ## Public research dashboard
 
-**[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with eight tested pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
+**[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with nine tested pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
 
 **[Judge walkthrough](docs/JUDGE_QUICKSTART.md)** · **[Track 2a research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)** · **[Guard experiment](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md)** · **[Track 1 submission status](docs/SUBMISSION_READINESS.md)**
 
@@ -24,7 +24,7 @@ The **48 evaluated + 72 unscored** Track 2a dataset package passed offline ZIP a
 
 ## Automated QA — November 3, 2026
 
-**Latest expanded CPU QA:** [135 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41706273198) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, eight Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
+**Previously verified CPU QA:** [135 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41706273198) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, nine Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
 
 [Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
 
@@ -141,3 +141,8 @@ See [Research Protocol](docs/RESEARCH_PROTOCOL.md) and [Submission Readiness](do
 ## Resource preflight
 
 Run `python -m scripts.preflight` to inspect Python, installed ML packages, CUDA device availability and whether an HF environment token exists (never its value). The optional `--strict` flag exits nonzero when prerequisites are missing. A passing preflight does **not** verify Hugging Face gated-license acceptance or compute credit balance.
+
+
+## Independent final-holdout review packets (CPU only)
+
+The dashboard's **Final benchmark review** page now prepares downloadable, independent reviewer CSVs for the 60-case fictional final candidate. Each CSV contains the proposed gold labels, original source evidence, three empty yes/no judgment fields per case, the dataset hash and a reviewer pseudonym, but **no model predictions**. Two or more reviewers can complete separate CSVs and reconcile them offline with `python -m scripts.review_holdout --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv`. The validator detects missing, negative, inconsistent and duplicate judgments and changes to the frozen source/gold data. Even unanimous agreement **never** automatically generates a human sign-off or claims semantic accuracy. See [the independent-review protocol](docs/FINAL_REVIEW_WORKFLOW.md). The candidate currently remains **unreviewed**.
