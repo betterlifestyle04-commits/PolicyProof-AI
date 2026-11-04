@@ -123,3 +123,17 @@ def test_no_test_inference_can_enter_submission_outputs():
     assert not (ROOT/"artifacts"/"final_base_inference.json").exists()
     assert not (ROOT/"artifacts"/"final_tuned_inference.json").exists()
     assert not (ROOT/"artifacts"/"paired_auditkit.json").exists()
+
+
+
+def test_rejects_duplicate_signoff_keys_even_when_last_value_claims_complete(tmp_path):
+    path = tmp_path / "double.json"
+    path.write_text(
+        '{"review_complete":false,"review_complete":true,'
+        '"dataset_file":"data/final_holdout_v1.jsonl",'
+        '"dataset_sha256":"' + "a" * 64 + '",'
+        '"reviewers":["reviewer_A","reviewer_B"]}',
+        encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="Invalid review signoff JSON"):
+        verify_review_signoff(path, "a" * 64)
