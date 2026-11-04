@@ -227,3 +227,9 @@ The 60-case candidate cannot enter final base-vs-adapter GPU evaluation merely b
 
 
 For human-reviewed final benchmark signoff, `scripts.prepare_review_signoff` can generate a **private unsigned draft only** from completed, unanimously reconciled CSVs, leaving every approval field false. Nothing in CI performs actual human review or creates a completed signoff. [Instructions](docs/REVIEW_SOURCE_PROVENANCE.md).
+
+## Next GPU milestone: real 40-step Tiny Aya QLoRA training
+
+The model **has not yet completed a real GPU training run**. Alongside the 10-step integration smoke, the repository now offers an explicit **40-step direct-PyTorch QLoRA fallback** on an existing AlignTune-loaded quantized Tiny Aya model. It uses 66 of the 78 original CuratorKIT training-only samples for optimizer steps and 12 for internal validation-loss diagnostics. It never trains on the 48/60/72 evaluation sets. There is a separate checkpoint archive `policyproof_t4_torch_extended.zip`, with loss logs, exact base revision, and file checksum-verifiable adapter metadata. **No automatic training or GPU budget allocation occurs in CI.** A real T4/P100 Colab or Kaggle runtime is required; model improvement must be measured separately.
+
+[Open the GPU execution instructions](docs/GPU_TRAINING_NEXT_STEPS.md) · [Colab training notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/03_aligntune_qlora_t4.ipynb) · [Kaggle fallback notebook](notebooks/04_kaggle_gpu_fallback.ipynb).

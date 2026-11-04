@@ -38,10 +38,10 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(f"{path} cell {i}: output execution counter committed")
         if cell.get("outputs"):
             raise ValueError(f"{path} cell {i}: cell outputs committed")
-        if re.search(r"(?m)^\s*RUN_(?:TRAINING|TORCH_FALLBACK)\s*=\s*True\b", source):
+        if re.search(r"(?m)^\s*RUN_(?:TRAINING|TORCH_FALLBACK|EXTENDED_TRAINING)\s*=\s*True\b", source):
             raise ValueError(f"{path} cell {i}: automatic training is enabled")
         for flag in re.findall(
-            r"(?m)^\s*(RUN_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD)\s*=\s*False\b",
+            r"(?m)^\s*(RUN_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD|RUN_EXTENDED_TRAINING)\s*=\s*False\b",
             source,
         ):
             opt_in_flags.add(flag)
@@ -61,8 +61,8 @@ def validate_notebook(path: Path) -> dict:
     if code_cells < 3:
         raise ValueError(f"{path}: insufficient executable example cells")
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
-        if "RUN_TRAINING" not in opt_in_flags:
-            raise ValueError(f"{path}: training must default OFF")
+        if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
+            raise ValueError(f"{path}: smoke and extended training must both default OFF")
     return {"file": str(path), "cells": len(notebook["cells"]), "code_cells": code_cells,
             "magic_lines": magics, "training_flags_off": sorted(opt_in_flags),
             "syntax_verified": True, "executed": False}
