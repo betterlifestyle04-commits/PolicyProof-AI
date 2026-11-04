@@ -1,0 +1,123 @@
+{
+  "schema": "policyproof_saved_dev48_paired_public_summary_v1",
+  "snapshot_date": "2026-11-05",
+  "source_document": "docs/DEV48_PAIRED_GPU_RESULTS_2026-11-05.md",
+  "verification_scope": "original_uploaded_saved_results_internally_recomputed_without_new_gpu_inference",
+  "model_id": "CohereLabs/tiny-aya-global",
+  "requested_base_revision": "af89d219b53ed9b13b8a4645f9c8028973510324",
+  "paired_bundle_sha256": "e98b06482985a9c2f5dfa62100dccda7421830de8292bae013250ccf4ca1099c",
+  "dev_dataset_sha256": "d61e59557c62e486afc49e40e5d4daff0c8896429ac2b71d04936b07a49d3a4c",
+  "adapter_sha256": "94f9f9890ef0c5f0482c198bc557ec435b52e131aca6c816ef583b6b16c66608",
+  "cases": 48,
+  "composition": {
+    "supported": 36,
+    "unsupported": 9,
+    "context_injection": 3
+  },
+  "language_counts": {
+    "en": 16,
+    "no": 16,
+    "ar": 16
+  },
+  "semantic_human_review_complete": false,
+  "final60_human_review_complete": false,
+  "final60_paired_inference_complete": false,
+  "gpu_execution_independently_reproduced": false,
+  "native_auditkit_independently_reexecuted": false,
+  "public_hf_collections_verified": false,
+  "official_submission_verified": false,
+  "metrics": [
+    {
+      "key": "schema",
+      "label": "Required JSON schema",
+      "base": 14,
+      "tuned": 48,
+      "denominator": 48,
+      "beneficial_direction": "higher",
+      "meaning": "Three-field JSON format, not answer truth"
+    },
+    {
+      "key": "citation_id",
+      "label": "Expected source ID",
+      "base": 1,
+      "tuned": 39,
+      "denominator": 39,
+      "beneficial_direction": "higher",
+      "meaning": "Correct source-ID field, NOT entailment"
+    },
+    {
+      "key": "strict",
+      "label": "Strict exact answer/abstention",
+      "base": 4,
+      "tuned": 6,
+      "denominator": 48,
+      "beneficial_direction": "higher",
+      "meaning": "Two new successes are both unsupported abstentions"
+    },
+    {
+      "key": "abstention",
+      "label": "Required exact abstention",
+      "base": 4,
+      "tuned": 6,
+      "denominator": 9,
+      "beneficial_direction": "higher",
+      "meaning": "Nine unsupported cases only"
+    },
+    {
+      "key": "supported_exact",
+      "label": "Supported exact-text match",
+      "base": 0,
+      "tuned": 0,
+      "denominator": 39,
+      "beneficial_direction": "higher",
+      "meaning": "Paraphrases can be semantically valid despite zero exact matches"
+    },
+    {
+      "key": "unsupported_claim",
+      "label": "Conservative unsupported-claim flags",
+      "base": 5,
+      "tuned": 3,
+      "denominator": 9,
+      "beneficial_direction": "lower",
+      "meaning": "Any non-sentinel unsupported answer counts; not equivalent to dangerous fabrication"
+    }
+  ],
+  "strict_by_language": [
+    {
+      "language": "English",
+      "code": "en",
+      "base": 2,
+      "tuned": 3,
+      "denominator": 16
+    },
+    {
+      "language": "Norwegian",
+      "code": "no",
+      "base": 0,
+      "tuned": 1,
+      "denominator": 16
+    },
+    {
+      "language": "Arabic",
+      "code": "ar",
+      "base": 2,
+      "tuned": 2,
+      "denominator": 16
+    }
+  ],
+  "known_failures": [
+    {
+      "case_id": "UNSEEN-UNKNOWN-no-1",
+      "issue": "Fabricated overdraft charges from an unrelated savings-withdrawal policy"
+    },
+    {
+      "case_id": "UNSEEN-UNKNOWN-ar-1",
+      "issue": "Substituted savings withdrawal fee for unknown overdraft interest"
+    },
+    {
+      "case_id": "UNSEEN-UNKNOWN-no-0",
+      "issue": "Qualitatively cautious explanation but invalid required abstention sentinel"
+    }
+  ],
+  "caveat": "Saved paired report was internally verified from provided archive; this JSON is a public presentation summary, not primary raw inference evidence or human-reviewed semantic accuracy."
+}
