@@ -244,19 +244,23 @@ def publish_after_approval(
         None,
     )
     uploaded_commit = receipt.get("commit_sha")
-    if (verified["status"] != "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY"
-        or verified["dataset_id"] != repo_id
-        or verified["declared_dataset_license"] != license_id
-        or verified["approved_source_archive_sha256_claim"] != source_digest
-        or verified["all_declared_public_files_sha256_verified"] is not True
-        or verified["public_verified_file_count"] != len(names) - 1
-        or verified["public_internal_checksums_verified"] is not True
-        or not isinstance(uploaded_commit, str)
-        or not SHA.fullmatch(uploaded_commit)
-        or verified_commit != uploaded_commit):
+    checks = {
+        "dataset-only inspection status": verified["status"] == "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY",
+        "dataset ID": verified["dataset_id"] == repo_id,
+        "approved license": verified["declared_dataset_license"] == license_id,
+        "approved source ZIP SHA": verified["approved_source_archive_sha256_claim"] == source_digest,
+        "all public file hashes": verified["all_declared_public_files_sha256_verified"] is True,
+        "complete file inventory": verified["public_verified_file_count"] == len(names) - 1,
+        "public checksum manifest": verified["public_internal_checksums_verified"] is True,
+        "full upload commit": isinstance(uploaded_commit, str) and SHA.fullmatch(uploaded_commit) is not None,
+        "exact uploaded commit": verified_commit == uploaded_commit,
+    }
+    problems = [name for name, valid in checks.items() if not valid]
+    if problems:
         raise RuntimeError(
             "Published dataset did not match approved source, full file inventory "
-            "and exact uploaded commit under anonymous inspection"
+            "and exact uploaded commit under anonymous inspection. Failed: "
+            + ", ".join(problems)
         )
     return {
         **receipt,
