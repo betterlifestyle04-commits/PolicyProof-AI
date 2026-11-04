@@ -576,6 +576,25 @@ elif page == "Judge verification":
         "and confirmation about the mandatory model-collection field for a benchmark-only entry. "
         "The official Lexsi submission has not been completed."
     )
+    from scripts.track2a_readiness import readiness as hf_readiness
+    track2a = hf_readiness(ROOT)
+    st.caption(
+        "Track 2a release gate: " + track2a["status"] +
+        ". Owner-entered link-verification flags alone are never proof."
+    )
+    st.dataframe(
+        [
+            {"Requirement": key.replace("_", " ").title(),
+             "Status": "Evidence present" if item["passed"] else "BLOCKED",
+             "Scope": item["details"]}
+            for key, item in track2a["checks"].items()
+        ],
+        width="stretch", hide_index=True,
+    )
+    st.markdown(
+        "[Anonymous Hugging Face publication verification]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md)"
+    )
     st.markdown(
         "[Actual two-toolkit CI evidence](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41697842205)"
         " · [Track 2a research report](https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)"
