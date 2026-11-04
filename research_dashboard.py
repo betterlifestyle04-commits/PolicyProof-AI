@@ -546,6 +546,21 @@ elif page == "Judge verification":
             "status: " + pair_gate["status"]
         )
         st.markdown(
+            "**If both original and tuned model passes completed, but AuditKIT failed:** "
+            "preserve both raw report files. The CPU-only re-audit can finish "
+            "without loading either model again. It is also blocked until the "
+            "frozen benchmark review and checkpoint prerequisites are genuine."
+        )
+        st.code(
+            "python -m scripts.finish_saved_pair "
+            "--finalize --confirm-saved-inference",
+            language="bash",
+        )
+        st.caption(
+            "Only complete, source-matched saved inference files are accepted. "
+            "This CPU replay cannot independently authenticate the original GPU logs."
+        )
+        st.markdown(
             "[Full recovery protocol]"
             "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/RECOVERABLE_PAIRED_EVALUATION.md)"
         )
