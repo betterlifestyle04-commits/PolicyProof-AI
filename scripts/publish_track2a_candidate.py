@@ -151,6 +151,17 @@ def validate_public_staging(
         raise ValueError("Unexpected public dataset inventory")
     if not folder.is_dir() or folder.is_symlink():
         raise ValueError("Public stage directory missing or symlinked")
+    # upload_folder publishes EVERY file under this folder, so verifying only
+    # expected names would allow an injected extra file (even a credential).
+    # Require the actual on-disk file inventory to equal the allow-list.
+    tree = list(folder.rglob("*"))
+    if any(item.is_symlink() for item in tree):
+        raise ValueError("Public stage cannot contain symlinks")
+    actual_files = {
+        item.relative_to(folder).as_posix() for item in tree if item.is_file()
+    }
+    if actual_files != allowed:
+        raise ValueError("Public stage contains missing or unexpected files")
     result = {}
     for name in names:
         file = folder / name
