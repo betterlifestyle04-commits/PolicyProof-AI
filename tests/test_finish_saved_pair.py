@@ -220,3 +220,18 @@ def test_cpu_replay_uses_real_auditkit_on_synthetic_test_fixtures(monkeypatch, t
     assert receipt["offline_replayed_from_saved_predictions"] is True
     assert receipt["verified_human_semantic_improvement"] is False
     assert receipt["gpu_executed_in_this_process"] is False
+
+
+
+def test_cpu_replay_rejects_nonfinite_json_evidence(monkeypatch, tmp_path):
+    pack = fixture_pack(monkeypatch, tmp_path)
+    *_, base, tuned, paired = pack
+    original, adapted = reports(pack)
+    write_evidence_once(base, original)
+    # Python's JSON parser accepts non-standard Infinity/NaN by default;
+    # our recovery parser must refuse them even in unrelated extra fields.
+    raw = json.dumps(adapted).replace('"project":', '"untrusted":NaN,"project":', 1)
+    tuned.write_text(raw, encoding="utf-8")
+    with pytest.raises(ValueError, match="ambiguous JSON"):
+        finish_saved_pair(tmp_path, tmp_path / "adapter", base, tuned, paired)
+    assert not paired.exists()
