@@ -68,6 +68,18 @@ def main():
             page.screenshot(path=str(ARTIFACTS/"guard_spoof_rejected.png"),full_page=True)
             print("Interactive forged-policy citation was rejected",flush=True)
 
+            sidebar.get_by_text("Final benchmark review",exact=True).first.click()
+            page.get_by_text("Final benchmark — independent human review packs", exact=False).first.wait_for()
+            page.get_by_text("No reviewer has signed it off", exact=False).first.wait_for()
+            page.get_by_role(
+                "button", name="Download blank independent review pack (CSV)"
+            ).wait_for()
+            page.screenshot(
+                path=str(ARTIFACTS/"review_workbench_not_signed_off.png"),
+                full_page=True
+            )
+            print("Independent reviewer pack available; no signoff claimed",flush=True)
+
             sidebar.get_by_text("Judge verification",exact=True).first.click()
             page.get_by_text(re.compile(r"Submission gate: NOT READY")).first.wait_for()
             page.screenshot(path=str(ARTIFACTS/"submission_gate_not_ready.png"),full_page=True)
