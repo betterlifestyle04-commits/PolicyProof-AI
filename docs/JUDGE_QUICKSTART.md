@@ -107,3 +107,8 @@ Run `python -m scripts.frozen_pair_inference` without any flags from a clean che
 ## Reproducible recovery of the original model pass
 
 The 60-case paired GPU runner now writes the complete original-base output **before** attempting the adapted-model inference. Its explicit `--resume-base` mode checks that saved file's provenance, 60-case coverage, dataset SHA, model revision, decoding settings, and recomputed deterministic metrics; invalid files are rejected before any GPU call. This is protection against wasting scarce GPU time if loading the adapter fails, **not** proof of successful model training or inference in the current repository. See [the interruption-safe evaluation guide](RECOVERABLE_PAIRED_EVALUATION.md).
+
+
+### Recovery of a completed base and tuned run without additional GPU time
+
+Both full original and tuned 60-case model reports are persisted **before** native AuditKIT scoring in the guarded GPU runner. If that CPU scoring stage alone fails, `python -m scripts.finish_saved_pair` displays the prerequisite check without execution. After independently checking the previous inference logs, the explicit `--finalize --confirm-saved-inference` flags validate both saved files, matching dataset/model/adapter metadata and original per-case metrics before repeating only the CPU AuditKIT comparison. The paired receipt marks `offline_replayed_from_saved_predictions=true` and `gpu_executed_in_this_process=false`. No verified GPU evaluation exists yet. [Protocol](RECOVERABLE_PAIRED_EVALUATION.md).
