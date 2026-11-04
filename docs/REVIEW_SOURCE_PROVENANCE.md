@@ -41,6 +41,17 @@ Get-FileHash reviews/reviewer_B.csv -Algorithm SHA256
 Get-FileHash reviews/reconciliation.json -Algorithm SHA256
 ```
 
+**Optional private signoff draft (still unsigned):** After both real reviewers finish their CSVs and the reconciliation is unanimously affirmative, you can avoid manually copying the hashes by generating a local draft:
+
+```bash
+python -m scripts.prepare_review_signoff \\
+  --review-csvs reviews/reviewer_A.csv reviews/reviewer_B.csv \\
+  --reconciliation reviews/reconciliation.json \\
+  --output reviews/signoff_draft.json
+```
+
+This checks the original source files and reconciliation, writes a **new private draft only**, and deliberately sets `review_complete: false`, every `approved: false`, every independence/blinding declaration to `false`, and competence lists to `[]`. It does **not** update the existing signoff or make any claim that people reviewed the benchmark. Actual humans must approve and fill the declarations themselves before the completed signoff can be placed in `docs/`.
+
 5. After independent human adjudication and *actual* approval, manually populate the **existing** `docs/final_benchmark_review_signoff.json`, keeping the exact frozen benchmark hash. The example below is a **schema example with placeholders, not approval evidence**:
 
 ```json
