@@ -190,3 +190,5 @@ python -m scripts.verify_hf_collections --verify-network
 ```
 
 `scripts.track2a_readiness` now ignores manually written `external_access_verified` booleans and requires a matching anonymous receipt no older than 72 hours. The public Judge verification page shows this status. **The project currently has no verified public HF collection links, and this work does not publish any artifacts or resolve the benchmark-only model-collection ambiguity.** See [publication check runbook](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).
+
+**Incremental release:** If the benchmark dataset is publicly published before the model-collection question is resolved, `python -m scripts.verify_hf_collections --dataset-only --verify-network` checks that dataset and its dataset collection independently while deliberately preserving **NOT READY** for the official submission. This mode never fabricates or requires a model artifact; it writes a separate partial receipt. [Details](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).
