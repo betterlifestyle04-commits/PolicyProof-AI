@@ -38,10 +38,10 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(f"{path} cell {i}: output execution counter committed")
         if cell.get("outputs"):
             raise ValueError(f"{path} cell {i}: cell outputs committed")
-        if re.search(r"(?m)^\s*RUN_(?:TRAINING|TORCH_FALLBACK|EXTENDED_TRAINING)\s*=\s*True\b", source):
+        if re.search(r"(?m)^\s*RUN_(?:TRAINING|TORCH_FALLBACK|EXTENDED_TRAINING|DEV48_GPU_EVAL|CPU_AUDIT_RECOVERY)\s*=\s*True\b", source):
             raise ValueError(f"{path} cell {i}: automatic training is enabled")
         for flag in re.findall(
-            r"(?m)^\s*(RUN_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD|RUN_EXTENDED_TRAINING)\s*=\s*False\b",
+            r"(?m)^\s*(RUN_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD|RUN_EXTENDED_TRAINING|RUN_DEV48_GPU_EVAL|RUN_CPU_AUDIT_RECOVERY)\s*=\s*False\b",
             source,
         ):
             opt_in_flags.add(flag)
@@ -63,6 +63,10 @@ def validate_notebook(path: Path) -> dict:
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
+    if path.name == "06_dev48_pair_eval_t4.ipynb" and not {
+        "RUN_DEV48_GPU_EVAL", "RUN_CPU_AUDIT_RECOVERY"
+    }.issubset(opt_in_flags):
+        raise ValueError(f"{path}: paired GPU inference and CPU audit must default OFF")
     return {"file": str(path), "cells": len(notebook["cells"]), "code_cells": code_cells,
             "magic_lines": magics, "training_flags_off": sorted(opt_in_flags),
             "syntax_verified": True, "executed": False}
