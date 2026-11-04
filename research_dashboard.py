@@ -38,7 +38,7 @@ st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
 st.warning("No verified model fine-tuning or safety improvement yet. All policies are fictional and benchmark questions are synthetic.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Safety benchmark", "Output guard experiment", "Try the output guard", "Judge verification", "Protocol & next steps"]
+pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Safety benchmark", "Output guard experiment", "Try the output guard", "Final benchmark review", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -419,6 +419,83 @@ elif page == "Try the output guard":
                 "from source IDs. This syntactic boundary alone cannot authenticate "
                 "real documents; production applications must use trusted storage."
             )
+
+elif page == "Final benchmark review":
+    import csv
+    from io import StringIO
+    from policyproof.core import sha256
+    from scripts.review_holdout import (
+        HEADERS as REVIEW_HEADERS, check_reviewer_code, make_review_pack
+    )
+    from scripts.validate_final_holdout import validate_final_holdout
+
+    st.subheader("Final benchmark — independent human review packs")
+    st.warning(
+        "PENDING: the 60-case candidate has proposed, unreviewed labels. "
+        "No reviewer has signed it off, and no model has been evaluated on "
+        "this candidate. Never use it for tuning or iterate on it after seeing model outputs."
+    )
+    try:
+        integrity = validate_final_holdout()
+        cases = jsonl(DATA / "final_holdout_v1.jsonl")
+        digest = sha256(DATA / "final_holdout_v1.jsonl")
+        a, b, c = st.columns(3)
+        a.metric("Candidate cases", len(cases))
+        b.metric("Languages", "English · Norwegian · Arabic")
+        c.metric("Independent reviewers needed", "At least 2")
+        st.caption("Frozen candidate SHA-256: " + digest)
+        st.caption("Structural validation only: " + integrity["status"])
+        st.markdown(
+            "Reviewers should independently assess the **proposed gold answers**, "
+            "translation fidelity and question ambiguity using the **fictional source "
+            "evidence** in their downloaded CSV. It contains **no model predictions**."
+        )
+        reviewer_code = st.text_input(
+            "Anonymous reviewer code (2–40 letters, digits, underscores or hyphens)",
+            value="reviewer_01",
+            help="Each independent reviewer must use a different pseudonym; do not enter personal information.",
+        )
+        try:
+            check_reviewer_code(reviewer_code)
+        except ValueError as exc:
+            st.error(str(exc))
+        else:
+            pack = make_review_pack(cases, digest, reviewer_code)
+            buffer = StringIO()
+            writer = csv.DictWriter(buffer, fieldnames=REVIEW_HEADERS)
+            writer.writeheader()
+            writer.writerows(pack)
+            st.download_button(
+                "Download blank independent review pack (CSV)",
+                data=buffer.getvalue().encode("utf-8-sig"),
+                file_name=f"policyproof_holdout_review_{reviewer_code}.csv",
+                mime="text/csv",
+            )
+            st.caption(
+                "60 cases × 3 yes/no checks. Leave blank until independently judged; "
+                "do not change the case text, source evidence, proposed labels or SHA."
+            )
+        st.markdown("**After reviewers finish, reconcile offline:**")
+        st.code(
+            "python -m scripts.review_holdout --summarize "
+            "reviews/reviewer_A.csv reviews/reviewer_B.csv "
+            "--output artifacts/human_review_reconciliation.json",
+            language="bash",
+        )
+        st.info(
+            "The reconciliation identifies missing decisions, disagreements and "
+            "negative judgments. Even unanimous approval does not automatically "
+            "verify reviewer identity, sign the benchmark or complete training."
+        )
+        st.markdown(
+            "[Human review protocol]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FINAL_REVIEW_WORKFLOW.md)"
+        )
+    except (ValueError, OSError, KeyError) as exc:
+        st.error(
+            "The frozen benchmark failed integrity checks. No review pack will be "
+            "offered until the source data is repaired and versioned."
+        )
 
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
