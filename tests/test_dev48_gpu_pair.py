@@ -206,18 +206,57 @@ def test_complete_gpu_flow_is_explicit_and_preserves_base_on_second_stage_failur
         dev.execute_pair(root,z,stamp,base,tuned,paired,resume_base=True)
 
 
+def write_bundle_fixture(root,rows):
+    outputs=make_outputs(rows)
+    base=dev.make_dev_report(
+        rows,outputs,revision="a"*40,data_sha=dev.DEV_SHA,
+        adapter_sha=None,zip_sha="d"*64,
+        gpu={"gpu":"SIMULATED_TEST_NOT_REAL_GPU"},
+    )
+    tuned=dev.make_dev_report(
+        rows,outputs,revision="a"*40,data_sha=dev.DEV_SHA,
+        adapter_sha="c"*64,zip_sha="d"*64,
+        gpu={"gpu":"SIMULATED_TEST_NOT_REAL_GPU"},
+    )
+    paired={
+        "status":"paired_deterministic_audit",
+        "sample_count":48,
+        "evaluation_checksum":dev.DEV_SHA,
+        "split":dev.SPLIT,
+        "is_final_blind_test":False,
+        "is_model_improvement_semantically_verified":False,
+        "base_model_revision_loaded_on_inference":"a"*40,
+        "adapter_sha256":"c"*64,
+        "training_zip_sha256":"d"*64,
+        "not_comparable_to_historical_unpinned_48_base":True,
+    }
+    paths=[root/"base.json",root/"tuned.json",root/"paired.json"]
+    for file,record in zip(paths,(base,tuned,paired)):
+        file.write_text(json.dumps(record),encoding="utf-8")
+    return paths
+
+
 def test_bundling_results_is_exclusive_and_checksums_original_files(tmp_path):
-    paths=[]
-    for i in range(3):
-        file=tmp_path/f"report_{i}.json"
-        file.write_text(json.dumps({"dummy":i}),encoding="utf-8")
-        paths.append(file)
+    root,rows=fake_root(tmp_path)
+    paths=write_bundle_fixture(root,rows)
     dest=tmp_path/"dev48_pair.zip"
     result=dev.create_results_bundle(*paths,dest)
     assert result["files"]==4
     assert result["sha256"]==dev.digest(dest)
     with ZipFile(dest) as z:
         manifest=json.loads(z.read("BUNDLE_MANIFEST.json"))
+        assert len(manifest["files_sha256"])==3
     assert manifest["final_blind_evaluation"] is False
     with pytest.raises(FileExistsError):
         dev.create_results_bundle(*paths,dest)
+
+
+def test_forged_pair_metadata_cannot_be_packaged_as_proven_evaluation(tmp_path):
+    root,rows=fake_root(tmp_path)
+    paths=write_bundle_fixture(root,rows)
+    paired=json.loads(paths[2].read_text())
+    paired["is_final_blind_test"]=True
+    paths[2].write_text(json.dumps(paired))
+    with pytest.raises(ValueError,match="not a complete internally consistent"):
+        dev.create_results_bundle(*paths,tmp_path/"do_not_create.zip")
+    assert not (tmp_path/"do_not_create.zip").exists()
