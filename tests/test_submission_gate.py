@@ -59,3 +59,33 @@ def test_abstract_is_less_than_500_words_and_does_not_claim_finished_training():
     assert len(body.split()) < 500
     assert "no model-training success" in body
     assert "48 outputs" in body
+
+
+
+def test_fake_nonempty_weights_and_completed_metadata_fail_train_gate(tmp_path):
+    """An arbitrary nonempty file plus 'completed' must not satisfy release checks."""
+    import hashlib
+    import json
+
+    adapter = tmp_path / "artifacts" / "phony" / "adapter"
+    adapter.mkdir(parents=True)
+    weights = adapter / "adapter_model.safetensors"
+    weights.write_bytes(b"definitely not safetensors")
+    config = adapter / "adapter_config.json"
+    config.write_text('{"peft_type":"LORA","r":16}', encoding="utf-8")
+    run = adapter.parent / "run_info.json"
+    run.write_text(json.dumps({
+        "status":"completed", "optimizer_steps":10,
+        "model":"CohereLabs/tiny-aya-global", "examples":78,
+        "dataset_sha256":"4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c",
+        "trainer_backend":"aligntune_wrapper",
+        "model_revision":"a"*40, "code_commit":"b"*40,
+        "adapter_sha256": {
+            weights.name: hashlib.sha256(weights.read_bytes()).hexdigest()
+        },
+        "adapter_config_sha256":hashlib.sha256(config.read_bytes()).hexdigest(),
+    }))
+    state=evaluate_readiness(tmp_path)
+    assert state["checks"]["adapter_artifact_integrity"]["passed"] is False
+    assert state["checks"]["trained_adapter"]["passed"] is False
+    assert state["ready_for_submission"] is False

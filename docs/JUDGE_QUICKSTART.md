@@ -93,3 +93,7 @@ If any command fails, report the exact traceback and **do not convert the failur
 ## New final-candidate human review workbench
 
 The **Final benchmark review** page lets independent reviewers download **blank** per-reviewer CSVs containing all 60 fictional final candidate questions, evidence and proposed labels. It never runs inference or pretends that reviewers have evaluated them. The CLI `python -m scripts.review_holdout --summarize <reviewer_A.csv> <reviewer_B.csv>` detects altered cases, missing judgments, disagreements and negative labels while deliberately withholding sign-off. See [full review workflow](FINAL_REVIEW_WORKFLOW.md). These are workflow and data-integrity improvements, **not** completed human validation.
+
+## Offline adapter evidence gate (no GPU)
+
+For a future genuine AlignTune output ZIP, judges can inspect the structural hashes and provenance fields using `python -m scripts.verify_training_archive --archive /path/to/archive.zip --strict-track1`. This does not invoke Tiny Aya and **cannot independently prove training occurred**. A manual PyTorch fallback remains non-equivalent to finished AlignTune training. The submission validator also rejects arbitrary nonempty files presented as PEFT checkpoints. See [checkpoint verification guide](TRAINING_ARTIFACT_VERIFICATION.md). No public trained adapter exists at the time of this update.

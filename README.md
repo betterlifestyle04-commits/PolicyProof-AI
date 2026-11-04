@@ -146,3 +146,14 @@ Run `python -m scripts.preflight` to inspect Python, installed ML packages, CUDA
 ## Independent final-holdout review packets (CPU only)
 
 The dashboard's **Final benchmark review** page now prepares downloadable, independent reviewer CSVs for the 60-case fictional final candidate. Each CSV contains the proposed gold labels, original source evidence, three empty yes/no judgment fields per case, the dataset hash and a reviewer pseudonym, but **no model predictions**. Two or more reviewers can complete separate CSVs and reconcile them offline with `python -m scripts.review_holdout --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv`. The validator detects missing, negative, inconsistent and duplicate judgments and changes to the frozen source/gold data. Even unanimous agreement **never** automatically generates a human sign-off or claims semantic accuracy. See [the independent-review protocol](docs/FINAL_REVIEW_WORKFLOW.md). The candidate currently remains **unreviewed**.
+
+## New: verify any future fine-tuning adapter without a GPU
+
+The public source now includes a **CPU-only checkpoint verifier**. After a genuine Colab/Kaggle training attempt produces an adapter ZIP, run:
+
+```bash
+python -m scripts.verify_training_archive --archive path/to/actual_checkpoint.zip
+python -m scripts.verify_training_archive --archive path/to/actual_checkpoint.zip --strict-track1
+```
+
+It checks PEFT `safetensors` layout, LoRA A/B tensors, both file hashes, audited training dataset SHA-256, source commit, self-reported optimizer-step metadata, pinned base model revision and the declared training backend. A manual PyTorch fallback is **not** presented as completed AlignTune training; malformed dummy files no longer satisfy the submission gate. Even a passing check **does not prove genuine optimizer execution or a model-quality improvement**—those require separately verified GPU logs and paired model evaluations. Full instructions: [Training artifact verification](docs/TRAINING_ARTIFACT_VERIFICATION.md). Current project status remains **NOT READY**.
