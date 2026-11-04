@@ -133,6 +133,41 @@ def training_plan(total_rows=78, *, steps=10, seed=42):
     }
 
 
+def check_loaded_revision(model, requested_sha):
+    """Inspect model config revision metadata, not merely live HF model_info().
+
+    A remote model_info SHA alone does NOT establish which weights were loaded.
+    Unknown metadata may still permit research training but is clearly marked
+    as unverified. Conflicting loaded revisions fail closed.
+    """
+    observed = set()
+    objects = [model]
+    visited = set()
+    for _ in range(5):
+        next_level = []
+        for obj in objects:
+            if obj is None or id(obj) in visited:
+                continue
+            visited.add(id(obj))
+            config = getattr(obj, "config", None)
+            revision = getattr(config, "_commit_hash", None)
+            if isinstance(revision, str) and len(revision) == 40:
+                observed.add(revision)
+            for attr in ("base_model", "model"):
+                inner = getattr(obj, attr, None)
+                if inner is not obj and inner is not None:
+                    next_level.append(inner)
+        objects = next_level
+    if len(observed) > 1 or (observed and requested_sha not in observed):
+        raise RuntimeError("Loaded model configuration revision differs from requested Hugging Face base SHA")
+    return {
+        "hub_revision_claim": requested_sha,
+        "loaded_model_revision_observed": next(iter(observed), None),
+        "loaded_model_revision_verified": len(observed) == 1,
+        "validation_method": "loaded_config__commit_hash_if_available",
+    }
+
+
 def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None,
                       optimizer_steps=10):
     import torch
@@ -162,6 +197,15 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     tokenizer = getattr(trainer, "tokenizer", None)
     if not isinstance(model, PeftModel) or tokenizer is None:
         raise RuntimeError("Existing PEFT model and tokenizer are required")
+    loaded_revision = (
+        check_loaded_revision(model, model_sha) if optimizer_steps == 40
+        else {"loaded_model_revision_verified": False,
+              "loaded_model_revision_observed": None}
+    )
+    if optimizer_steps == 40 and not loaded_revision["loaded_model_revision_verified"]:
+        print("WARNING: Exact revision of loaded model weights is not exposed "
+              "by config._commit_hash; training may run, but base revision "
+              "cannot be independently pinned from this artifact.", flush=True)
     if trainer.config.model.name_or_path != "CohereLabs/tiny-aya-global":
         raise RuntimeError("Unexpected loaded model")
     if getattr(trainer, "train_dataset", None) is None or len(trainer.train_dataset) != 78:
@@ -308,6 +352,7 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             "training_only_validation_losses": validation_losses,
             "model": "CohereLabs/tiny-aya-global",
             "model_revision": model_sha, "gpu": gpu,
+            "loaded_revision_evidence": loaded_revision,
             "examples": 78, "dataset_sha256": checked["dataset_sha256"],
             "optimizer_steps": finished, "gradient_accumulation": 4,
             "learning_rate": 2e-4, "max_length": 1024,
