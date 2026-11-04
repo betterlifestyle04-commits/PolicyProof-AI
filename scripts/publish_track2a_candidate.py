@@ -159,7 +159,7 @@ def validate_public_staging(
         result[name] = file.read_bytes()
     if sum(len(v) for v in result.values()) > 25_000_000:
         raise ValueError("Public stage exceeds size limit")
-    if b"license: " + license_id.encode() + b"\\n" not in result["README.md"]:
+    if b"license: " + license_id.encode() + b"\n" not in result["README.md"]:
         raise ValueError("Stage README license does not match approved license")
     try:
         scope = json.loads(result["provenance/PUBLICATION_SCOPE.json"].decode("utf-8"))
