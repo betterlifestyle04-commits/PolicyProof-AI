@@ -300,8 +300,10 @@ def execute_gpu_pair(
     )
     if sha256(root / FINAL_REL) != digest:
         raise ValueError("Frozen evaluation dataset changed during tuned pass")
-    # Do not persist a misleading paired result if either complete inference
-    # report or actual AuditKIT precomputed replay fails.
+    # Preserve the COMPLETE tuned pass before AuditKIT. If the CPU audit
+    # fails, both completed model passes remain available for a separate
+    # guarded, GPU-free re-audit. Neither pass alone claims paired success.
+    write_evidence_once(tuned_output, tuned_report)
     from scripts.auditkit_compare import comparison
     paired = comparison(base_report, tuned_report, rows, digest)
     paired["generation_config"] = dict(GENERATION)
@@ -310,7 +312,6 @@ def execute_gpu_pair(
     paired["tuned_gpu_executed_in_this_process"] = True
     paired["resumed_existing_base_pass"] = resume_base
     paired["semantics_independently_reviewed"] = False
-    write_evidence_once(tuned_output, tuned_report)
     write_evidence_once(paired_output, paired)
     return {
         "status": "PAIRED_GPU_INFERENCE_AND_AUDITKIT_COMPLETED",
