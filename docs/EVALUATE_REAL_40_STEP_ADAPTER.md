@@ -32,6 +32,25 @@ Upload exactly `policyproof_t4_torch_extended.zip`, with the digest shown above.
 
 The notebook refuses source mismatch, an unsupported backend, bad LoRA tensor geometry, changed adapter file hashes, incorrect optimizer-step claims, or an altered ZIP. Avoid renaming or repacking the archive to make a hash check pass.
 
+**Colab file-location note:** Section 1 changes your working directory to `/content/PolicyProof-AI`. Colab's `files.upload()` saves into that current directory, **not necessarily** `/content`. The corrected Section 3 searches the current directory, project directory and `/content` for the exact **SHA256-matched original** ZIP. If your file already uploaded and you saw `FileNotFoundError: /content/policyproof_t4_torch_extended.zip`, you do **not** need to reupload or restart. Rerun Section 3 of the **updated notebook**, or in the already-open notebook run:
+
+```python
+from pathlib import Path
+from scripts.verify_training_archive import digest
+locations = [
+    Path.cwd() / "policyproof_t4_torch_extended.zip",
+    Path("/content/PolicyProof-AI/policyproof_t4_torch_extended.zip"),
+    Path("/content/policyproof_t4_torch_extended.zip"),
+]
+found = [p for p in dict.fromkeys(locations) if p.is_file()]
+assert found, "Original uploaded ZIP not found; inspect Colab Files"
+ARCHIVE = next((p for p in found if digest(p) == EXPECTED_ZIP_SHA), None)
+assert ARCHIVE is not None, "Found ZIPs, but none match the approved source SHA"
+print("CHECKPOINT VERIFIED:", ARCHIVE)
+```
+
+Then continue to Section 4; the earlier failed file-read did not load a model or consume training steps.
+
 ## 4. Run cell 4: generate the fixed development rows and read-only preflight
 
 The notebook runs `python -m scripts.prepare`, reconstructing the original 48 synthetic development prompts from public fictional policies, with exact file SHA256:
