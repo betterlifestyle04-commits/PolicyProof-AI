@@ -527,6 +527,28 @@ elif page == "Judge verification":
         "[Paired inference protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FROZEN_PAIRED_INFERENCE.md)"
     )
+    with st.expander("Recover interrupted paired GPU evaluation", expanded=False):
+        st.markdown(
+            "If the full 60-case base pass completed but tuned inference later failed, "
+            "the base predictions are now saved before the tuned pass. "
+            "Resume is **never automatic**: first inspect the original notebook "
+            "logs and ensure the benchmark, human signoff, adapter and settings "
+            "are unchanged. The validator rejects corrupt or inconsistent evidence."
+        )
+        st.code(
+            "python -m scripts.frozen_pair_inference "
+            "--execute --confirm-review --confirm-gpu-run --resume-base",
+            language="bash",
+        )
+        st.caption(
+            "This is an instructional command, NOT a model run or claim "
+            "that the current benchmark has been reviewed. Current preflight "
+            "status: " + pair_gate["status"]
+        )
+        st.markdown(
+            "[Full recovery protocol]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/RECOVERABLE_PAIRED_EVALUATION.md)"
+        )
     st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
     st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
     st.success(
