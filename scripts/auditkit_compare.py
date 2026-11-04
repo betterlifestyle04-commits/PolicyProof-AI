@@ -22,6 +22,23 @@ def validate_pair(base: dict, candidate: dict, rows: list[dict], checksum: str):
         raise ValueError("Model IDs mismatch")
     if not candidate.get("adapter_sha256"):
         raise ValueError("Missing actual adapter SHA; not reproducible")
+    # The new final candidate must never be scored as a paired experiment
+    # if different base revisions, decoding rules, or splits were used.
+    # Historical development artifacts predating these fields are unaffected.
+    if (base.get("split") == "final_candidate_holdout_v1" or
+        candidate.get("split") == "final_candidate_holdout_v1"):
+        import re
+        if (base.get("split") != candidate.get("split") or
+            not isinstance(base.get("model_revision"), str) or
+            not re.fullmatch(r"[0-9a-f]{40}", base["model_revision"]) or
+            base["model_revision"] != candidate.get("model_revision")):
+            raise ValueError("Final paired model revisions/splits are not identical and pinned")
+        cfg = base.get("generation_config")
+        if not isinstance(cfg, dict) or not cfg or cfg != candidate.get("generation_config"):
+            raise ValueError("Final paired model generation settings differ or are missing")
+        if (not isinstance(candidate.get("adapter_sha256"), str) or
+            not re.fullmatch(r"[0-9a-f]{64}", candidate["adapter_sha256"])):
+            raise ValueError("Full 64-hex SHA-256 adapter digest required for final pairing")
     b = check_saved_outputs(base, rows, checksum)
     c = check_saved_outputs(candidate, rows, checksum)
     # Prediction order does not matter: the saved reports may be in different
