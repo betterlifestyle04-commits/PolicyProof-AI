@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256 as hashlib_sha256
 import json
 from pathlib import Path
 import subprocess
@@ -67,6 +68,11 @@ class AnonymousFakeAPI:
                 "id":f"C{i}", "model_evaluated":False,
                 "human_reviewed":False, "used_for_training":False,
             }) + "\n" for i in range(72)
+        ))
+        (files / "SHA256SUMS.txt").write_text("".join(
+            hashlib_sha256((files / Path(fn).name).read_bytes()).hexdigest()
+            + "  " + fn + "\n"
+            for fn in REQUIRED_DATASET_FILES if fn != "provenance/SHA256SUMS.txt"
         ))
         self.files = files
 
