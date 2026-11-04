@@ -14,7 +14,7 @@ python -m scripts.frozen_pair_inference
 The default command performs **no model download, model inference, checkpoint mutation, GPU work or publishing**. It checks:
 
 - Frozen 60-case integrity, multilingual balance, source-policy isolation and SHA-256.
-- An explicitly signed-off final human gold-label review tied to the exact dataset SHA, listing at least two distinct reviewer pseudonyms. It **cannot** independently verify reviewer identity, competence or correctness.
+- An explicitly completed human-review declaration tied to the exact dataset SHA, **supported by all 60 rows from each of at least two distinct reviewer CSVs, exact file hashes, independently recomputed reconciliation, no negative/incomplete votes, and each reviewer's declared approval**. It still **cannot** independently verify actual human identity, action, independence, language competence or semantic correctness.
 - A full-size LoRA adapter with the verified Tiny Aya tensor geometry, SHA-256 receipts, 78-row CuratorKIT training hash, declared completed AlignTune training backend and a pinned full 40-character base-model revision. This remains **artifact consistency and self-reported training**, not independently observed GPU work.
 
 Today it correctly prints `"status": "BLOCKED"`. DO NOT change or forge signoff/adapter files to make it pass. See [human reviewer process](FINAL_REVIEW_WORKFLOW.md) and [adapter verification](TRAINING_ARTIFACT_VERIFICATION.md).
@@ -69,3 +69,8 @@ The runner now saves the **complete 60-case original-base report as soon as orig
 ## CPU-only recovery after a failed AuditKIT comparison
 
 The first and second **complete** 60-case model passes are now persisted separately, before the AuditKIT comparison. If the model passes finish but AuditKIT fails, **do not reload Tiny Aya**: run `python -m scripts.finish_saved_pair` to inspect the current read-only preflight, then (only after checking the original GPU logs and artifacts) opt in with `python -m scripts.finish_saved_pair --finalize --confirm-saved-inference`. This loads and rigorously validates saved full raw-prediction files, the frozen dataset digest, original revision, tuned adapter SHA and deterministic scorers, before performing native AuditKIT precomputed scoring on CPU. It never executes inference and will not overwrite existing outputs. See [the recovery runbook](RECOVERABLE_PAIRED_EVALUATION.md). **No real paired GPU model comparison has yet occurred in this project.**
+
+
+### Source review proof is mandatory, not optional
+
+For the exact private reviewer-file checks, reconciliation record and signoff schema, see [source-linked review provenance](REVIEW_SOURCE_PROVENANCE.md). A bare signoff JSON with `review_complete: true` and two arbitrary codes is rejected. The default repository correctly remains blocked; no review forms have been filled on the reviewers' behalf.
