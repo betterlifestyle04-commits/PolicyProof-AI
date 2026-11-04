@@ -8,3 +8,6 @@ artifacts/
 checkpoints/
 models/
 .cache/
+
+# Private source-linked human review files; do not publish reviewer responses
+reviews/
