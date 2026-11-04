@@ -278,9 +278,9 @@ def test_every_declared_extra_public_file_is_fetched_and_hashed(tmp_path):
     extra.write_text("Additional public research provenance must be verified too.")
     path = "docs/supplementary_provenance.txt"
     api.additional_public_files.append(path)
-    manifest_file = api.files / "SHA256SUMS.txt"
-    manifest_file.write_text(
-        manifest_file.read_text()
+    checksums_path = api.files / "SHA256SUMS.txt"
+    checksums_path.write_text(
+        checksums_path.read_text()
         + hashlib_sha256(extra.read_bytes()).hexdigest() + "  " + path + "\n"
     )
     report = verify_anonymous_access(manifest, api=api)
@@ -288,7 +288,7 @@ def test_every_declared_extra_public_file_is_fetched_and_hashed(tmp_path):
     assert report["public_verified_file_count"] == len(REQUIRED_DATASET_FILES)
     assert ("hf_hub_download", path, False) in api.calls
     assert report["public_checksum_manifest_sha256"] == hashlib_sha256(
-        manifest_file.read_bytes()
+        checksums_path.read_bytes()
     ).hexdigest()
     assert report["public_verified_bytes"] > 0
     assert (tmp_path/"receipt.json").exists() is False
