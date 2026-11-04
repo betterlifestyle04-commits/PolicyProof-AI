@@ -282,3 +282,32 @@ def test_publication_refuses_license_changed_after_stage(tmp_path):
             api=fake, anonymous_api=fake,
         )
     assert fake.calls == []
+
+
+
+def test_extra_file_or_symlink_cannot_be_accidentally_published(tmp_path):
+    archive, digest = candidate(tmp_path)
+    directory = tmp_path / "preview"
+    preview = stage_approved_candidate(
+        archive, directory, license_id="cc-by-4.0", expected_digest=digest,
+    )
+    fake = LocalOnlyHub()
+    injected = directory / "secrets.txt"
+    injected.write_text("FAKE_CREDENTIAL_DO_NOT_PUBLISH", encoding="utf-8")
+    with pytest.raises(ValueError, match="unexpected files"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc-by-4.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )
+    injected.unlink()
+    (directory / "untrusted_link").symlink_to(archive)
+    with pytest.raises(ValueError, match="symlinks"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc-by-4.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )
+    assert fake.calls == []
