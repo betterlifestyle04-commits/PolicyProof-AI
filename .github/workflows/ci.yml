@@ -65,6 +65,20 @@ jobs:
         run: python -m scripts.validate_notebooks
       - name: Validate independent 60-case final candidate (NO inference)
         run: python -m scripts.validate_final_holdout
+      - name: Confirm no human review signoff can be fabricated in CI
+        run: |
+          python -m scripts.verify_review_provenance
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.frozen_pair_inference import FINAL_REL, SIGNOFF_REL, verify_review_signoff
+          from policyproof.core import ROOT, sha256
+          original = json.loads((ROOT / SIGNOFF_REL).read_text())
+          assert original["review_complete"] is False
+          assert original["review_evidence"] is None
+          assert not (ROOT / "reviews").exists()
+          assert sha256(ROOT / FINAL_REL)
+          PY
       - name: Confirm paired final evaluation remains GPU-free during CI
         run: |
           python -m scripts.frozen_pair_inference
