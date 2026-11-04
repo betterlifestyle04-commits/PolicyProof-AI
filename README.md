@@ -192,3 +192,18 @@ python -m scripts.verify_hf_collections --verify-network
 `scripts.track2a_readiness` now ignores manually written `external_access_verified` booleans and requires a matching anonymous receipt no older than 72 hours. The public Judge verification page shows this status. **The project currently has no verified public HF collection links, and this work does not publish any artifacts or resolve the benchmark-only model-collection ambiguity.** See [publication check runbook](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).
 
 **Incremental release:** If the benchmark dataset is publicly published before the model-collection question is resolved, `python -m scripts.verify_hf_collections --dataset-only --verify-network` checks that dataset and its dataset collection independently while deliberately preserving **NOT READY** for the official submission. This mode never fabricates or requires a model artifact; it writes a separate partial receipt. [Details](docs/HF_ANONYMOUS_PUBLICATION_CHECKS.md).
+
+## New: reproducible, unpublished Track 2a research handoff
+
+Every passing **real CuratorKIT → AuditKIT CPU** GitHub Actions job now assembles an **unpublished, locally verifiable Track 2a ZIP** from its actual toolkit outputs and the repository's saved Tiny Aya baseline report. This prevents our handoff from depending exclusively on an older, separately pinned 20-file archive.
+
+The bundle includes the original **48 evaluated** synthetic development cases, the **72 separately unscored** synthetic adversarial cases, native CuratorKIT and AuditKIT receipts, source/curator exports, a research-only card, a strict "not published / no license / no trained model" status and full file checksums. It uses deterministic file ordering and archive metadata, validates real original-model scores, and refuses unsafe filenames or evidence claims.
+
+To inspect without extracting or publishing:
+
+```bash
+python -m scripts.build_track2a_release_candidate \
+  --inspect track2a_release_candidate_v2_UNPUBLISHED.zip
+```
+
+Get the ZIP from the `policyproof-track2a-real-curatorkit-auditkit-20261103` artifact of a **passing main-branch CI run**, or reproduce it locally with the documented CPU toolkit commands. The older hash-pinned owner publication script **intentionally does not accept** this new release candidate until its contents and licensing are independently approved. This improvement is **not** a Hugging Face upload, model fine-tune, new model inference, or official submission. [Read the reproducibility and release protocol](docs/TRACK2A_REPRODUCIBLE_HANDOFF.md).

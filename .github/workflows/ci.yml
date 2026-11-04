@@ -150,6 +150,14 @@ jobs:
         run: |
           python -m scripts.track2a_readiness --output artifacts/track2a_safety/track2a_readiness.json
           python -c "import json; r=json.load(open('artifacts/track2a_safety/track2a_readiness.json')); assert r['status']=='RESEARCH_READY_HF_PUBLICATION_BLOCKED' and r['ready_to_submit'] is False"
+      - name: Build unpublished, checksum-verified Track 2a research handoff (NO LICENSE / NO UPLOAD)
+        run: |
+          python -m scripts.build_track2a_release_candidate
+          python -m scripts.build_track2a_release_candidate --build \
+            --output artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
+          python -m scripts.build_track2a_release_candidate \
+            --inspect artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
+          test -s artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
       - name: Preserve actual toolkit execution evidence and curated safety benchmark
         uses: actions/upload-artifact@v4
         with:
@@ -157,6 +165,7 @@ jobs:
           path: |
             artifacts/track2a_safety/
             artifacts/track2a_challenge_unscored/
+            artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
           if-no-files-found: error
           retention-days: 30
 

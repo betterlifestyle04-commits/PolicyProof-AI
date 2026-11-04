@@ -85,3 +85,19 @@ def test_judge_page_discloses_final_paired_evaluation_blockers():
     assert not app.exception, str(app.exception)
     assert any("Frozen base vs adapter evaluation readiness" in x.value for x in app.markdown)
     assert any("Paired GPU evaluation: BLOCKED" in warning.value for warning in app.warning)
+
+
+
+def test_judge_page_links_the_unpublished_native_evidence_handoff():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Judge verification").run()
+    assert not app.exception, str(app.exception)
+    assert any(
+        "Reproducible, unpublished Track 2a evidence handoff" in item.value
+        for item in app.markdown
+    )
+    assert any(
+        "checksum-verified ZIP" in item.value
+        for item in app.info
+    )
