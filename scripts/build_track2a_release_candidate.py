@@ -158,8 +158,10 @@ def validate_contents(files: dict[str, bytes]) -> dict:
         files["evaluated_48/original_saved_tiny_aya_base_model_predictions.json"],
         "original saved baseline",
     )
-    if original.get("is_finetuned") is not False or original.get("model_revision") is not None:
-        raise ValueError("Original base-model revision or tuned claim altered")
+    if (original.get("is_finetuned") is not False
+        or original.get("model_revision") is not None
+        or original.get("model") != "CohereLabs/tiny-aya-global"):
+        raise ValueError("Original base-model revision, identity or tuned claim altered")
     mapped = check_saved_outputs(original, original_rows, base_sha)
     scores = [score(row, mapped[row["id"]]) for row in original_rows]
     totals = aggregate(scores)
@@ -189,6 +191,8 @@ def validate_contents(files: dict[str, bytes]) -> dict:
 
     report = _json_bytes(files["evaluated_48/curator_audit_chain_report.json"], "chain")
     audit = _json_bytes(files["evaluated_48/auditkit_native_receipt.json"], "AuditKIT")
+    exporter_input = files["evaluated_48/curator_input.jsonl"]
+    match_curated(original_rows, _jsonl_bytes(exporter_input, "original CuratorKIT input"))
     export = files["evaluated_48/curator_export.jsonl"]
     match_curated(original_rows, _jsonl_bytes(export, "original CuratorKIT export"))
     curator_sha = _checksum(export)
@@ -199,6 +203,10 @@ def validate_contents(files: dict[str, bytes]) -> dict:
         or report.get("dataset_sha256") != base_sha
         or any(report.get(k) != v for k, v in PINNED_TOOLKITS.items())
         or report["curation"].get("export_sha256") != curator_sha
+        or report["curation"].get("input_sha256") != _checksum(exporter_input)
+        or report["curation"].get("manifest_sha256") != _checksum(
+            files["evaluated_48/curator_manifest.json"]
+        )
         or report["curation"].get("accepted") != 48
         or report["curation"].get("label_and_case_id_integrity_verified") is not True
         or report.get("human_labels_independently_reviewed") is not False
