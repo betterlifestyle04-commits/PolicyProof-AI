@@ -158,6 +158,23 @@ jobs:
           python -m scripts.build_track2a_release_candidate \
             --inspect artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
           test -s artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
+      - name: Verify new Track 2a publisher remains consent-gated and offline
+        run: |
+          digest=$(sha256sum artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip | cut -d' ' -f1)
+          python -m scripts.publish_track2a_candidate \
+            --archive artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip \
+            --expected-archive-sha256 "$digest" \
+            > artifacts/track2a_safety/publisher_v2_offline_preflight.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/track2a_safety/publisher_v2_offline_preflight.json").read_text())
+          assert report["status"] == "SOURCE_ZIP_VERIFIED_WAITING_OWNER_LICENSE"
+          assert report["huggingface_upload_performed"] is False
+          assert report["staged_for_upload"] is False
+          assert report["new_gpu_inference_executed"] is False
+          assert report["official_lexsi_submission_completed"] is False
+          PY
       - name: Preserve actual toolkit execution evidence and curated safety benchmark
         uses: actions/upload-artifact@v4
         with:
