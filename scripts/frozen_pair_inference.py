@@ -24,6 +24,7 @@ import subprocess
 from policyproof.core import ROOT, aggregate, make_prompt, read_jsonl, score, sha256
 from scripts.validate_final_holdout import validate_final_holdout
 from scripts.verify_training_archive import inspect_training_directory
+from scripts.paired_run_recovery import validate_saved_base, write_evidence_once
 
 MODEL_ID = "CohereLabs/tiny-aya-global"
 GENERATION = {"do_sample": False, "num_beams": 1, "max_new_tokens": 160}
@@ -235,49 +236,85 @@ def make_report(rows: list[dict], predictions: dict[str, str], *,
 
 def execute_gpu_pair(
     root: Path, adapter: Path, base_output: Path, tuned_output: Path,
-    paired_output: Path,
+    paired_output: Path, *, resume_base: bool = False,
 ) -> dict:
     preflight = build_preflight(root, adapter)
     if preflight["status"] != "READY_FOR_EXPLICIT_GPU_EXECUTION":
         raise ValueError("Refusing GPU inference: " + json.dumps(preflight["checks"]))
-    paths = [base_output.resolve(), tuned_output.resolve(), paired_output.resolve()]
-    if len(set(paths)) != 3 or any(path.exists() for path in paths):
-        raise FileExistsError("Output paths overlap or already exist; cannot overwrite evidence")
+    root = Path(root).resolve()
+    adapter = Path(adapter).resolve()
+    base_output, tuned_output, paired_output = (
+        Path(base_output).resolve(), Path(tuned_output).resolve(),
+        Path(paired_output).resolve(),
+    )
+    paths = [base_output, tuned_output, paired_output]
+    if len(set(paths)) != 3:
+        raise ValueError("Base, tuned and paired output paths must differ")
     protected = {
-        (Path(root) / FINAL_REL).resolve(), (Path(root) / SIGNOFF_REL).resolve(),
+        (root / FINAL_REL).resolve(), (root / SIGNOFF_REL).resolve(),
         (adapter / "run_info.json").resolve(),
+        (adapter / "adapter" / "adapter_model.safetensors").resolve(),
+        (adapter / "adapter" / "adapter_config.json").resolve(),
     }
     if any(path in protected for path in paths):
         raise ValueError("Output path would overwrite input evidence")
-    rows = read_jsonl(Path(root) / FINAL_REL)
+    if tuned_output.exists() or paired_output.exists():
+        raise FileExistsError(
+            "Tuned or paired result already exists; inspect it, never overwrite evidence"
+        )
+    if resume_base:
+        if not base_output.is_file():
+            raise FileNotFoundError("--resume-base requires an existing complete base report")
+    elif base_output.exists():
+        raise FileExistsError(
+            "Base result already exists. Use --resume-base after inspecting it, "
+            "or choose new output paths."
+        )
+    rows = read_jsonl(root / FINAL_REL)
     digest = preflight["dataset_sha256"]
     revision = preflight["base_revision"]
-    base, base_gpu = _predict_on_gpu(rows, revision)
-    tuned, tuned_gpu = _predict_on_gpu(rows, revision, adapter_directory=adapter / "adapter")
-    base_report = make_report(
-        rows, base, digest=digest, revision=revision, adapter_sha=None,
-        gpu_details=base_gpu,
+    if sha256(root / FINAL_REL) != digest:
+        raise ValueError("Frozen evaluation dataset changed after preflight")
+    if resume_base:
+        base_report = validate_saved_base(
+            base_output, rows, dataset_sha256=digest, revision=revision,
+            generation_config=GENERATION, model_id=MODEL_ID,
+        )
+    else:
+        base, base_gpu = _predict_on_gpu(rows, revision)
+        base_report = make_report(
+            rows, base, digest=digest, revision=revision, adapter_sha=None,
+            gpu_details=base_gpu,
+        )
+        if sha256(root / FINAL_REL) != digest:
+            raise ValueError("Frozen evaluation dataset changed during base pass")
+        # Persist only the COMPLETE original base pass. If tuned loading fails,
+        # this costly evidence survives for a separately authorized rerun.
+        write_evidence_once(base_output, base_report)
+    tuned, tuned_gpu = _predict_on_gpu(
+        rows, revision, adapter_directory=adapter / "adapter"
     )
     tuned_report = make_report(
         rows, tuned, digest=digest, revision=revision,
         adapter_sha=preflight["adapter_sha256"], gpu_details=tuned_gpu,
     )
+    if sha256(root / FINAL_REL) != digest:
+        raise ValueError("Frozen evaluation dataset changed during tuned pass")
     # Do not persist a misleading paired result if either complete inference
     # report or actual AuditKIT precomputed replay fails.
     from scripts.auditkit_compare import comparison
     paired = comparison(base_report, tuned_report, rows, digest)
     paired["generation_config"] = dict(GENERATION)
     paired["gpu_executed_in_this_process"] = True
+    paired["resumed_existing_base_pass"] = resume_base
     paired["semantics_independently_reviewed"] = False
-    for path, content in zip(paths, (base_report, tuned_report, paired)):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("x", encoding="utf-8") as handle:
-            json.dump(content, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
+    write_evidence_once(tuned_output, tuned_report)
+    write_evidence_once(paired_output, paired)
     return {
         "status": "PAIRED_GPU_INFERENCE_AND_AUDITKIT_COMPLETED",
         "cases": len(rows), "dataset_sha256": digest,
         "files": [str(x) for x in paths],
+        "base_pass_reused_from_previously_saved_evidence": resume_base,
         "training_performed": False,
         "independent_human_semantic_improvement_verified": False,
     }
@@ -291,12 +328,16 @@ def main() -> None:
                         help="Operator reviewed real human signoff and benchmark freeze")
     parser.add_argument("--confirm-gpu-run", action="store_true",
                         help="Explicitly authorize actual GPU inference")
+    parser.add_argument("--resume-base", action="store_true",
+                        help="Explicitly reuse a fully validated prior 60-case base report")
     parser.add_argument("--base-output", default="artifacts/final_base_inference.json")
     parser.add_argument("--tuned-output", default="artifacts/final_tuned_inference.json")
     parser.add_argument("--paired-output", default="artifacts/paired_auditkit.json")
     args = parser.parse_args()
     adapter = Path(args.adapter_directory).resolve()
     if not args.execute:
+        if args.resume_base:
+            parser.error("--resume-base requires --execute and both confirmation flags")
         print(json.dumps(build_preflight(ROOT, adapter), indent=2, ensure_ascii=False))
         print("CPU preflight only. No GPU, model loading, or inference.")
         return
@@ -304,7 +345,7 @@ def main() -> None:
         parser.error("Actual inference requires --execute --confirm-review --confirm-gpu-run")
     result = execute_gpu_pair(
         ROOT, adapter, Path(args.base_output), Path(args.tuned_output),
-        Path(args.paired_output),
+        Path(args.paired_output), resume_base=args.resume_base,
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
