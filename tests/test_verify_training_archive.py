@@ -211,3 +211,59 @@ def test_expected_tiny_aya_parameter_geometry_is_required_for_release(tmp_path):
     # A forged but internally consistent file still cannot prove actual GPU
     # optimizer steps. The release gate explicitly avoids that claim.
     assert result["training_independently_verified"] is False
+
+
+
+def _mark_extended_receipt(directory):
+    from scripts.t4_torch_fallback import training_plan
+    plan = training_plan(steps=40)
+    path = directory / "run_info.json"
+    receipt = json.loads(path.read_text())
+    receipt.update({
+        "optimizer_steps": 40,
+        "training_plan": {
+            "train_indices": plan["train_indices"],
+            "validation_indices": plan["validation_indices"],
+            "steps": 40,
+            "seed": 42,
+            "validation_on_training_source_only": True,
+            "final_benchmark_or_challenge_used_for_training": False,
+        },
+        "training_only_validation_losses": [
+            {"step": step, "training_only_validation_loss": float(step) / 50}
+            for step in (10, 20, 30, 40)
+        ],
+    })
+    path.write_text(json.dumps(receipt))
+
+
+def test_extended_pytorch_artifact_is_integrity_checkable_but_not_aligntune(tmp_path):
+    folder = _fixture(tmp_path, backend="manual_torch_extended_fallback")
+    _mark_extended_receipt(folder)
+    proof = inspect_training_directory(folder)
+    assert proof["optimizer_steps_self_reported"] == 40
+    assert proof["backend"] == "manual_torch_extended_fallback"
+    assert proof["base_revision_pinned"] is True
+    assert proof["track1_trainer_path_declared"] is False
+    assert proof["track1_submission_evidence_candidate"] is False
+    assert proof["training_independently_verified"] is False
+    assert proof["model_improvement_verified"] is False
+
+
+@pytest.mark.parametrize("mutation,match", [
+    (lambda r: r.update(optimizer_steps=39), "valid training-only schedule"),
+    (lambda r: r["training_plan"].update(
+        {"final_benchmark_or_challenge_used_for_training": True}
+    ), "valid training-only schedule"),
+    (lambda r: r["training_plan"].update({"validation_indices":[1, 2, 3]}),
+     "split does not match"),
+    (lambda r: r.update(training_only_validation_losses=[
+        {"step":10,"training_only_validation_loss":float("nan")},
+    ]), "validation losses"),
+])
+def test_extended_adapter_receipt_rejects_false_training_claims(tmp_path, mutation, match):
+    folder = _fixture(tmp_path, backend="manual_torch_extended_fallback")
+    _mark_extended_receipt(folder)
+    _edit_info(folder, mutation)
+    with pytest.raises(ValueError, match=match):
+        inspect_training_directory(folder)
