@@ -151,7 +151,7 @@ class LocalOnlyHub:
             scope_file.write_text(json.dumps(scope), encoding="utf-8")
             manifest = self.files["provenance/SHA256SUMS.txt"]
             manifest.write_text("".join(
-                checksum(file.read_bytes()).hexdigest() + "  " + name + "\\n"
+                checksum(file.read_bytes()).hexdigest() + "  " + name + "\n"
                 for name, file in sorted(self.files.items())
                 if name != "provenance/SHA256SUMS.txt"
             ), encoding="utf-8")
