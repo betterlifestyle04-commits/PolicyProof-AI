@@ -13,6 +13,7 @@ from streamlit.testing.v1 import AppTest
     "Research overview",
     "Dataset explorer",
     "Evaluation runs",
+    "Paired model evidence",
     "Safety benchmark",
     "Output guard experiment",
     "Try the output guard",
@@ -135,3 +136,16 @@ def test_judge_page_requires_source_linked_real_human_review_not_just_pseudonyms
         "Paired GPU evaluation: BLOCKED" in item.value
         for item in app.warning
     )
+
+
+
+def test_paired_model_evidence_page_rejects_semantic_overclaim():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Paired model evidence").run()
+    assert not app.exception, str(app.exception)
+    assert any("Do NOT treat valid JSON" in w.value for w in app.warning)
+    assert any("Required JSON schema" == m.label for m in app.metric)
+    assert any("Expected source ID" == m.label for m in app.metric)
+    assert any("exact supported-answer text metric is 0/39" in i.value for i in app.info)
+    assert any("blinded multilingual reviewer protocol" in m.value for m in app.markdown)
