@@ -23,7 +23,7 @@ import tempfile
 from zipfile import ZipFile
 
 from scripts.build_track2a_release_candidate import (
-    HASH_FILE, STATUS_FILE, inspect_zip,
+    EXPECTED_FILES, HASH_FILE, STATUS_FILE, inspect_zip,
 )
 from scripts.publish_track2a_dataset import LICENSES, HF_REPO, publish
 from scripts.verify_hf_collections import verify_anonymous_access
@@ -81,8 +81,8 @@ def stage_approved_candidate(
     card = card.replace("---\n", "---\nlicense: " + license_id + "\n", 1)
     card = card.replace(
         PREAMBLE,
-        "**Public synthetic research dataset. The publisher explicitly "
-        "confirmed the license, ownership rights and public release.**",
+        "**Synthetic research dataset prepared for owner-authorized release. "
+        "Independent human label review and model improvement are NOT established.**",
     )
     card = card.split(LICENSE_HEAD)[0] + LICENSE_HEAD + (
         "Publisher-selected license: " + license_id + ". "
@@ -138,9 +138,61 @@ def stage_approved_candidate(
     }
 
 
+def validate_public_staging(
+    folder: Path, names: list[str], *,
+    source_digest: str, license_id: str,
+) -> dict:
+    """Validate exact, unmodified preview bytes BEFORE any remote mutation."""
+    if not SHA.fullmatch(source_digest) or license_id not in LICENSES:
+        raise ValueError("Missing approved source digest or license")
+    folder = Path(folder)
+    allowed = (EXPECTED_FILES - {STATUS_FILE}) | {"provenance/PUBLICATION_SCOPE.json"}
+    if set(names) != allowed or len(names) != len(allowed):
+        raise ValueError("Unexpected public dataset inventory")
+    if not folder.is_dir() or folder.is_symlink():
+        raise ValueError("Public stage directory missing or symlinked")
+    result = {}
+    for name in names:
+        file = folder / name
+        if not file.is_file() or file.is_symlink() or file.stat().st_size > 5_000_000:
+            raise ValueError("Missing, unsafe or oversized public-stage file: " + name)
+        result[name] = file.read_bytes()
+    if sum(len(v) for v in result.values()) > 25_000_000:
+        raise ValueError("Public stage exceeds size limit")
+    if b"license: " + license_id.encode() + b"\\n" not in result["README.md"]:
+        raise ValueError("Stage README license does not match approved license")
+    try:
+        scope = json.loads(result["provenance/PUBLICATION_SCOPE.json"].decode("utf-8"))
+    except (UnicodeError, ValueError, TypeError) as exc:
+        raise ValueError("Stage publication scope is corrupted") from exc
+    if (not isinstance(scope, dict)
+        or scope.get("selected_license") != license_id
+        or scope.get("approved_source_archive_sha256") != source_digest
+        or scope.get("new_model_inference_performed") is not False
+        or scope.get("independent_human_review_completed") is not False
+        or scope.get("tuned_adapter_included") is not False):
+        raise ValueError("Public stage scope does not match approved evidence")
+    expected = {}
+    try:
+        checksum_lines = result[HASH_FILE].decode("utf-8").splitlines()
+    except UnicodeError as exc:
+        raise ValueError("Invalid public stage checksum manifest") from exc
+    for line in checksum_lines:
+        item = re.fullmatch(r"([0-9a-f]{64})  (.+)", line)
+        if not item or item.group(2) in expected:
+            raise ValueError("Duplicate or malformed public stage checksum")
+        expected[item.group(2)] = item.group(1)
+    if set(expected) != set(result) - {HASH_FILE}:
+        raise ValueError("Public stage checksum manifest incomplete")
+    if any(sha256_bytes(result[name]) != expected[name] for name in expected):
+        raise ValueError("Public stage contents changed after preview")
+    return {"license_id": license_id, "source_digest": source_digest,
+            "file_count": len(result), "checksums_verified": True}
+
+
 def publish_after_approval(
     folder: Path, names: list[str], *,
-    source_digest: str, repo_id: str,
+    source_digest: str, license_id: str, repo_id: str,
     collection_slug: str | None,
     new_collection: bool,
     token: str,
@@ -156,6 +208,9 @@ def publish_after_approval(
         raise ValueError("Select exactly one collection creation or existing collection mode")
     if not token:
         raise ValueError("Private HF_TOKEN required")
+    validate_public_staging(
+        folder, names, source_digest=source_digest, license_id=license_id,
+    )
     receipt = publish(
         folder, names, repo_id, token,
         new_collection=new_collection,
@@ -175,13 +230,14 @@ def publish_after_approval(
         verified = verify_anonymous_access(manifest, api=anonymous_api, dataset_only=True)
     if (verified["status"] != "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY"
         or verified["dataset_id"] != repo_id
-        or verified["declared_dataset_license"] not in LICENSES
+        or verified["declared_dataset_license"] != license_id
         or not verified["public_internal_checksums_verified"]):
         raise RuntimeError("Published dataset did not pass independent anonymous inspection")
     return {
         **receipt,
         "publication_schema": "policyproof_v2_owner_approved_dataset_publication",
         "source_zip_sha256": source_digest,
+        "selected_dataset_license": license_id,
         "anonymous_dataset_file_hashes_verified": True,
         "anonymous_verification_checked_utc": verified["checked_utc"],
         "dataset_commit_verified": next(x["revision"] for x in verified["dataset_repositories"]
@@ -250,6 +306,7 @@ def main() -> None:
         receipt = publish_after_approval(
             folder, preview["file_names"],
             source_digest=preview["archive_sha256"],
+            license_id=args.license,
             repo_id=args.repo_id,
             collection_slug=args.collection_slug,
             new_collection=args.create_collection,
