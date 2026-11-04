@@ -1,5 +1,12 @@
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
+> **Latest research status (November 5, 2026):** A user-supplied 40-optimizer-step LoRA checkpoint ZIP passed structural and SHA-256 checks. A fresh same-requested-revision 48-case base-vs-adapter saved GPU comparison passed independent internal score/hash recomputation. JSON compliance improved 14/48 → 48/48 and correct source IDs improved 1/39 → 39/39; **answer-level semantic correctness is unverified**, supported-answer exact-string matches remain 0/39, and serious unsupported financial-policy answers remain. Original CUDA execution and loaded training-time model revision were not independently rerun/verified. The 60-case candidate final evaluation still lacks independent human gold review; Hugging Face publication and official submission are not verified. **Do not present this as a production-ready banking system or verified real-world safety.**
+
+**[November 5 paired GPU development results](docs/DEV48_PAIRED_GPU_RESULTS_2026-11-05.md)** · **[Private, model-blind human review instructions](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md)** · **[Review implementation](scripts/paired_semantic_review.py)**
+
+**Historical note:** Some older milestones and GPU-quota troubleshooting sections below describe the November 3 development state; the November 5 evidence summary above supersedes those historical statements where they conflict.
+
+
 ## Public research dashboard
 
 **[Open the live PolicyProof AI Observatory](https://policyproof-ai-observatory.onrender.com)** — hosted on a free Render service with nine tested pages. Build and start verified by Render (service `srv-dbku0dek1f9s73e0cnt0`, initial deploy `dep-dbku0duk1f9s73e0cp80`). It uses preserved base-model outputs and CPU-generated evaluation artifacts, **not** a tuned model or real-time AI inference. Free-tier services may sleep and take extra time to wake.
@@ -26,7 +33,7 @@ The **48 evaluated + 72 unscored** Track 2a dataset package passed offline ZIP a
 
 **Previously verified CPU QA:** [135 passed, 2 skipped](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41706273198) on the standard runner, plus the [dedicated PyTorch CPU safety job's 7 passing tests](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/runs/41635240908). The expanded runner now validates and replays the 48 actual saved Tiny Aya baseline responses with AuditKIT 1.1.3, and measures a real inference-time guard (not model training). This covers CPU fixtures, training safety guards, 60-case benchmark integrity, Colab/Kaggle notebook syntax, nine Streamlit dashboard pages and genuine AuditKIT precomputed evaluation with **synthetic oracle** outputs. The main runner skips two PyTorch-dependent test modules, but the dedicated CPU-only PyTorch job executed their seven tests successfully. **Public deployment and HTTP health checks verified; CUDA training not completed.**
 
-[Read the complete verified QA report](docs/QA_VERIFICATION_2026-11-03.md). Baseline and CuratorKIT evidence are independently checked for consistency, but the trained adapter and model improvement remain outstanding.
+[Read the November 3 QA report](docs/QA_VERIFICATION_2026-11-03.md) for historical baseline and CuratorKIT consistency checks. For the later saved adapter and paired development experiment, see the [November 5 evidence report](docs/DEV48_PAIRED_GPU_RESULTS_2026-11-05.md); model-level semantic improvement is still unverified.
 
 ## Current project milestones (updated November 3, 2026)
 
@@ -34,18 +41,18 @@ The **48 evaluated + 72 unscored** Track 2a dataset package passed offline ZIP a
 | --- | --- |
 | Baseline inference | **Completed:** 48 genuine Tiny Aya outputs on Colab T4; honest limitations documented |
 | CuratorKIT | **Completed:** 78/78 synthetic examples, three languages and audited archive checksums |
-| AlignTune training | **Not completed:** 4-bit LoRA model/config loaded but original trainer hit BF16 GradScaler |
-| Direct PyTorch fallback | **Fix committed:** `tokenizers.Encoding` conversion and full preflight; actual GPU retry pending |
+| AlignTune training | **Native trainer remains unproven:** original BF16 GradScaler failures; later saved 40-step manual Torch fallback is structurally verified, not a verified native AlignTune run |
+| Direct PyTorch fallback | **Checkpoint archive inspected (Nov 5):** original 40-step adapter ZIP and LoRA tensor/hash structure verified; GPU training execution remains self-reported |
 | AuditKIT | **Executed:** 48 saved Tiny Aya base outputs successfully replayed with real AuditKIT 1.1.3; fingerprint ae297dd84f990566 |
 | Track 2a safety benchmark | **Actual CuratorKIT → AuditKIT chain completed on 48 recorded Tiny Aya outputs**; additional **72 curated synthetic attack cases are UNSCORED**. [Research report](docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md) · [alternate abstract](docs/TRACK2A_SUBMISSION_ABSTRACT.md); official HF collections and submission pending |
 | Candidate final holdout | **Draft frozen in GitHub:** 60 independent multilingual cases; reviewer approval pending |
-| Submission | **Research article and HF cards drafted:** [publication draft](docs/HF_ARTICLE_DRAFT.md); trained adapter, paired model evaluation, HF public URLs and official submission still missing |
+| Submission | **Not yet submitted:** 48-case development paired comparison now internally verified; independent semantic review, valid final 60-case comparison, public HF model/data collections and actual Lexsi submission remain outstanding |
 
 **Fresh evaluation:** [60-case candidate](data/final_holdout_v1.jsonl) · [integrity checker](scripts/validate_final_holdout.py). Do not train on or tune against this set.  
 **AuditKIT:** [48 actual saved baseline predictions](artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json) were replayed successfully through real AuditKIT 1.1.3 on GitHub Actions, with no newly generated inference. [Guarded output results](docs/INFERENCE_GUARD_RESULTS_2026-11-03.md) are a separate deterministic *inference-time* experiment, not a trained adapter.  
 **Submission tracker:** [Track 1 status](docs/SUBMISSION_READINESS.md) · [Track 2a separate gate](scripts/track2a_readiness.py). Neither track is officially submitted. The Track 2a gate does NOT require a fictitious fine-tuned model.
 
-## GPU quota reached — free Kaggle alternative (November 3, 2026)
+## Historical November 3 GPU quota issue and Kaggle alternative (superseded)
 
 Google Colab currently returned **"Cannot connect to GPU backend"** for the user. The original **78-row CuratorKIT ZIP restored successfully** on CPU, but no new Tiny Aya model has been loaded or trained since the Colab quota restriction. Google does **not** publish a guaranteed GPU quota reset time.
 
@@ -55,7 +62,7 @@ Google Colab currently returned **"Cannot connect to GPU backend"** for the user
 
 **Do not retry the old `recover_train_save` cell.** In the user's previous run, AlignTune/TRL still encountered BF16/FP16 precision conflicts. The documented direct PyTorch fallback was built to avoid those training-loop issues, but has not yet produced a successfully verified checkpoint.
 
-## Last-resort T4 fallback: plain PyTorch optimizer on the existing LoRA adapter
+## Historical T4 fallback development instructions (see latest November 5 checkpoint summary above)
 
 **Why this exists:** In the exact installed TRL **1.7.1** source, `SFTTrainer` unconditionally casts trainable parameters to **BF16** when the model is 4-bit quantized; coupled with FP16 `GradScaler`, it caused the reported `_amp_foreach_non_finite_check_and_unscale_cuda` error. Attempts to alter AlignTune's factory flags alone did not resolve the second trainer-level behavior.
 
@@ -89,7 +96,7 @@ A successful run prints ten numbered optimizer steps and makes `policyproof_t4_t
 
 **Track 1 · Fine-tuning & Data Curation**. Reproducible research into multilingual, evidence-grounded policy answering, citation correctness and abstention.
 
-Status: active research prototype; **no actual GPU model training, validated improvements or final hackathon submission claimed**. All policies and evaluation examples are fictional, never actual bank information.
+Status: active fictional-policy research prototype; structural inspection supports a saved 40-step adapter and paired development-evaluation outputs, but independent GPU execution, human semantic improvements, final evaluation and final hackathon submission are not verified. All policies and evaluation examples are fictional, never actual bank information.
 
 ## Quick start
 
