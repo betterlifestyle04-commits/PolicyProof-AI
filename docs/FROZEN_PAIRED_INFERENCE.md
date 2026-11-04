@@ -59,3 +59,8 @@ No current GitHub Actions runner invokes real CUDA inference. CPU CI verifies th
 - [Paired AuditKIT evaluator](../scripts/auditkit_compare.py)
 - [Final benchmark protocol](FINAL_BENCHMARK_PROTOCOL.md)
 - [Submission readiness](SUBMISSION_READINESS.md)
+
+
+## Interruption-safe base pass and explicit recovery (added November 4, 2026)
+
+The runner now saves the **complete 60-case original-base report as soon as original-base inference succeeds**, rather than waiting for adapted-model loading and the AuditKIT comparison. If the tuned pass fails, preserve this baseline and investigate the failure. After correcting the GPU/runtime issue, an operator may retry with the same arguments plus `--resume-base` (and still `--execute --confirm-review --confirm-gpu-run`). The saved report must pass strict dataset hash, model revision, generation configuration, full case coverage, raw-output score recomputation, and declared GPU provenance checks before a model is loaded. It is never automatically accepted; no file is overwritten. See [the complete interruption/recovery runbook](RECOVERABLE_PAIRED_EVALUATION.md). This feature has **only synthetic CPU safety tests**, and no real GPU experiment has been run.
