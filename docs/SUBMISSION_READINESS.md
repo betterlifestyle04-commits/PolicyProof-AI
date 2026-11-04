@@ -86,3 +86,7 @@ A public website alone does not fulfill the two Hugging Face collection fields. 
 6. Submit and verify acceptance prior to the official deadline.
 
 *GitHub Actions CPU evidence has now been independently checked, including the actual saved baseline and AuditKIT. Live Colab GPU access is unavailable at the last screenshot; trained-model execution remains unverified.*
+
+## Additional checkpoint evidence hardening — November 4, 2026
+
+A completed-looking `run_info.json` and nonempty `adapter_model.safetensors` are no longer sufficient for `trained_adapter` readiness. `scripts.verify_training_archive` checks PEFT safetensors structure, LoRA A/B tensors, SHA-256 integrity against saved receipts, exact CuratorKIT training data hash, original model ID, source code revision, declared training backend and pinned base-model revision. It rejects corrupt/fabricated files and distinguishes manual PyTorch fallback from AlignTune's trainer. This is still **internal artifact integrity**, not proof of training execution, generalization or competition eligibility. See [training-artifact verification guide](TRAINING_ARTIFACT_VERIFICATION.md).
