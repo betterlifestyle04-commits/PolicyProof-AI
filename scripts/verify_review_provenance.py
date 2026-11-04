@@ -58,8 +58,10 @@ def _safe_private_path(root: Path, relative: str, extension: str) -> Path:
         or not relative.startswith("reviews/")
         or not relative.endswith(extension)):
         raise ValueError("Review source must be a private reviews/ relative " + extension + " file")
+    literal_parts = relative.split("/")
     parts = PurePosixPath(relative).parts
-    if len(parts) < 2 or any(item in ("", ".", "..") for item in parts):
+    if (len(parts) < 2 or len(literal_parts) != len(parts)
+        or any(item in ("", ".", "..") for item in literal_parts)):
         raise ValueError("Unsafe review evidence path")
     root = root.resolve()
     path = root.joinpath(*parts)
