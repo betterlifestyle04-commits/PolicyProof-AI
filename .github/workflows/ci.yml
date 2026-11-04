@@ -68,6 +68,7 @@ jobs:
       - name: Confirm paired final evaluation remains GPU-free during CI
         run: |
           python -m scripts.frozen_pair_inference
+          python -m scripts.finish_saved_pair
           python - <<'PY'
           from scripts.frozen_pair_inference import build_preflight
           report=build_preflight()
