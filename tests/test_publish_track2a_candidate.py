@@ -186,7 +186,7 @@ def test_strong_post_upload_anonymous_read_with_stubbed_api(tmp_path):
     fake = LocalOnlyHub()
     result = publish_after_approval(
         preview_dir, preview["file_names"], source_digest=digest,
-        repo_id="owner/research", collection_slug=None,
+        license_id="cc0-1.0", repo_id="owner/research", collection_slug=None,
         new_collection=True, token="SYNTHETIC_TEST_TOKEN_NOT_REAL",
         api=fake, anonymous_api=fake,
     )
@@ -212,7 +212,7 @@ def test_no_success_receipt_if_public_files_corrupted_after_stub_upload(tmp_path
     with pytest.raises(ValueError, match="SHA256"):
         publish_after_approval(
             preview_dir, preview["file_names"], source_digest=digest,
-            repo_id="owner/research", collection_slug=None,
+            license_id="cc-by-sa-4.0", repo_id="owner/research", collection_slug=None,
             new_collection=True, token="FAKE", api=fake, anonymous_api=fake,
         )
 
@@ -229,7 +229,7 @@ def test_anonymous_private_or_gated_repo_fails_publication(tmp_path):
         with pytest.raises((ValueError, RuntimeError)):
             publish_after_approval(
                 stage, preview["file_names"], source_digest=digest,
-                repo_id="owner/research", collection_slug=None,
+                license_id="cc0-1.0", repo_id="owner/research", collection_slug=None,
                 new_collection=True, token="FAKE", api=fake, anonymous_api=fake,
             )
 
@@ -237,6 +237,48 @@ def test_anonymous_private_or_gated_repo_fails_publication(tmp_path):
 def test_two_mutually_exclusive_collection_modes_are_required(tmp_path):
     with pytest.raises(ValueError, match="exactly one"):
         publish_after_approval(
-            tmp_path, [], source_digest="a"*64, repo_id="owner/research",
+            tmp_path, [], source_digest="a"*64, license_id="cc0-1.0", repo_id="owner/research",
             collection_slug=None, new_collection=False, token="FAKE",
         )
+
+
+
+def test_preupload_stage_mutation_is_rejected_before_any_api_call(tmp_path):
+    from scripts.publish_track2a_candidate import validate_public_staging
+    archive, digest = candidate(tmp_path)
+    directory = tmp_path / "preview"
+    preview = stage_approved_candidate(
+        archive, directory, license_id="cc-by-4.0", expected_digest=digest,
+    )
+    assert validate_public_staging(
+        directory, preview["file_names"], source_digest=digest,
+        license_id="cc-by-4.0",
+    )["checksums_verified"] is True
+    file = directory / "challenge_72/challenge_v1_UNSCORED.jsonl"
+    file.write_text("MUTATED BEFORE UPLOAD", encoding="utf-8")
+    fake = LocalOnlyHub()
+    with pytest.raises(ValueError, match="contents changed"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc-by-4.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )
+    assert "create_repo" not in fake.calls
+
+
+def test_publication_refuses_license_changed_after_stage(tmp_path):
+    archive, digest = candidate(tmp_path)
+    directory = tmp_path / "preview"
+    preview = stage_approved_candidate(
+        archive, directory, license_id="cc-by-4.0", expected_digest=digest,
+    )
+    fake = LocalOnlyHub()
+    with pytest.raises(ValueError, match="Stage README license"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc0-1.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )
+    assert fake.calls == []
