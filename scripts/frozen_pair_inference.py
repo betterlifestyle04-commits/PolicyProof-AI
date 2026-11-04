@@ -13,6 +13,7 @@ Both use identical prompt and deterministic generation settings.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Mapping
 from datetime import datetime, timezone
 import gc
 import json
@@ -165,6 +166,43 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
     }
 
 
+def normalize_chat_template_batch(encoded, torch, device):
+    """Normalize Transformers v4 Tensor and v5 BatchEncoding safely.
+
+    Transformers v5 changed apply_chat_template(return_tensors="pt")
+    to return a BatchEncoding Mapping by default. Earlier versions
+    returned a Tensor. Preserve a supplied attention mask rather than
+    always assuming every token is unpadded. Only one sequence per
+    prompt is permitted; no fallback re-tokenization or silent truncation.
+    """
+    if isinstance(encoded, Mapping):
+        input_ids = encoded.get("input_ids")
+        mask = encoded.get("attention_mask")
+    else:
+        input_ids = encoded
+        mask = None
+    if not isinstance(input_ids, torch.Tensor):
+        raise RuntimeError("Chat template did not return PyTorch input_ids")
+    if input_ids.ndim == 1:
+        input_ids = input_ids.unsqueeze(0)
+    if (input_ids.ndim != 2 or input_ids.shape[0] != 1
+        or not 0 < input_ids.shape[1] <= 4096
+        or input_ids.dtype != torch.long):
+        raise RuntimeError("Chat template input_ids must be one nonempty int64 sequence")
+    if mask is None:
+        mask = torch.ones_like(input_ids)
+    else:
+        if not isinstance(mask, torch.Tensor):
+            raise RuntimeError("Chat template attention_mask must be a PyTorch Tensor")
+        if mask.ndim == 1:
+            mask = mask.unsqueeze(0)
+        if mask.ndim != 2 or mask.shape != input_ids.shape:
+            raise RuntimeError("Chat template attention mask has incompatible shape")
+        if mask.dtype != torch.long:
+            mask = mask.to(dtype=torch.long)
+    return input_ids.to(device), mask.to(device)
+
+
 def _predict_on_gpu(rows: list[dict], revision: str,
                     adapter_directory: Path | None = None) -> tuple[dict[str, str], dict]:
     """Actual GPU-only text generation. No offline simulation or mock backend."""
@@ -192,22 +230,25 @@ def _predict_on_gpu(rows: list[dict], revision: str,
     try:
         for row in rows:
             prompt = make_prompt(row)
-            tokens = tokenizer.apply_chat_template(
+            encoded = tokenizer.apply_chat_template(
                 [{"role": "user", "content": prompt}],
                 add_generation_prompt=True, return_tensors="pt",
+                return_dict=True,
             )
-            if not isinstance(tokens, torch.Tensor) or tokens.ndim != 2:
-                raise RuntimeError("Unexpected tokenizer chat-template encoding")
-            tokens = tokens.to(device)
+            # Transformers v5 normally returns BatchEncoding; older
+            # Transformers can return a Tensor. Both are supported.
+            input_ids, attention_mask = normalize_chat_template_batch(
+                encoded, torch, device,
+            )
             with torch.inference_mode():
                 output = model.generate(
-                    input_ids=tokens, attention_mask=torch.ones_like(tokens),
+                    input_ids=input_ids, attention_mask=attention_mask,
                     pad_token_id=tokenizer.eos_token_id,
                     **GENERATION,
                 )
             # Decode ONLY newly generated tokens, never the prompt.
             raw = tokenizer.decode(
-                output[0, tokens.shape[-1]:], skip_special_tokens=True
+                output[0, input_ids.shape[-1]:], skip_special_tokens=True
             )
             if not isinstance(raw, str) or len(raw) > 10000:
                 raise RuntimeError("Invalid generated response length")

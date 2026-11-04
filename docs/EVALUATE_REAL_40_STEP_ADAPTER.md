@@ -119,3 +119,37 @@ Upload **`policyproof_dev48_paired_gpu_results.zip`** back into this chat. Retai
 The earlier saved 48-case results are not a correctly pinned comparison for this new adapter. The 48-case prompts were seen during development and thus are **not a new blind holdout**. The internal 12-row training-source validation loss is **not** an external independent safety metric. Correct source IDs are **not** semantic citation entailment. Exact supported answers may be penalized for legitimate paraphrases; human review is needed for meaning. The new runner's predictions and AuditKIT comparison are meaningful diagnostic evidence but **cannot establish broad real-world model safety**.
 
 This work is independent of the required owner-approved Hugging Face Track 2a dataset publication and official Lexsi submission due November 14, 2026 AoE. Do not delay those tasks for further iterative GPU experiments.
+
+
+## Recovery from Transformers v5 `Unexpected tokenizer chat-template encoding`
+
+**Symptom:** The first actual GPU inference pass fails in `scripts/frozen_pair_inference.py` with `RuntimeError: Unexpected tokenizer chat-template encoding`. Current Hugging Face Transformers v5 returns a dictionary-like `BatchEncoding` (`input_ids` and `attention_mask`) by default; the previous inference code assumed a single PyTorch Tensor. This is a **model inference integration bug**, not evidence of a broken or untrained adapter.
+
+**Fix merged into main:** `normalize_chat_template_batch` accepts v4 Tensor and v5 BatchEncoding and validates that it contains one nonempty integer token sequence and a matching attention mask. Base and adapter passes use this *same* function. It preserves the tokenizer's actual attention mask and deterministic generation settings, so no special-case adjusted decoding could create a favorable tuned comparison.
+
+If your original Colab notebook is still open, do **not** restart the T4 runtime, rerun training or reupload the checkpoint. After the current GPU cell has stopped, run this in **one new cell** to pull and reload only the code:
+
+```python
+import subprocess, importlib
+from pathlib import Path
+ROOT = Path("/content/PolicyProof-AI")
+subprocess.run(["git", "-C", str(ROOT), "pull", "--ff-only"], check=True)
+import scripts.frozen_pair_inference as frozen_pair_inference
+import scripts.dev48_gpu_pair as dev48_gpu_pair
+importlib.reload(frozen_pair_inference)
+importlib.reload(dev48_gpu_pair)
+from scripts.dev48_gpu_pair import execute_pair, create_results_bundle
+
+BASE = ROOT / "artifacts/dev48_paired_base.json"
+TUNED = ROOT / "artifacts/dev48_paired_tuned.json"
+PAIRED = ROOT / "artifacts/dev48_paired_auditkit.json"
+print("Existing complete base:", BASE.is_file())
+print("Existing tuned:", TUNED.is_file())
+print("Existing comparison:", PAIRED.is_file())
+print("Chat-template compat layer reloaded:",
+      "normalize_chat_template_batch" in frozen_pair_inference.__dict__)
+```
+
+Then rerun Section 6 using `RUN_DEV48_GPU_EVAL = True`, `RESUME_SAVED_BASE = False` **only if all three files are absent**. If a complete original base file is present but both tuned/paired files are absent, inspect it first and use `RESUME_SAVED_BASE = True`. If tuned or paired files exist, stop and inspect those records rather than overwriting them.
+
+The notebook's old source cell still works after reloading because it reimports the updated `execute_pair` from the now-current `scripts.dev48_gpu_pair`. The imported function uses the newly reloaded shared tokenizer handler. **The source update is not an execution of model inference.** Only the explicit Section 6 toggle starts GPU work. The already-inspected development split is not a blind holdout.
