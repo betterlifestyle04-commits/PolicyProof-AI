@@ -67,3 +67,17 @@ python -m pytest -q tests/test_verify_hf_collections.py tests/test_track2a_readi
 Offline tests use a **fake anonymous API** and synthetic temporary file data only. Those tests **do not demonstrate** that any real Hugging Face repository or collection was published. The verifier itself requires real URLs and makes no network requests unless `--verify-network` is supplied.
 
 The existing project still needs official form submission, and training/paired evaluations are separate unfinished research tasks.
+
+## Dataset-first progress (without pretending Track 2a is eligible)
+
+The organizer's public model-collection field may take longer to resolve than the dataset release. You can verify the published dataset independently even when `model_collection_url` is still `null`:
+
+```bash
+# URL-shape preflight without Internet:
+python -m scripts.verify_hf_collections --dataset-only
+
+# After the real public dataset and dataset collection exist:
+python -m scripts.verify_hf_collections --dataset-only --verify-network
+```
+
+The second command uses **only anonymous read-only HF requests** and writes a **separate** `artifacts/hf_dataset_only_receipt.json`. It verifies the real dataset repo, dataset collection and research checksums, but marks `model_collection_requirement_verified: false` and `all_collections_public: false`; this **never satisfies** the release gate. After the organizers resolve the model-collection field, run the regular full-mode `--verify-network` check for both collections, and keep the partial receipt as historical evidence. This is a clean separation between verifiable dataset-publication progress and unsettled competition eligibility.
