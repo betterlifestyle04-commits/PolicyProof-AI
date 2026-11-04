@@ -8,7 +8,7 @@ import pytest
 
 from scripts.t4_torch_fallback import (encode_pair, train_existing_t4,
     normalize_token_ids, preflight_tokenization, known_safe_encoding_retry,
-    training_plan)
+    training_plan, check_loaded_revision)
 
 
 class FakeTokenizer:
@@ -194,3 +194,33 @@ def test_extended_fallback_reuses_same_preflight_and_optimizer_without_trl():
     assert "optimizer.step()" in source
     assert "trainer.train(" not in source
     assert "SFTTrainer(" not in source
+
+
+
+class DummyConfig:
+    def __init__(self, revision=None):
+        self._commit_hash = revision
+
+
+class DummyModel:
+    def __init__(self, revision=None, *, nested=None):
+        self.config = DummyConfig(revision)
+        self.base_model = nested
+
+
+def test_loaded_model_revision_can_be_verified_from_nested_config():
+    sha = "a" * 40
+    result = check_loaded_revision(DummyModel(nested=DummyModel(sha)), sha)
+    assert result["loaded_model_revision_verified"] is True
+    assert result["loaded_model_revision_observed"] == sha
+
+
+def test_hub_model_info_by_itself_is_not_weight_revision_proof():
+    result = check_loaded_revision(DummyModel(), "a"*40)
+    assert result["loaded_model_revision_verified"] is False
+    assert result["loaded_model_revision_observed"] is None
+
+
+def test_mismatched_actual_loaded_model_revision_fails_closed():
+    with pytest.raises(RuntimeError, match="differs from requested"):
+        check_loaded_revision(DummyModel("b"*40), "a"*40)
