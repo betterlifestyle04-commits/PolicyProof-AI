@@ -71,8 +71,12 @@ def validate_saved_report(
     if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_BASE_REPORT_BYTES:
         raise ValueError("Missing, symlinked or oversized saved base report")
     try:
+        def reject_nonfinite(value):
+            raise ValueError("Nonfinite JSON literal in saved model report: " + value)
+
         report = json.loads(
-            path.read_text(encoding="utf-8"), object_pairs_hook=_unique_fields
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_fields, parse_constant=reject_nonfinite,
         )
     except (UnicodeError, ValueError, RecursionError) as exc:
         raise ValueError("Saved base report is invalid or ambiguous JSON") from exc
