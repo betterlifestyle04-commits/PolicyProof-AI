@@ -224,3 +224,6 @@ The anonymous HF verifier now checks **every published research file**, not just
 ### Human review must be backed by original reviewer files
 
 The 60-case candidate cannot enter final base-vs-adapter GPU evaluation merely because a JSON signoff says `review_complete: true`. `python -m scripts.verify_review_provenance` and the paired runner now require genuine 2–4 reviewer CSV files under **private, Git-ignored** `reviews/`, full per-file SHA256 values, exact dataset/gold/source preservation, all 180 positive judgments per reviewer, an independently recomputed reconciliation, and individual approval declarations. **This verifies file consistency only; no human identity, proficiency, independence or semantic correctness is independently authenticated.** The signoff remains explicitly incomplete and no human reviews have been fabricated. [Review-evidence protocol](docs/REVIEW_SOURCE_PROVENANCE.md).
+
+
+For human-reviewed final benchmark signoff, `scripts.prepare_review_signoff` can generate a **private unsigned draft only** from completed, unanimously reconciled CSVs, leaving every approval field false. Nothing in CI performs actual human review or creates a completed signoff. [Instructions](docs/REVIEW_SOURCE_PROVENANCE.md).
