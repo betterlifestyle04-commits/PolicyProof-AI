@@ -201,3 +201,22 @@ def test_saved_tuned_report_rejects_non_hex_adapter_sha(tmp_path):
             revision="a" * 40, generation_config=GENERATION, model_id=MODEL_ID,
             adapter_sha256="not-a-sha",
         )
+
+
+
+def test_cpu_replay_uses_real_auditkit_on_synthetic_test_fixtures(monkeypatch, tmp_path):
+    """Run real AuditKIT 1.1.3 on fixture responses; never count as measured model output."""
+    pytest.importorskip("auditkit")
+    pack = fixture_pack(monkeypatch, tmp_path)
+    *_, base, tuned, paired = pack
+    original, adapted = reports(pack)
+    write_evidence_once(base, original)
+    write_evidence_once(tuned, adapted)
+    result = finish_saved_pair(tmp_path, tmp_path / "adapter", base, tuned, paired)
+    assert result["status"] == "PAIRED_CPU_AUDITKIT_REPLAY_COMPLETED"
+    receipt = json.loads(paired.read_text())
+    assert receipt["status"] == "paired_deterministic_audit"
+    assert receipt["sample_count"] == 60
+    assert receipt["offline_replayed_from_saved_predictions"] is True
+    assert receipt["verified_human_semantic_improvement"] is False
+    assert receipt["gpu_executed_in_this_process"] is False
