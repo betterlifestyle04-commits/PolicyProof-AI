@@ -29,6 +29,7 @@ from scripts.publish_track2a_dataset import LICENSES, HF_REPO, publish
 from scripts.verify_hf_collections import verify_anonymous_access
 
 SHA = re.compile(r"^[0-9a-f]{64}$")
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 PREAMBLE = (
     "**Draft dataset card for a future public Hugging Face dataset. "
     "No HF publication has yet been verified.**"
@@ -239,11 +240,29 @@ def publish_after_approval(
         # Stronger than upload receipt: anonymous file content hashes, licenses,
         # metadata and both 48/72 published splits are checked.
         verified = verify_anonymous_access(manifest, api=anonymous_api, dataset_only=True)
-    if (verified["status"] != "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY"
-        or verified["dataset_id"] != repo_id
-        or verified["declared_dataset_license"] != license_id
-        or not verified["public_internal_checksums_verified"]):
-        raise RuntimeError("Published dataset did not pass independent anonymous inspection")
+    verified_commit = next(
+        (x["revision"] for x in verified["dataset_repositories"] if x["id"] == repo_id),
+        None,
+    )
+    uploaded_commit = receipt.get("commit_sha")
+    checks = {
+        "dataset-only inspection status": verified["status"] == "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY",
+        "dataset ID": verified["dataset_id"] == repo_id,
+        "approved license": verified["declared_dataset_license"] == license_id,
+        "approved source ZIP SHA": verified["approved_source_archive_sha256_claim"] == source_digest,
+        "all public file hashes": verified["all_declared_public_files_sha256_verified"] is True,
+        "complete file inventory": verified["public_verified_file_count"] == len(names) - 1,
+        "public checksum manifest": verified["public_internal_checksums_verified"] is True,
+        "full upload commit": isinstance(uploaded_commit, str) and GIT_SHA.fullmatch(uploaded_commit) is not None,
+        "exact uploaded commit": verified_commit == uploaded_commit,
+    }
+    problems = [name for name, valid in checks.items() if not valid]
+    if problems:
+        raise RuntimeError(
+            "Published dataset did not match approved source, full file inventory "
+            "and exact uploaded commit under anonymous inspection. Failed: "
+            + ", ".join(problems)
+        )
     return {
         **receipt,
         "publication_schema": "policyproof_v2_owner_approved_dataset_publication",
@@ -251,8 +270,9 @@ def publish_after_approval(
         "selected_dataset_license": license_id,
         "anonymous_dataset_file_hashes_verified": True,
         "anonymous_verification_checked_utc": verified["checked_utc"],
-        "dataset_commit_verified": next(x["revision"] for x in verified["dataset_repositories"]
-                                        if x["id"] == repo_id),
+        "dataset_commit_verified": verified_commit,
+        "anonymous_complete_public_inventory_verified": True,
+        "public_files_sha256_verified": verified["public_verified_file_count"],
         "model_collection_requirement_verified": False,
         "trained_adapter_published": False,
         "official_lexsi_submission_completed": False,

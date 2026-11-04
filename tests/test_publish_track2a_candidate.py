@@ -126,6 +126,8 @@ class LocalOnlyHub:
         self.private = False
         self.gated = False
         self.tamper = None
+        self.reported_commit = "a" * 40
+        self.replace_source_claim = False
         self.calls = []
 
     def create_repo(self, **kwargs):
@@ -138,13 +140,28 @@ class LocalOnlyHub:
             str(file.relative_to(root)): file
             for file in root.rglob("*") if file.is_file()
         }
+        if self.replace_source_claim:
+            # Simulate an attacker modifying the public published scope AND
+            # updating the self-contained SHA256SUMS to match. Source pin
+            # must still catch the mismatch.
+            from hashlib import sha256 as checksum
+            scope_file = self.files["provenance/PUBLICATION_SCOPE.json"]
+            scope = json.loads(scope_file.read_text(encoding="utf-8"))
+            scope["approved_source_archive_sha256"] = "0" * 64
+            scope_file.write_text(json.dumps(scope), encoding="utf-8")
+            manifest = self.files["provenance/SHA256SUMS.txt"]
+            manifest.write_text("".join(
+                checksum(file.read_bytes()).hexdigest() + "  " + name + "\n"
+                for name, file in sorted(self.files.items())
+                if name != "provenance/SHA256SUMS.txt"
+            ), encoding="utf-8")
         self.calls.append("upload")
         return SimpleNamespace(oid="a"*40)
 
     def repo_info(self, **kwargs):
         self.calls.append(("repo_info", kwargs.get("token")))
         return SimpleNamespace(
-            private=self.private, gated=self.gated, sha="a"*40
+            private=self.private, gated=self.gated, sha=self.reported_commit
         )
 
     def list_repo_files(self, **kwargs):
@@ -311,3 +328,38 @@ def test_extra_file_or_symlink_cannot_be_accidentally_published(tmp_path):
             api=fake, anonymous_api=fake,
         )
     assert fake.calls == []
+
+
+
+def test_anonymous_dataset_commit_must_match_actual_upload_commit(tmp_path):
+    archive, digest = candidate(tmp_path)
+    directory = tmp_path / "preview"
+    preview = stage_approved_candidate(
+        archive, directory, license_id="cc-by-4.0", expected_digest=digest,
+    )
+    fake = LocalOnlyHub()
+    fake.reported_commit = "b" * 40
+    with pytest.raises(RuntimeError, match="exact uploaded commit"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc-by-4.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )
+
+
+def test_self_consistent_public_file_hashes_do_not_override_original_source_pin(tmp_path):
+    archive, digest = candidate(tmp_path)
+    directory = tmp_path / "preview"
+    preview = stage_approved_candidate(
+        archive, directory, license_id="cc-by-4.0", expected_digest=digest,
+    )
+    fake = LocalOnlyHub()
+    fake.replace_source_claim = True
+    with pytest.raises(RuntimeError, match="approved source"):
+        publish_after_approval(
+            directory, preview["file_names"], source_digest=digest,
+            license_id="cc-by-4.0", repo_id="owner/research",
+            new_collection=True, collection_slug=None, token="FAKE",
+            api=fake, anonymous_api=fake,
+        )

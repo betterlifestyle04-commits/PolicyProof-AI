@@ -49,6 +49,7 @@ class AnonymousFakeAPI:
         self.missing_file = None
         self.omit_dataset_membership = False
         self.bad_public_scope = False
+        self.additional_public_files = []
         self.tmp = temp
         files = temp / "api_files"
         files.mkdir(exist_ok=True)
@@ -101,7 +102,8 @@ class AnonymousFakeAPI:
     def list_repo_files(self, *, repo_id, repo_type, revision, token):
         assert token is False and revision == "a" * 40
         self.calls.append(("list_repo_files", repo_id, token))
-        return [x for x in REQUIRED_DATASET_FILES if x != self.missing_file]
+        return ([x for x in REQUIRED_DATASET_FILES if x != self.missing_file]
+                + list(self.additional_public_files))
 
     def hf_hub_download(self, *, repo_id, repo_type, revision, filename, token):
         assert token is False and revision == "a" * 40
@@ -266,3 +268,80 @@ def test_full_verification_rejects_missing_model_collection(tmp_path):
         validate_manifest(manifest)
     with pytest.raises(ValueError):
         verify_anonymous_access(manifest, api=AnonymousFakeAPI(tmp_path))
+
+
+
+def test_every_declared_extra_public_file_is_fetched_and_hashed(tmp_path):
+    manifest = manifest_file(tmp_path)
+    api = AnonymousFakeAPI(tmp_path)
+    extra = api.files / "supplementary_provenance.txt"
+    extra.write_text("Additional public research provenance must be verified too.")
+    path = "docs/supplementary_provenance.txt"
+    api.additional_public_files.append(path)
+    checksums_path = api.files / "SHA256SUMS.txt"
+    checksums_path.write_text(
+        checksums_path.read_text()
+        + hashlib_sha256(extra.read_bytes()).hexdigest() + "  " + path + "\n"
+    )
+    report = verify_anonymous_access(manifest, api=api)
+    assert report["all_declared_public_files_sha256_verified"] is True
+    assert report["public_verified_file_count"] == len(REQUIRED_DATASET_FILES)
+    assert ("hf_hub_download", path, False) in api.calls
+    assert report["public_checksum_manifest_sha256"] == hashlib_sha256(
+        checksums_path.read_bytes()
+    ).hexdigest()
+    assert report["public_verified_bytes"] > 0
+    assert (tmp_path/"receipt.json").exists() is False
+
+
+def test_changed_extra_public_file_invalidates_whole_verification(tmp_path):
+    manifest = manifest_file(tmp_path)
+    api = AnonymousFakeAPI(tmp_path)
+    extra = api.files / "supplementary_provenance.txt"
+    extra.write_text("safe content")
+    path = "docs/supplementary_provenance.txt"
+    api.additional_public_files.append(path)
+    checksum_file = api.files / "SHA256SUMS.txt"
+    checksum_file.write_text(
+        checksum_file.read_text()
+        + hashlib_sha256(extra.read_bytes()).hexdigest() + "  " + path + "\n"
+    )
+    extra.write_text("Tampered after the manifest was generated")
+    with pytest.raises(ValueError, match="SHA256 manifest"):
+        verify_anonymous_access(manifest, api=api)
+
+
+def test_undeclared_public_file_is_never_silently_accepted(tmp_path):
+    manifest = manifest_file(tmp_path)
+    api = AnonymousFakeAPI(tmp_path)
+    api.additional_public_files.append("docs/stray-research-file.txt")
+    with pytest.raises(ValueError, match="undeclared files"):
+        verify_anonymous_access(manifest, api=api)
+
+
+@pytest.mark.parametrize("suspicious", [
+    "../secrets.txt",
+    "docs/../secrets.txt",
+    "docs/\\secret.txt",
+    "docs/secret\x00.txt",
+    "/absolute/file.txt",
+])
+def test_public_file_inventory_rejects_unsafe_repository_paths(tmp_path, suspicious):
+    manifest = manifest_file(tmp_path)
+    api = AnonymousFakeAPI(tmp_path)
+    api.additional_public_files.append(suspicious)
+    with pytest.raises(ValueError, match="inventory is unsafe"):
+        verify_anonymous_access(manifest, api=api)
+
+
+def test_receipt_requires_audit_of_full_public_inventory(tmp_path):
+    manifest = manifest_file(tmp_path)
+    valid = verify_anonymous_access(manifest, api=AnonymousFakeAPI(tmp_path))
+    receipt = tmp_path / "receipt.json"
+    valid.pop("all_declared_public_files_sha256_verified")
+    receipt.write_text(json.dumps(valid))
+    assert receipt_is_current(receipt, manifest) is False
+    valid["all_declared_public_files_sha256_verified"] = True
+    valid["public_checksum_manifest_sha256"] = "FAKE"
+    receipt.write_text(json.dumps(valid))
+    assert receipt_is_current(receipt, manifest) is False

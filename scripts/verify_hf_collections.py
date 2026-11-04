@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 from urllib.parse import urlsplit
 
@@ -24,6 +24,8 @@ RECEIPT_REL = "artifacts/hf_anonymous_access_receipt.json"
 MAX_MANIFEST_BYTES = 100_000
 MAX_CASE_BYTES = 5_000_000
 MAX_COLLECTION_ITEMS = 100
+MAX_PUBLIC_FILE_COUNT = 60
+MAX_PUBLIC_CHECKED_BYTES = 25_000_000
 MAX_AGE_HOURS = 72
 HF_REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$")
 HF_COLLECTION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,125}$")
@@ -149,10 +151,27 @@ def _download_public(api, repo: str, revision: str, filename: str) -> Path:
     return path
 
 
+def _safe_public_filename(name: str) -> bool:
+    if (not isinstance(name, str) or not 1 <= len(name) <= 300
+        or chr(92) in name or chr(0) in name
+        or name.startswith("/") or name.endswith("/")):
+        return False
+    parts = PurePosixPath(name).parts
+    return bool(parts and ".." not in parts and "." not in parts
+                and all(part not in ("", ".", "..") for part in parts))
+
+
 def _check_published_scope(api, dataset: str, revision: str) -> dict:
-    available = set(api.list_repo_files(
+    # All reads target the SAME pinned remote Git SHA, never mutable 'main'.
+    listed = api.list_repo_files(
         repo_id=dataset, repo_type="dataset", revision=revision, token=False
-    ))
+    )
+    if (not isinstance(listed, list)
+        or len(listed) > MAX_PUBLIC_FILE_COUNT + 2
+        or not all(_safe_public_filename(item) for item in listed)
+        or len(listed) != len(set(listed))):
+        raise ValueError("Public dataset file inventory is unsafe or duplicated")
+    available = set(listed)
     missing = set(REQUIRED_DATASET_FILES) - available
     if missing:
         raise ValueError("Public dataset missing mandatory research files: " + ", ".join(sorted(missing)))
@@ -162,16 +181,32 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         lines = checksums.read_text(encoding="utf-8").splitlines()
     except UnicodeError as exc:
         raise ValueError("Published checksum manifest is unreadable") from exc
+    if not 4 <= len(lines) <= MAX_PUBLIC_FILE_COUNT:
+        raise ValueError("Published checksum manifest has unexpected file count")
     for line in lines:
         match = re.fullmatch(r"([a-f0-9]{64})  (.+)", line)
-        if not match or match.group(2) in declared:
-            raise ValueError("Published file checksums malformed or duplicated")
+        if (not match or not _safe_public_filename(match.group(2))
+            or match.group(2) in declared
+            or match.group(2) == "provenance/SHA256SUMS.txt"):
+            raise ValueError("Published file checksums malformed, unsafe or duplicated")
         declared[match.group(2)] = match.group(1)
-    for filename in REQUIRED_DATASET_FILES:
-        if filename == "provenance/SHA256SUMS.txt":
-            continue
+    if not (set(REQUIRED_DATASET_FILES) - {"provenance/SHA256SUMS.txt"}).issubset(declared):
+        raise ValueError("Public checksum manifest omits mandatory research files")
+    expected_repo_files = set(declared) | {"provenance/SHA256SUMS.txt"}
+    if expected_repo_files - available:
+        raise ValueError("Public checksum manifest refers to missing repository files")
+    # Hugging Face can create this Git LFS metadata file. All other extra
+    # files (including unstated model weights / credentials) fail closed.
+    extras = available - expected_repo_files - {".gitattributes"}
+    if extras:
+        raise ValueError("Public dataset contains undeclared files: " + ", ".join(sorted(extras)[:5]))
+    verified_bytes = 0
+    for filename, checksum in sorted(declared.items()):
         artifact = _download_public(api, dataset, revision, filename)
-        if declared.get(filename) != sha256(artifact):
+        verified_bytes += artifact.stat().st_size
+        if verified_bytes > MAX_PUBLIC_CHECKED_BYTES:
+            raise ValueError("Public dataset exceeds the audited byte limit")
+        if sha256(artifact) != checksum:
             raise ValueError("Published file content differs from public SHA256 manifest: " + filename)
     scope = _read_json(_download_public(
         api, dataset, revision, "provenance/PUBLICATION_SCOPE.json"
@@ -186,6 +221,16 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         or scope.get("tuned_adapter_included") is not False
     ):
         raise ValueError("Published scope conflicts with 48 evaluated / 72 unscored research status")
+    if scope.get("source_format") == "policyproof_track2a_unpublished_research_v2":
+        from scripts.build_track2a_release_candidate import EXPECTED_FILES, STATUS_FILE
+        required_v2 = (EXPECTED_FILES - {STATUS_FILE}) | {"provenance/PUBLICATION_SCOPE.json"}
+        if expected_repo_files != required_v2:
+            raise ValueError("V2 research release public inventory differs from approved fixed 15-file format")
+        if (not isinstance(scope.get("approved_source_archive_sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", scope["approved_source_archive_sha256"])):
+            raise ValueError("V2 public release lacks pinned original approved ZIP digest")
+    elif scope.get("source_format") not in (None, ""):
+        raise ValueError("Unrecognized public research release format")
     baseline = _read_json(_download_public(
         api, dataset, revision,
         "evaluated_48/original_saved_tiny_aya_base_model_predictions.json"
@@ -224,6 +269,11 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         "public_baseline_cases": 48,
         "public_unscored_challenge_cases": 72,
         "public_internal_checksums_verified": True,
+        "all_declared_public_files_sha256_verified": True,
+        "public_verified_file_count": len(declared),
+        "public_verified_bytes": verified_bytes,
+        "public_checksum_manifest_sha256": sha256(checksums),
+        "approved_source_archive_sha256_claim": scope.get("approved_source_archive_sha256"),
         "published_scope_sha256": sha256(
             _download_public(api, dataset, revision, "provenance/PUBLICATION_SCOPE.json")
         ),
@@ -296,6 +346,11 @@ def receipt_is_current(receipt_path: Path, manifest_path: Path,
             and record.get("public_baseline_cases") == 48
             and record.get("public_unscored_challenge_cases") == 72
             and record.get("public_internal_checksums_verified") is True
+            and record.get("all_declared_public_files_sha256_verified") is True
+            and isinstance(record.get("public_verified_file_count"), int)
+            and 4 <= record["public_verified_file_count"] <= MAX_PUBLIC_FILE_COUNT
+            and isinstance(record.get("public_checksum_manifest_sha256"), str)
+            and re.fullmatch(r"[0-9a-f]{64}", record["public_checksum_manifest_sha256"]) is not None
             and record.get("public_required_files_readable") == list(REQUIRED_DATASET_FILES)
             and record.get("official_submission_completed") is False
         )

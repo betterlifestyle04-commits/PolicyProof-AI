@@ -92,3 +92,7 @@ python -m scripts.build_track2a_release_candidate --inspect track2a_release_cand
 The code has synthetic local stub tests for SHA pinning, honest staging, anti-overwrite behavior, non-publication by default, missing consent/token, and **fake HF API responses**, including private/gated repos and tampered public dataset files. Tests never connect to Hugging Face or create public resources. Only the user's subsequent explicitly authorized run on real infrastructure can establish publication.
 
 **The reproducible v2 package and publisher are preparation steps, not proof of GPU training or model improvement.** The 48 responses are an inspected development sample; the 72 challenge cases are unscored and unreviewed.
+
+## Strong public readback binding
+
+After a real, consented upload the verifier fetches **every** file named by the publicly hosted checksum manifest at the repository's pinned Git SHA, checks that the public repo contains no unrelated undeclared assets (except `.gitattributes`), and enforces the exact v2 public-file inventory. The publisher refuses to save a success receipt unless the public source ZIP claim matches the original owner-approved 64-character SHA-256 **and** the public 40-character Git revision matches the upload commit. The Hub SDK compatibility checks in CI are offline; they are not a substitute for a genuine anonymous network run after the owner publishes.
