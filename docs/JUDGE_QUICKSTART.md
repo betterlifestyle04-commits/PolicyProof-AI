@@ -130,3 +130,8 @@ Once the owner reviews the new reproducible 15-member ZIP, there is a distinct `
 ### Public dataset proof now checks the entire release, not only required files
 
 On a genuinely published Track 2a dataset, the owner can opt into anonymous verification via `python -m scripts.verify_hf_collections --dataset-only --verify-network`. The verifier checks **every** SHA256SUMS entry and blocks unsafe/extraneous files, then pins model/collection access by Git revision. The optional v2 publisher further ties the anonymous public dataset Git revision to the upload commit and public source ZIP hash to the owner-approved original archive digest. The repository's CI uses mock network responses plus a separate real SDK *offline* compatibility contract; neither test demonstrates that a Hugging Face upload has occurred. [Full instructions](HF_ANONYMOUS_PUBLICATION_CHECKS.md).
+
+
+### Review source evidence is now required before any final-model inference
+
+The CPU-only `python -m scripts.verify_review_provenance` defaults to **BLOCKED** because no actual human judgments have been received. Positive reviewer pseudonyms and a `review_complete` flag are no longer enough: the paired evaluator requires SHA-256 linked complete per-reviewer CSVs and a valid reconciliation of every frozen case plus each reviewer's own approval declaration. The checks do not independently prove human identity or translation correctness, and the example fixtures in unit tests are **simulated**, not scientific evidence. [Full protocol](REVIEW_SOURCE_PROVENANCE.md).

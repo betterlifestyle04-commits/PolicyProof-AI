@@ -25,6 +25,7 @@ from policyproof.core import ROOT, aggregate, make_prompt, read_jsonl, score, sh
 from scripts.validate_final_holdout import validate_final_holdout
 from scripts.verify_training_archive import inspect_training_directory
 from scripts.paired_run_recovery import validate_saved_base, write_evidence_once
+from scripts.verify_review_provenance import verify_review_evidence
 
 MODEL_ID = "CohereLabs/tiny-aya-global"
 GENERATION = {"do_sample": False, "num_beams": 1, "max_new_tokens": 160}
@@ -34,11 +35,14 @@ REVIEWER_CODE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,39}$")
 REVISION = re.compile(r"^[0-9a-f]{40}$")
 
 
-def verify_review_signoff(path: Path, dataset_digest: str) -> dict:
-    """Check reported signoff metadata, NOT real human identity or competence."""
+def verify_review_signoff(
+    path: Path, dataset_digest: str, *, root: Path | None = None,
+) -> dict:
+    """Verify exact source-linked review records; NOT real human identity/competence."""
     path = Path(path)
-    if not path.is_file() or path.stat().st_size > 100_000:
-        raise ValueError("Independent review signoff is missing or oversized")
+    if (not path.is_file() or path.is_symlink()
+        or not 0 < path.stat().st_size <= 100_000):
+        raise ValueError("Independent review signoff is missing, symlinked or oversized")
     def unique_fields(pairs):
         record = {}
         for key, value in pairs:
@@ -50,6 +54,9 @@ def verify_review_signoff(path: Path, dataset_digest: str) -> dict:
     try:
         record = json.loads(
             path.read_text(encoding="utf-8"), object_pairs_hook=unique_fields,
+            parse_constant=lambda val: (_ for _ in ()).throw(
+                ValueError("Nonfinite review signoff value: " + val)
+            ),
         )
     except (ValueError, UnicodeError) as exc:
         raise ValueError("Invalid review signoff JSON") from exc
@@ -62,12 +69,21 @@ def verify_review_signoff(path: Path, dataset_digest: str) -> dict:
         not all(isinstance(v, str) and REVIEWER_CODE.fullmatch(v) for v in codes) or
         len(codes) != len(set(codes))):
         raise ValueError("Require two or more distinct reviewer pseudonyms")
+    project = Path(root).resolve() if root is not None else path.parent.resolve()
+    dataset = project / FINAL_REL
+    if (not dataset.is_file() or dataset.is_symlink()
+        or sha256(dataset) != dataset_digest):
+        raise ValueError("Frozen final benchmark file is missing or changed")
+    original_cases = read_jsonl(dataset)
+    proof = verify_review_evidence(project, original_cases, dataset_digest, record)
     return {
         "review_declared": True,
         "reviewers_declared": len(codes),
+        "review_source_evidence_validated": True,
         "reviewer_identity_independently_verified": False,
         "translation_validity_independently_verified": False,
         "signoff_sha256": sha256(path),
+        "review_evidence": proof,
     }
 
 
@@ -99,10 +115,15 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
     try:
         if digest is None:
             raise ValueError("Dataset must validate before review signoff")
-        signoff = verify_review_signoff(root / SIGNOFF_REL, digest)
+        signoff = verify_review_signoff(root / SIGNOFF_REL, digest, root=root)
         checks["independent_review_declared"] = {
             "passed": True,
-            "details": f"Signoff metadata lists {signoff['reviewers_declared']} pseudonyms; identity and judgments not independently verified",
+            "details": (
+                f"{signoff['reviewers_declared']} exact SHA-matched reviewer CSVs, "
+                "60×3 yes verdicts each, exact reconciliation and individual "
+                "approval declarations validated; reviewer identity, human "
+                "action and language competence remain unverified"
+            ),
         }
     except (ValueError, OSError) as exc:
         checks["independent_review_declared"] = {"passed": False, "details": str(exc)[:260]}
@@ -136,7 +157,7 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
         "generation_config": dict(GENERATION),
         "checks": checks,
         "limitations": [
-            "Review signoff cannot independently establish reviewer identity or competence",
+            "Review source hashes, votes and declarations cannot independently establish real human identity, independence, language competence or semantic correctness",
             "Adapter hashes and receipt cannot independently prove GPU optimizer steps",
             "Public synthetic final candidate is not a secret or genuinely blind benchmark",
             "Real GPU execution and human semantic evaluation have not been performed here",

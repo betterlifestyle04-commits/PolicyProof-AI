@@ -55,3 +55,14 @@ No model on this final candidate should be prompted, trained, tuned or scored du
 Use fictional policy records only. Reviewers should use pseudonyms, not emails or full names, in public files. The Streamlit server serves blank CSVs but does not accept or store completed human reviews. Keep filled files private until the reviewers authorize publication. A human review only validates the suitability of a synthetic benchmark; it cannot establish real-world financial advice reliability or model safety.
 
 See [final benchmark protocol](FINAL_BENCHMARK_PROTOCOL.md) and [submission readiness](SUBMISSION_READINESS.md).
+
+## New: original reviewer files are now mandatory for GPU review signoff
+
+The guarded paired evaluator no longer accepts `review_complete: true` and two pseudonyms alone. The reviewer must retain **private, SHA-256-linked copies** of both full 60-case annotated CSVs and an unmodified reconciliation report under `reviews/`. Before accepting review completion, `python -m scripts.verify_review_provenance` now rechecks the full CSVs against the original frozen benchmark bytes and requires all 180 judgments per reviewer to be affirmative, no disagreements or negatives, exactly matching reconciliation content, and explicit individual manual approval declarations with declared Norwegian/Arabic/English competence across the review team. `reviews/` is gitignored.
+
+**This remains consistency validation, not proof of human independence, language expertise or correct semantics**. Never generate positive votes automatically or mark signoff complete merely to pass CI. All existing actual human work must be retained privately; the public repository remains **NOT REVIEWED**. For the exact v1 review-evidence schema and instructions, see [source-linked review provenance](REVIEW_SOURCE_PROVENANCE.md).
+
+
+### Optional safe local signoff draft
+
+After real independent reviewer CSVs and reconciliation are complete and unanimous, run `python -m scripts.prepare_review_signoff --review-csvs reviews/reviewer_A.csv reviews/reviewer_B.csv --reconciliation reviews/reconciliation.json --output reviews/signoff_draft.json`. This verifies frozen source hashes and creates a **private unsigned draft** with all reviewer approval, independence, and blinding flags `false`, and no competence claims. It never updates the public signoff. Only real humans can choose to approve their review and complete those declarations. See [exact procedure](REVIEW_SOURCE_PROVENANCE.md).

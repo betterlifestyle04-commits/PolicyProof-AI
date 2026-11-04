@@ -58,3 +58,7 @@ For a versioned reviewer-specific CSV with complete fictional evidence and propo
 ## Reproducible paired inference runner (prepared; NOT EXECUTED)
 
 The `scripts.frozen_pair_inference` command now has a **read-only CPU preflight** that refuses model inference until genuine human review signoff and a structurally validated, SHA-matched, pinned-revision AlignTune adapter are available. Real execution requires `--execute --confirm-review --confirm-gpu-run`, uses the same frozen 60 prompts and generation settings for base and adapted models, then runs matched AuditKIT scoring. No base/tuned comparison has been performed yet, and this public candidate is not a truly blind test. See [paired evaluation runbook](FROZEN_PAIRED_INFERENCE.md).
+
+## Evidence-backed signoff prerequisite (November 4, 2026)
+
+The `scripts.frozen_pair_inference` preflight now requires actual source-linked review files rather than trusting a manually toggled completion boolean. Two or more distinct reviewer CSVs, exact SHA-256 values and a reproducible reconciliation must match the 60-case frozen dataset before human signoff can be declared locally. All 3 criteria must receive positive votes for all cases, with no negative, missing or disputed judgments, and reviewer approval/language declarations must be present. This does **not** independently verify real human identities, competence or semantic correctness. Current signoff remains **false**, so no real final benchmark evaluation is allowed. [Full provenance instructions](REVIEW_SOURCE_PROVENANCE.md).

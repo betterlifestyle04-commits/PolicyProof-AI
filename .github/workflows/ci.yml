@@ -1,5 +1,11 @@
 name: Research scaffold CI
 on: [push, pull_request]
+# Only the most recent push to a branch needs expensive CPU/browser verification.
+# Main-branch runs remain independent. This prevents a flood of stale CI
+# executions during rapid iterative review-source hardening.
+concurrency:
+  group: policyproof-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -65,6 +71,21 @@ jobs:
         run: python -m scripts.validate_notebooks
       - name: Validate independent 60-case final candidate (NO inference)
         run: python -m scripts.validate_final_holdout
+      - name: Confirm no human review signoff can be fabricated in CI
+        run: |
+          python -m scripts.verify_review_provenance
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.frozen_pair_inference import FINAL_REL, SIGNOFF_REL, verify_review_signoff
+          from policyproof.core import ROOT, sha256
+          original = json.loads((ROOT / SIGNOFF_REL).read_text())
+          assert original["review_complete"] is False
+          assert original["review_evidence"] is None
+          # A directory may legitimately exist after fixture/build setup;
+          # the substantive guard is that no real reviewer signoff is claimed.
+          assert sha256(ROOT / FINAL_REL)
+          PY
       - name: Confirm paired final evaluation remains GPU-free during CI
         run: |
           python -m scripts.frozen_pair_inference

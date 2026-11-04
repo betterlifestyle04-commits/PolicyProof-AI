@@ -67,14 +67,12 @@ def _signoff(tmp_path, *, complete=True, digest="a"*64, reviewers=None, dataset=
     return path
 
 
-def test_declared_two_reviewers_is_not_independent_identity_proof(tmp_path):
-    path = _signoff(tmp_path)
-    report = verify_review_signoff(path, "a"*64)
-    assert report["review_declared"] is True
-    assert report["reviewers_declared"] == 2
-    assert report["reviewer_identity_independently_verified"] is False
-    assert report["translation_validity_independently_verified"] is False
-    assert report["signoff_sha256"] == sha256(path)
+def test_pseudonyms_and_review_complete_boolean_alone_cannot_unlock_review(tmp_path):
+    # Old code trusted a self-asserted boolean and two arbitrary codes.
+    # That is no longer sufficient, even with a correct dataset digest.
+    path = _signoff(tmp_path, digest=sha256(ROOT / FINAL_REL))
+    with pytest.raises(ValueError, match="Frozen final benchmark|review-source evidence"):
+        verify_review_signoff(path, sha256(ROOT / FINAL_REL), root=ROOT)
 
 
 @pytest.mark.parametrize("bad", [
