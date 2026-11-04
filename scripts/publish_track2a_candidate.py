@@ -29,6 +29,7 @@ from scripts.publish_track2a_dataset import LICENSES, HF_REPO, publish
 from scripts.verify_hf_collections import verify_anonymous_access
 
 SHA = re.compile(r"^[0-9a-f]{64}$")
+GIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 PREAMBLE = (
     "**Draft dataset card for a future public Hugging Face dataset. "
     "No HF publication has yet been verified.**"
@@ -252,7 +253,7 @@ def publish_after_approval(
         "all public file hashes": verified["all_declared_public_files_sha256_verified"] is True,
         "complete file inventory": verified["public_verified_file_count"] == len(names) - 1,
         "public checksum manifest": verified["public_internal_checksums_verified"] is True,
-        "full upload commit": isinstance(uploaded_commit, str) and SHA.fullmatch(uploaded_commit) is not None,
+        "full upload commit": isinstance(uploaded_commit, str) and GIT_SHA.fullmatch(uploaded_commit) is not None,
         "exact uploaded commit": verified_commit == uploaded_commit,
     }
     problems = [name for name, valid in checks.items() if not valid]
