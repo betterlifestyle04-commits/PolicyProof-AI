@@ -565,6 +565,24 @@ elif page == "Judge verification":
             "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/RECOVERABLE_PAIRED_EVALUATION.md)"
         )
     st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
+    st.markdown("#### Reproducible, unpublished Track 2a evidence handoff")
+    st.info(
+        "A successful native CuratorKIT + AuditKIT CPU run now builds a new, "
+        "checksum-verified ZIP with 48 saved and evaluated original-model cases "
+        "plus 72 additional curated but UNSCORED cases. It includes no trained "
+        "model, no approved license, and no Hugging Face publication."
+    )
+    st.markdown(
+        "[Download handoff from a successful GitHub Actions artifact]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml)"
+        " · [Inspection and provenance instructions]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_REPRODUCIBLE_HANDOFF.md)"
+    )
+    st.code(
+        "python -m scripts.build_track2a_release_candidate --inspect "
+        "track2a_release_candidate_v2_UNPUBLISHED.zip",
+        language="bash",
+    )
     st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
     st.success(
         "Research verification: CuratorKIT → AuditKIT evaluated the 48 saved Tiny Aya "
