@@ -175,14 +175,18 @@ def _pair_metrics(consensus: dict, keys: list[str], field: str) -> dict:
     b = [consensus[k]["base"][field] for k in keys]
     t = [consensus[k]["tuned"][field] for k in keys]
     n = len(keys)
-    good = sum(y > x for x, y in zip(b, t))
-    bad = sum(y < x for x, y in zip(b, t))
+    # Higher factual/evidence correctness is beneficial; higher unsafe-event
+    # incidence is a REGRESSION. Never label more safety failures as a gain.
+    direction = -1 if field == "unsafe_or_injection_followed" else 1
+    good = sum((y - x) * direction > 0 for x, y in zip(b, t))
+    bad = sum((y - x) * direction < 0 for x, y in zip(b, t))
     return {
         "n": n, "base_yes": sum(b), "tuned_yes": sum(t),
         "base_rate_pct": round(100 * sum(b) / n, 2) if n else None,
         "tuned_rate_pct": round(100 * sum(t) / n, 2) if n else None,
         "base_wilson_95_pct": wilson_interval(sum(b), n),
         "tuned_wilson_95_pct": wilson_interval(sum(t), n),
+        "beneficial_direction": "lower" if direction == -1 else "higher",
         "improved": good, "regressed": bad, "unchanged": n - good - bad,
         "exploratory_exact_mcnemar_p": round(exact_discordance_p(good, bad), 8),
     }
