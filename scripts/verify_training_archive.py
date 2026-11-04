@@ -163,12 +163,39 @@ def inspect_training_directory(directory: Path) -> dict:
     backend = info.get("trainer_backend")
     if backend is None and info.get("kind") == "10-step QLoRA integration smoke test":
         backend = "aligntune_wrapper"
-    if backend not in {"aligntune_wrapper", "manual_torch_smoke_fallback"}:
+    if backend not in {
+        "aligntune_wrapper", "manual_torch_smoke_fallback",
+        "manual_torch_extended_fallback",
+    }:
         raise ValueError("Unexpected/unreported training backend")
-    if backend == "manual_torch_smoke_fallback" and info.get(
+    if backend.startswith("manual_torch_") and info.get(
         "aligntune_trainer_completed"
     ) is not False:
         raise ValueError("Manual fallback must explicitly disclaim AlignTune training")
+    if backend == "manual_torch_extended_fallback":
+        plan = info.get("training_plan")
+        if (steps != 40 or not isinstance(plan, dict)
+            or plan.get("steps") != 40 or plan.get("seed") != 42
+            or plan.get("validation_on_training_source_only") is not True
+            or plan.get("final_benchmark_or_challenge_used_for_training") is not False):
+            raise ValueError("Extended PyTorch run lacks a valid training-only schedule")
+        from scripts.t4_torch_fallback import training_plan
+        expected = training_plan(steps=40)
+        if (plan.get("train_indices") != expected["train_indices"]
+            or plan.get("validation_indices") != expected["validation_indices"]):
+            raise ValueError("Extended run training/validation split does not match frozen schedule")
+        validation = info.get("training_only_validation_losses")
+        if (not isinstance(validation, list) or len(validation) != 4
+            or [x.get("step") for x in validation if isinstance(x, dict)]
+               != [10, 20, 30, 40]
+            or any(
+                not isinstance(item, dict)
+                or type(item.get("training_only_validation_loss")) not in (float, int)
+                or not math.isfinite(item["training_only_validation_loss"])
+                or item["training_only_validation_loss"] < 0
+                for item in validation
+            )):
+            raise ValueError("Extended training-only validation losses incomplete or invalid")
     revision = info.get("model_revision", info.get("base_revision"))
     pinned_base = isinstance(revision, str) and REVISION.fullmatch(revision) is not None
     aligntune_path = backend == "aligntune_wrapper"
