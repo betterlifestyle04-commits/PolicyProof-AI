@@ -213,7 +213,7 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         raise ValueError("Public 72-case challenge is incomplete, already scored or mismarked")
     readme = _download_public(api, dataset, revision, "README.md")
     card = readme.read_text(encoding="utf-8")
-    if not card.startswith("---\\n") or not re.search(
+    if not card.startswith("---") or not re.search(
         r"(?m)^license: " + re.escape(scope["selected_license"]) + r"$",
         card.split("---", 2)[1] if len(card.split("---", 2)) > 1 else "",
     ):
