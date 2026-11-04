@@ -135,3 +135,7 @@ On a genuinely published Track 2a dataset, the owner can opt into anonymous veri
 ### Review source evidence is now required before any final-model inference
 
 The CPU-only `python -m scripts.verify_review_provenance` defaults to **BLOCKED** because no actual human judgments have been received. Positive reviewer pseudonyms and a `review_complete` flag are no longer enough: the paired evaluator requires SHA-256 linked complete per-reviewer CSVs and a valid reconciliation of every frozen case plus each reviewer's own approval declaration. The checks do not independently prove human identity or translation correctness, and the example fixtures in unit tests are **simulated**, not scientific evidence. [Full protocol](REVIEW_SOURCE_PROVENANCE.md).
+
+## Optional real GPU training milestone (not yet executed)
+
+The Colab/Kaggle notebooks now offer an explicitly opted-in, **40-step PyTorch QLoRA** run using an AlignTune-loaded PEFT model, 66 CuratorKIT training rows, and 12 small training-only validation examples. This avoids previously observed TRL mixed-precision trainer startup failures, but must **not** be represented as a successful AlignTune trainer execution. There is no trained adapter to evaluate yet; the only saved Tiny Aya predictions in the repo remain the inspected 48-case unchanged-model development responses. See [GPU training instructions](GPU_TRAINING_NEXT_STEPS.md).
