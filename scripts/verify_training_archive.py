@@ -91,8 +91,9 @@ def validate_safetensors(path: Path) -> dict:
         )
         if dtype not in DTYPE_SIZES:
             raise ValueError("Unknown tensor dtype")
-        if (not isinstance(shape, list) or not shape
-            or any(type(dim) is not int or dim <= 0 for dim in shape)):
+        if (not isinstance(shape, list) or not 1 <= len(shape) <= 8
+            or any(type(dim) is not int or not 1 <= dim <= SINGLE_FILE_LIMIT
+                   for dim in shape)):
             raise ValueError("Invalid tensor shape")
         if (not isinstance(offsets, list) or len(offsets) != 2
             or any(type(o) is not int or o < 0 for o in offsets)
@@ -201,9 +202,14 @@ def inspect_training_archive(archive: Path) -> dict:
         for member in members:
             name = member.filename
             path = PurePosixPath(name)
-            if (name in seen or name.startswith("/") or "\\" in name
-                or ".." in path.parts or path.parts[0] not in {"adapter", "run_info.json", "run_info.failed_encoding_typeerror.json"}
+            if (not path.parts or name in seen or name.startswith("/") or "\\" in name
+                or ".." in path.parts
                 or (path.parts[0] == "adapter" and len(path.parts) != 2)
+                or (path.parts[0] in {"run_info.json", "run_info.failed_encoding_typeerror.json"}
+                    and len(path.parts) != 1)
+                or path.parts[0] not in {
+                    "adapter", "run_info.json", "run_info.failed_encoding_typeerror.json"
+                }
                 or member.file_size > SINGLE_FILE_LIMIT
                 or (member.external_attr >> 16) & 0o170000 == 0o120000):
                 raise ValueError("Unsafe or unsupported training ZIP member")
