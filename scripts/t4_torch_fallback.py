@@ -108,7 +108,33 @@ def known_safe_encoding_retry(previous: dict) -> bool:
     )
 
 
-def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None):
+def training_plan(total_rows=78, *, steps=10, seed=42):
+    """Deterministic schedule; extended run reserves 12 TRAINING-ONLY rows.
+
+    The validation rows are a weak tuning diagnostic, not a benchmark or
+    semantic safety evaluation. Never includes 48/60/72-case evaluation files.
+    """
+    if type(total_rows) is not int or total_rows != 78:
+        raise ValueError("Exactly 78 independently curated training-only rows required")
+    if type(steps) is not int or steps not in (10, 40):
+        raise ValueError("Only 10-step smoke or 40-step extended training allowed")
+    shuffled = list(range(total_rows))
+    random.Random(seed).shuffle(shuffled)
+    train = shuffled if steps == 10 else shuffled[:-12]
+    validation = [] if steps == 10 else shuffled[-12:]
+    if set(train) & set(validation) or len(train) + len(validation) != total_rows:
+        raise ValueError("Internal training-only split overlaps")
+    return {
+        "steps": steps, "seed": seed,
+        "train_indices": train, "validation_indices": validation,
+        "gradient_accumulation": 4, "lr": 2e-4,
+        "training_only_validation": bool(validation),
+        "final_benchmark_or_challenge_used_for_training": False,
+    }
+
+
+def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None,
+                      optimizer_steps=10):
     import torch
     import bitsandbytes as bnb
     from peft import PeftModel
@@ -117,6 +143,13 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
 
     root = Path(root)
     source = root / "artifacts/verified_curator_train/sft_alpaca.jsonl"
+    plan = training_plan(steps=optimizer_steps)
+    if optimizer_steps == 40 and (
+        not isinstance(model_sha, str)
+        or len(model_sha) != 40
+        or any(c not in "0123456789abcdef" for c in model_sha)
+    ):
+        raise ValueError("Extended training requires an exact pinned 40-hex Hugging Face base model revision")
     checked = check_train_data(source)
     if checked["dataset_sha256"] != TRAIN_SHA:
         raise RuntimeError("CuratorKIT training hash differs from verified archive")
@@ -151,7 +184,10 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     assert encoded["checked_rows"] == 78
     print("Tokenizer preflight passed:", encoded, flush=True)
 
-    out = root / "artifacts/torch_fallback_qlora_smoke"
+    out = root / (
+        "artifacts/torch_fallback_qlora_extended"
+        if optimizer_steps == 40 else "artifacts/torch_fallback_qlora_smoke"
+    )
     receipt = out / "run_info.json"
     prior_failed_receipt = None
     if (out / "adapter/adapter_config.json").exists():
@@ -190,19 +226,20 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
     if hasattr(model, "enable_input_require_grads"):
         model.enable_input_require_grads()
 
-    shuffled = list(range(len(rows)))
-    random.Random(42).shuffle(shuffled)
-    optimizer = torch.optim.AdamW([p for _, p in weights], lr=2e-4)
+    train_indices = plan["train_indices"]
+    val_indices = plan["validation_indices"]
+    optimizer = torch.optim.AdamW([p for _, p in weights], lr=plan["lr"])
     model.train()
     finished = 0
     losses = []
+    validation_losses = []
     started = time.monotonic()
     try:
-        for step in range(10):
+        for step in range(optimizer_steps):
             optimizer.zero_grad(set_to_none=True)
             micro_losses = []
             for micro in range(4):
-                row = rows[shuffled[(step * 4 + micro) % len(shuffled)]]
+                row = rows[train_indices[(step * 4 + micro) % len(train_indices)]]
                 sample = encode_pair(tokenizer, row)
                 batch = {k: torch.tensor([v], device="cuda", dtype=torch.long)
                          for k, v in sample.items()}
@@ -223,9 +260,29 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             finished += 1
             current_loss = sum(micro_losses) / len(micro_losses)
             losses.append({"step": finished, "loss": round(current_loss, 6)})
-            print(f"Step {finished}/10, training loss {current_loss:.5f}", flush=True)
+            print(f"Step {finished}/{optimizer_steps}, training loss {current_loss:.5f}", flush=True)
+            if val_indices and finished % 10 == 0:
+                model.eval()
+                total = 0.0
+                with torch.no_grad():
+                    for index in val_indices:
+                        sample = encode_pair(tokenizer, rows[index])
+                        batch = {k: torch.tensor([v], device="cuda", dtype=torch.long)
+                                 for k, v in sample.items()}
+                        with torch.autocast(device_type="cuda", dtype=torch.float16):
+                            val_loss = model(**batch).loss.float()
+                        if not bool(torch.isfinite(val_loss).item()):
+                            raise FloatingPointError("Nonfinite training-only validation loss")
+                        total += float(val_loss.item())
+                validation_losses.append({
+                    "step": finished,
+                    "training_only_validation_loss": round(total / len(val_indices), 6),
+                })
+                model.train()
+                print(f"Training-only validation step {finished}: "
+                      f"{validation_losses[-1]['training_only_validation_loss']:.5f}", flush=True)
 
-        if finished != 10:
+        if finished != optimizer_steps:
             raise RuntimeError("Not all optimizer steps completed")
         adapter = out / "adapter"
         adapter.mkdir(parents=True, exist_ok=True)
@@ -237,8 +294,18 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
         sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
         data = {
             "status": "completed",
-            "trainer_backend": "manual_torch_smoke_fallback",
+            "trainer_backend": (
+                "manual_torch_extended_fallback" if optimizer_steps == 40
+                else "manual_torch_smoke_fallback"
+            ),
             "aligntune_trainer_completed": False,
+            "training_plan": {
+                "train_indices": train_indices, "validation_indices": val_indices,
+                "steps": optimizer_steps, "seed": plan["seed"],
+                "validation_on_training_source_only": bool(val_indices),
+                "final_benchmark_or_challenge_used_for_training": False,
+            },
+            "training_only_validation_losses": validation_losses,
             "model": "CohereLabs/tiny-aya-global",
             "model_revision": model_sha, "gpu": gpu,
             "examples": 78, "dataset_sha256": checked["dataset_sha256"],
@@ -256,7 +323,10 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             "performance_improvement_verified": False,
         }
         receipt.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        archive = root.parent / "policyproof_t4_torch_fallback.zip"
+        archive = root.parent / (
+            "policyproof_t4_torch_extended.zip" if optimizer_steps == 40
+            else "policyproof_t4_torch_fallback.zip"
+        )
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as z:
             for p in sorted(out.rglob("*")):
                 if p.is_file():
@@ -265,7 +335,10 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
         return archive
     except Exception as exc:
         receipt.write_text(json.dumps({
-            "status": "failed", "trainer_backend": "manual_torch_smoke_fallback",
+            "status": "failed", "trainer_backend": (
+                "manual_torch_extended_fallback" if optimizer_steps == 40
+                else "manual_torch_smoke_fallback"
+            ), "intended_steps": optimizer_steps,
             "completed_steps": finished, "error": str(exc)[:1200],
             "error_type": type(exc).__name__,
         }, indent=2) + "\n", encoding="utf-8")
