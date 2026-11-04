@@ -311,13 +311,18 @@ def write_bundle(root: Path, destination: Path) -> dict:
     if destination.exists() or destination.is_symlink():
         raise FileExistsError("Refusing to overwrite existing release candidate")
     destination.parent.mkdir(parents=True, exist_ok=True)
+    created = False
     try:
         with ZipFile(destination, "x") as zipped:
+            created = True
             for name in sorted(files):
                 zipped.writestr(_zip_member(name, files[name]), files[name])
         audited = inspect_zip(destination)
     except BaseException:
-        destination.unlink(missing_ok=True)
+        # A concurrent user may create a file between our existence check and
+        # ZIP_STORED exclusive open. Never remove someone else's evidence.
+        if created:
+            destination.unlink(missing_ok=True)
         raise
     return {**details, "archive_sha256": sha256(destination),
             "archive_path": str(destination), "post_write_verified": audited["status"]}
