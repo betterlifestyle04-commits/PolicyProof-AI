@@ -86,15 +86,15 @@ def _url_id(url: str, expected_type: str) -> str:
     raise ValueError("Unknown Hugging Face URL type")
 
 
-def validate_manifest(path: Path) -> dict:
+def validate_manifest(path: Path, *, dataset_only: bool = False) -> dict:
     """Validate literal owner-entered links, never trust self-verified booleans."""
     manifest = _read_json(path, limit=MAX_MANIFEST_BYTES)
     if not isinstance(manifest, dict):
         raise ValueError("HF publication manifest must be an object")
     ds = _url_id(manifest.get("dataset_url"), "dataset")
     dscol = _url_id(manifest.get("dataset_collection_url"), "collection")
-    modelcol = _url_id(manifest.get("model_collection_url"), "collection")
-    if dscol == modelcol:
+    modelcol = (None if dataset_only else _url_id(manifest.get("model_collection_url"), "collection"))
+    if modelcol is not None and dscol == modelcol:
         raise ValueError("Separate model and dataset collections are required")
     return {
         "manifest_sha256": sha256(path),
@@ -232,13 +232,13 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
     }
 
 
-def verify_anonymous_access(manifest_path: Path, api=None) -> dict:
+def verify_anonymous_access(manifest_path: Path, api=None, *, dataset_only: bool = False) -> dict:
     """Explicit remote read-only inspection. Authenticated credentials are NEVER used."""
-    manifest = validate_manifest(manifest_path)
+    manifest = validate_manifest(manifest_path, dataset_only=dataset_only)
     if api is None:
         from huggingface_hub import HfApi
         api = HfApi(token=False)
-    model_ids = _collection_items(api, manifest["model_collection_slug"], "model")
+    model_ids = ([] if dataset_only else _collection_items(api, manifest["model_collection_slug"], "model"))
     data_ids = _collection_items(api, manifest["dataset_collection_slug"], "dataset")
     if manifest["dataset_id"] not in data_ids:
         raise ValueError("The published PolicyProof dataset is missing from its dataset collection")
@@ -248,13 +248,15 @@ def verify_anonymous_access(manifest_path: Path, api=None) -> dict:
     verified_scope = _check_published_scope(api, published["id"], published["revision"])
     return {
         "schema": "policyproof_hf_anonymous_access_v1",
-        "status": "ANONYMOUS_PUBLIC_ACCESS_VERIFIED",
+        "status": ("ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY" if dataset_only
+                   else "ANONYMOUS_PUBLIC_ACCESS_VERIFIED"),
         "checked_utc": datetime.now(timezone.utc).isoformat(),
         **manifest,
         "model_repositories": models,
         "dataset_repositories": datasets,
         "all_referenced_repositories_public_ungated": True,
-        "all_collections_public": True,
+        "all_collections_public": not dataset_only,
+        "model_collection_requirement_verified": not dataset_only,
         **verified_scope,
         "public_access_confirmed_by": "huggingface_hub_anonymous_api",
         "model_collection_project_relevance_verified": False,
@@ -310,13 +312,18 @@ def receipt_is_current(receipt_path: Path, manifest_path: Path,
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=ROOT / MANIFEST_REL)
-    parser.add_argument("--output", type=Path, default=ROOT / RECEIPT_REL)
+    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--dataset-only", action="store_true",
+                        help="Check published dataset before model collection is resolved; never releases submission gate")
     parser.add_argument("--verify-network", action="store_true",
                         help="Explicit anonymous Hugging Face Hub reads (no token)")
     args = parser.parse_args()
+    output = args.output or ROOT / (
+        "artifacts/hf_dataset_only_receipt.json" if args.dataset_only else RECEIPT_REL
+    )
     if not args.verify_network:
         try:
-            declared = validate_manifest(args.manifest)
+            declared = validate_manifest(args.manifest, dataset_only=args.dataset_only)
         except (ValueError, OSError) as exc:
             print(json.dumps({
                 "status": "WAITING_FOR_REAL_PUBLIC_HF_LINKS",
@@ -328,16 +335,16 @@ def main() -> None:
             "status": "URL_FORMAT_ONLY_UNVERIFIED",
             "links": declared,
             "prior_receipt_matches_and_fresh": receipt_is_current(
-                args.output, args.manifest
+                output, args.manifest
             ),
             "network_used": False, "publication_performed": False,
         }, indent=2))
         return
-    if args.output.exists() or args.output.is_symlink():
+    if output.exists() or output.is_symlink():
         parser.error("Evidence receipt exists; preserve it and choose a new output")
-    result = verify_anonymous_access(args.manifest)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as handle:
+    result = verify_anonymous_access(args.manifest, dataset_only=args.dataset_only)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("x", encoding="utf-8") as handle:
         json.dump(result, handle, indent=2, ensure_ascii=False, allow_nan=False)
         handle.write("\n")
     print(json.dumps(result, indent=2, ensure_ascii=False))
