@@ -139,3 +139,8 @@ The CPU-only `python -m scripts.verify_review_provenance` defaults to **BLOCKED*
 ## Optional real GPU training milestone (not yet executed)
 
 The Colab/Kaggle notebooks now offer an explicitly opted-in, **40-step PyTorch QLoRA** run using an AlignTune-loaded PEFT model, 66 CuratorKIT training rows, and 12 small training-only validation examples. This avoids previously observed TRL mixed-precision trainer startup failures, but must **not** be represented as a successful AlignTune trainer execution. There is no trained adapter to evaluate yet; the only saved Tiny Aya predictions in the repo remain the inspected 48-case unchanged-model development responses. See [GPU training instructions](GPU_TRAINING_NEXT_STEPS.md).
+
+
+### Real 40-step checkpoint: next evaluation, not a quality claim
+
+We have a validated `manual_torch_extended_fallback` checkpoint artifact from a user's GPU session, but the repository has **no real paired base/tuned model predictions or improvement scores** from this checkpoint yet. A new CPU-only **preflight** and opt-in [Colab paired GPU evaluation notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/06_dev48_pair_eval_t4.ipynb) prepare a 48-case **inspected development** comparison. A correct pair must regenerate the untouched base-model results using the same HF revision requested for the adapted model; the older saved 48-case base is unpinned and cannot serve as the control. No final 60-case results or human review are implied. [Evaluation and recovery protocol](EVALUATE_REAL_40_STEP_ADAPTER.md).
