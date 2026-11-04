@@ -28,6 +28,8 @@ REVISION = re.compile(r"^[0-9a-f]{40}$")
 SINGLE_FILE_LIMIT = 100_000_000
 ARCHIVE_LIMIT = 220_000_000
 SAFE_TENSOR_HEADER_LIMIT = 1_000_000
+EXPECTED_TRAINABLE_TENSORS = 288
+EXPECTED_TRAINABLE_PARAMETERS = 3_833_856
 DTYPE_SIZES = {
     "F64": 8, "F32": 4, "F16": 2, "BF16": 2,
     "I64": 8, "I32": 4, "I16": 2, "I8": 1, "U8": 1, "BOOL": 1,
@@ -76,6 +78,7 @@ def validate_safetensors(path: Path) -> dict:
         raise ValueError("No tensor data saved")
     spans = []
     tensor_names = []
+    parameter_count = 0
     for name, meta in header.items():
         if name == "__metadata__":
             if not isinstance(meta, dict) or any(
@@ -100,6 +103,7 @@ def validate_safetensors(path: Path) -> dict:
             or not offsets[0] < offsets[1] <= data_size):
             raise ValueError("Invalid tensor offsets")
         count = math.prod(shape)
+        parameter_count += count
         if count > SINGLE_FILE_LIMIT or count * DTYPE_SIZES[dtype] != offsets[1] - offsets[0]:
             raise ValueError("Tensor dimensions do not match stored bytes")
         spans.append(tuple(offsets))
@@ -115,7 +119,10 @@ def validate_safetensors(path: Path) -> dict:
         last = end
     if last != data_size:
         raise ValueError("Unclaimed trailing tensor bytes")
-    return {"tensor_count": len(tensor_names), "data_bytes": data_size, "sha256": digest(path)}
+    return {
+        "tensor_count": len(tensor_names), "parameter_count": parameter_count,
+        "data_bytes": data_size, "sha256": digest(path),
+    }
 
 
 def inspect_training_directory(directory: Path) -> dict:
@@ -165,6 +172,10 @@ def inspect_training_directory(directory: Path) -> dict:
     revision = info.get("model_revision", info.get("base_revision"))
     pinned_base = isinstance(revision, str) and REVISION.fullmatch(revision) is not None
     aligntune_path = backend == "aligntune_wrapper"
+    expected_geometry = (
+        tensor["tensor_count"] == EXPECTED_TRAINABLE_TENSORS
+        and tensor["parameter_count"] == EXPECTED_TRAINABLE_PARAMETERS
+    )
     return {
         "status": "ARTIFACT_INTEGRITY_CHECKED",
         "file_hashes_match": True,
@@ -175,10 +186,14 @@ def inspect_training_directory(directory: Path) -> dict:
         "adapter_sha256": tensor["sha256"],
         "adapter_config_sha256": config_hash,
         "tensor_count": tensor["tensor_count"],
+        "parameter_count": tensor["parameter_count"],
+        "expected_tiny_aya_lora_geometry": expected_geometry,
         "backend": backend,
         "base_revision_pinned": pinned_base,
         "track1_trainer_path_declared": aligntune_path,
-        "track1_submission_evidence_candidate": bool(pinned_base and aligntune_path),
+        "track1_submission_evidence_candidate": bool(
+            pinned_base and aligntune_path and expected_geometry
+        ),
         "training_independently_verified": False,
         "model_improvement_verified": False,
         "warning": "Hash + format validation confirms artifact consistency only. "
