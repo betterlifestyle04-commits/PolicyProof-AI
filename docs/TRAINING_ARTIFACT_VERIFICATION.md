@@ -61,3 +61,9 @@ python -m pytest -q tests/test_verify_training_archive.py tests/test_submission_
 ```
 
 The fixtures in these tests are **synthetic two-tensor files for testing the verifier only**. They are not model weights, performance metrics or evidence of completed training.
+
+## Extended 40-step research adapter (PyTorch fallback; not official AlignTune execution)
+
+The new `manual_torch_extended_fallback` receipt is accepted for **CPU artifact-integrity checks only** when it records exactly **40 optimizer steps**, a pinned 40-character original Tiny Aya Git commit, the audited 78-row dataset digest, a deterministic **66-train / 12-training-only-validation** split and finite positive internal validation-loss values at steps 10, 20, 30 and 40. It does not qualify as a completed AlignTune Track 1 trainer run, and internal training-source validation loss cannot establish improvement in behavior on independent evaluation cases.
+
+On actual GPU success, run `python -m scripts.verify_training_archive --archive policyproof_t4_torch_extended.zip`. Preserve the entire original zip and GPU console logs. [How to execute the GPU training](GPU_TRAINING_NEXT_STEPS.md).
