@@ -46,7 +46,9 @@ def original_fixture(tmp_path: Path):
     challenge_jsonl = _jsonlines(challenge_rows, sorted_keys=True)
     assert hashlib.sha256(challenge_jsonl.encode()).hexdigest() == EXPECTED_CHALLENGE_SHA
 
-    output48 = _jsonlines(curator_alpaca_rows(original_rows))
+    input48 = _jsonlines(curator_alpaca_rows(original_rows))
+    manifest48 = '{"test_fixture_only":true}'
+    output48 = input48
     output72 = _jsonlines([
         {"instruction":"BENCH_CASE_ID:"+r["id"]+"\n"+make_prompt(r),
          "input":"","output":make_gold(r["expected_answer"],r["expected_source_id"])}
@@ -59,9 +61,9 @@ def original_fixture(tmp_path: Path):
         "evaluated_48/benchmark_48.jsonl": original_jsonl,
         "evaluated_48/original_saved_tiny_aya_base_model_predictions.json":
             (ROOT/"artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json").read_bytes(),
-        "evaluated_48/curator_input.jsonl": _jsonlines(curator_alpaca_rows(original_rows)),
+        "evaluated_48/curator_input.jsonl": input48,
         "evaluated_48/curator_export.jsonl": output48,
-        "evaluated_48/curator_manifest.json": '{"test_fixture_only":true}',
+        "evaluated_48/curator_manifest.json": manifest48,
         "evaluated_48/curator_checksums.txt": c48sha + "  sft_alpaca.jsonl\n",
         "evaluated_48/curator_audit_chain_report.json": json.dumps({
             "status":"curatorkit_auditkit_chain_complete",
@@ -70,7 +72,10 @@ def original_fixture(tmp_path: Path):
             "auditkit_fingerprint":"SYNTHETIC_RECEIPT_NOT_REAL_EVIDENCE",
             "human_labels_independently_reviewed":False,
             "curation":{
-                "export_sha256":c48sha, "accepted":48,
+                "export_sha256":c48sha,
+                "input_sha256":hashlib.sha256(input48.encode()).hexdigest(),
+                "manifest_sha256":hashlib.sha256(manifest48.encode()).hexdigest(),
+                "accepted":48,
                 "label_and_case_id_integrity_verified":True,
             },
             "model":{"fine_tuned":False,"new_inference_performed":False},
@@ -214,3 +219,31 @@ def test_missing_native_evidence_causes_fast_failure_without_output(tmp_path):
     with pytest.raises(ValueError,match="Missing"):
         write_bundle(tmp_path,output)
     assert not output.exists()
+
+
+
+def test_historical_pinned_publisher_does_not_accept_new_candidate_without_review(tmp_path):
+    from scripts.publish_track2a_dataset import validate_archive
+    original_fixture(tmp_path)
+    candidate = tmp_path / "new_unpublished.zip"
+    write_bundle(tmp_path, candidate)
+    with pytest.raises(ValueError, match="ZIP hash differs"):
+        validate_archive(candidate)
+
+
+def test_racing_release_creation_never_removes_another_existing_file(monkeypatch, tmp_path):
+    from scripts import build_track2a_release_candidate as module
+    original_fixture(tmp_path)
+    target = tmp_path / "racing_bundle.zip"
+    real_zip = module.ZipFile
+
+    def raced_zip(path, mode):
+        if mode == "x":
+            Path(path).write_bytes(b"UNRELATED_FILE_CREATED_CONCURRENTLY")
+            raise FileExistsError("Simulated concurrent writer")
+        return real_zip(path, mode)
+
+    monkeypatch.setattr(module, "ZipFile", raced_zip)
+    with pytest.raises(FileExistsError):
+        write_bundle(tmp_path, target)
+    assert target.read_bytes() == b"UNRELATED_FILE_CREATED_CONCURRENTLY"
