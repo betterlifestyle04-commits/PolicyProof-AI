@@ -14,16 +14,15 @@ from __future__ import annotations
 import argparse
 from hashlib import sha256 as digest
 import json
-import os
+import math
 from pathlib import Path, PurePosixPath
 import re
 from zipfile import ZipFile, ZipInfo, ZIP_STORED
 
-from policyproof.core import ROOT, read_jsonl, sha256
+from policyproof.core import ROOT, aggregate, score, sha256
 from scripts.auditkit_replay import check_saved_outputs
 from scripts.generate_track2a_challenge import build_challenge, validate_challenge
 from scripts.track2a_chain import match_curated, validate_benchmark
-from scripts.verify_evidence import verify_baseline
 
 
 VERSION = "policyproof_track2a_unpublished_research_v2"
@@ -161,7 +160,32 @@ def validate_contents(files: dict[str, bytes]) -> dict:
     )
     if original.get("is_finetuned") is not False or original.get("model_revision") is not None:
         raise ValueError("Original base-model revision or tuned claim altered")
-    check_saved_outputs(original, original_rows, base_sha)
+    mapped = check_saved_outputs(original, original_rows, base_sha)
+    scores = [score(row, mapped[row["id"]]) for row in original_rows]
+    totals = aggregate(scores)
+    stored_metrics = original.get("metrics")
+    if not isinstance(stored_metrics, dict):
+        raise ValueError("Original saved model metrics missing")
+    for key, expected in totals.items():
+        if isinstance(expected, (int, float)) and not isinstance(expected, bool):
+            claimed = stored_metrics.get(key)
+            if (not isinstance(claimed, (int, float))
+                or isinstance(claimed, bool)
+                or not math.isclose(claimed, expected, abs_tol=0.011)):
+                raise ValueError("Saved original baseline metric mismatch: " + key)
+    if "scores" in original:
+        reported = original["scores"]
+        if (not isinstance(reported, list)
+            or len(reported) != 48
+            or {item.get("id") for item in reported if isinstance(item, dict)}
+               != {row["id"] for row in original_rows}):
+            raise ValueError("Incomplete saved per-case model scoring")
+        by_id = {item["id"]: item for item in reported}
+        for entry in scores:
+            if any(by_id[entry["id"]].get(key) != entry[key] for key in (
+                "correct", "format_valid", "abstention_correct", "unsupported_claim"
+            )):
+                raise ValueError("Saved original per-case scores disagree with raw model text")
 
     report = _json_bytes(files["evaluated_48/curator_audit_chain_report.json"], "chain")
     audit = _json_bytes(files["evaluated_48/auditkit_native_receipt.json"], "AuditKIT")
