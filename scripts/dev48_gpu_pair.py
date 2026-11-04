@@ -349,9 +349,43 @@ def create_results_bundle(
     bundle = Path(bundle)
     if bundle.exists() or bundle.is_symlink():
         raise FileExistsError("Results bundle already exists; never overwrite")
+    if len({p.resolve() for p in inputs.values()}) != 3:
+        raise ValueError("Distinct original base, tuned and comparison files required")
     payloads = {name:path.read_bytes() for name,path in inputs.items()}
     if any(not 0 < len(blob) <= MAX_PUBLIC_RESULT_BYTES for blob in payloads.values()):
         raise ValueError("Oversized or empty prediction report")
+    try:
+        base = json.loads(payloads["dev48_base.json"])
+        tuned = json.loads(payloads["dev48_tuned.json"])
+        paired = json.loads(payloads["dev48_paired_auditkit.json"])
+    except (ValueError, UnicodeError, TypeError) as exc:
+        raise ValueError("Cannot bundle malformed evaluation records") from exc
+    if (not all(isinstance(obj, dict) for obj in (base,tuned,paired))
+        or base.get("is_real_model_result") is not True
+        or base.get("is_finetuned") is not False
+        or tuned.get("is_real_model_result") is not True
+        or tuned.get("is_finetuned") is not True
+        or base.get("split") != SPLIT or tuned.get("split") != SPLIT
+        or base.get("dataset_sha256") != DEV_SHA
+        or tuned.get("dataset_sha256") != DEV_SHA
+        or not isinstance(base.get("model_revision"), str)
+        or not REVISION.fullmatch(base["model_revision"])
+        or tuned.get("model_revision") != base["model_revision"]
+        or tuned.get("generation_config") != base.get("generation_config")
+        or base.get("generation_config") != GENERATION
+        or len(base.get("predictions", [])) != 48
+        or len(tuned.get("predictions", [])) != 48
+        or paired.get("status") != "paired_deterministic_audit"
+        or paired.get("sample_count") != 48
+        or paired.get("evaluation_checksum") != DEV_SHA
+        or paired.get("split") != SPLIT
+        or paired.get("is_final_blind_test") is not False
+        or paired.get("is_model_improvement_semantically_verified") is not False
+        or paired.get("base_model_revision_loaded_on_inference") != base["model_revision"]
+        or paired.get("adapter_sha256") != tuned.get("adapter_sha256")
+        or paired.get("training_zip_sha256") != tuned.get("adapter_source_zip_sha256")
+        or paired.get("not_comparable_to_historical_unpinned_48_base") is not True):
+        raise ValueError("Results bundle is not a complete internally consistent dev48 paired evaluation")
     manifest = {
         "schema":"policyproof_dev48_gpu_pair_bundle_v1",
         "split":"already_inspected_synthetic_development_only",
