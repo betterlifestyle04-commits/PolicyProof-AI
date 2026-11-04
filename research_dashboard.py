@@ -499,6 +499,34 @@ elif page == "Final benchmark review":
 
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
+    st.markdown("#### Frozen base vs adapter evaluation readiness")
+    from scripts.frozen_pair_inference import build_preflight
+    pair_gate = build_preflight(ROOT)
+    st.warning(
+        "Paired GPU evaluation: " + pair_gate["status"] +
+        ". The read-only CPU preflight does NOT load Tiny Aya, run inference, "
+        "train a model or claim improved performance."
+    )
+    st.dataframe(
+        [
+            {
+                "Prerequisite": key.replace("_", " ").title(),
+                "Status": "Provided (self-declared where applicable)" if check["passed"] else "BLOCKED",
+                "Details": check["details"],
+            }
+            for key, check in pair_gate["checks"].items()
+        ],
+        width="stretch", hide_index=True,
+    )
+    st.caption(
+        "The final 60-case candidate has proposed labels only; the existing "
+        "48 Tiny Aya development outputs cannot be reused as its baseline. "
+        "Review declarations and training receipts require independent verification."
+    )
+    st.markdown(
+        "[Paired inference protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FROZEN_PAIRED_INFERENCE.md)"
+    )
     st.caption("Read-only public research observatory. No Hugging Face token, API key or GPU is needed.")
     st.markdown("#### Track 2a: research deliverables (separate from Track 1)")
     st.success(

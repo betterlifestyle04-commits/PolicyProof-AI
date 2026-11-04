@@ -53,3 +53,8 @@ Have at least **two independent reviewers**, including Norwegian and Arabic lang
 ## Independent reviewer tooling (added November 4, 2026)
 
 For a versioned reviewer-specific CSV with complete fictional evidence and proposed labels, use the dashboard's **Final benchmark review** page or `python -m scripts.review_holdout --export reviewer_A`. Independent reviewers record three `yes`/`no` judgments per case and keep the original dataset digest intact. Reconcile two or more completed CSVs using `python -m scripts.review_holdout --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv`. The reconciliation detects missing/negative/disputed judgments and altered source material, **but intentionally never creates a sign-off**. See [full independent-review workflow](FINAL_REVIEW_WORKFLOW.md).
+
+
+## Reproducible paired inference runner (prepared; NOT EXECUTED)
+
+The `scripts.frozen_pair_inference` command now has a **read-only CPU preflight** that refuses model inference until genuine human review signoff and a structurally validated, SHA-matched, pinned-revision AlignTune adapter are available. Real execution requires `--execute --confirm-review --confirm-gpu-run`, uses the same frozen 60 prompts and generation settings for base and adapted models, then runs matched AuditKIT scoring. No base/tuned comparison has been performed yet, and this public candidate is not a truly blind test. See [paired evaluation runbook](FROZEN_PAIRED_INFERENCE.md).

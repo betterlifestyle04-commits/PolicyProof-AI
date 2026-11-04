@@ -97,3 +97,8 @@ The **Final benchmark review** page lets independent reviewers download **blank*
 ## Offline adapter evidence gate (no GPU)
 
 For a future genuine AlignTune output ZIP, judges can inspect the structural hashes and provenance fields using `python -m scripts.verify_training_archive --archive /path/to/archive.zip --strict-track1`. This does not invoke Tiny Aya and **cannot independently prove training occurred**. A manual PyTorch fallback remains non-equivalent to finished AlignTune training. The submission validator also rejects arbitrary nonempty files presented as PEFT checkpoints. See [checkpoint verification guide](TRAINING_ARTIFACT_VERIFICATION.md). No public trained adapter exists at the time of this update.
+
+
+## New paired-model evaluation preflight (November 4, 2026)
+
+Run `python -m scripts.frozen_pair_inference` without any flags from a clean checkout to see why genuine 60-case paired GPU evaluation remains blocked. It checks the unchanged final-candidate hash, human-review signoff, and a PEFT adapter with an AlignTune-declared run, matching hashes and pinned base-model revision. **No model is loaded or called.** The public **Judge verification** page shows the same fail-closed prerequisite table. Once independent review and actual training exist, follow [the paired GPU evaluation runbook](FROZEN_PAIRED_INFERENCE.md); do not use the earlier 48-case development outputs as the 60-case baseline.
