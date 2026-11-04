@@ -226,3 +226,20 @@ jobs:
       - name: Report Streamlit logs if browser check fails
         if: failure()
         run: tail -100 /tmp/policyproof_streamlit.log || true
+
+
+  hf-sdk-contract:
+    name: Real Hugging Face Hub SDK compatibility (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real Hugging Face Hub SDK only
+        run: python -m pip install 'huggingface_hub>=1.16,<2'
+      - name: Check real SDK signatures and collection item schema (NO NETWORK CALLS)
+        run: python -m scripts.check_hf_sdk_contract
