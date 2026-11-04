@@ -9,7 +9,7 @@ A text file with `{"status":"completed","optimizer_steps":10}` and a nonempty fa
 The verifier checks these structural and provenance properties **without requiring torch, an HF token or GPU**:
 
 - ZIP path safety, bounded unpacked size, missing/duplicate files and symlink safety.
-- Real `safetensors` header structure, dtype/shape/offsets, contiguous tensor data and LoRA A/B tensors.
+- Real `safetensors` header structure, dtype/shape/offsets, contiguous tensor data and LoRA A/B tensors. For a Track 1 release candidate, the adapter must additionally match the audited Tiny Aya QLoRA configuration of **288 LoRA tensors and 3,833,856 trainable elements**.
 - Actual SHA-256 of the adapter tensor file and PEFT config against values in `run_info.json`.
 - Completed-run receipt with at least ten **self-reported** optimizer steps, original model ID, audited 78-row CuratorKIT training SHA-256, full 40-character source commit, and accepted training backend.
 - Distinction between a **declared AlignTune trainer** and a **manual PyTorch fallback**; the latter cannot be called an executed AlignTune Track 1 training step.
