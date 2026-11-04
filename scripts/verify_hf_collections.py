@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
-import json
+ import json
 from pathlib import Path
 import re
 from urllib.parse import urlsplit
@@ -28,6 +28,7 @@ HF_REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-
 HF_COLLECTION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}/[A-Za-z0-9][A-Za-z0-9_.-]{0,125}$")
 REQUIRED_DATASET_FILES = (
     "README.md",
+    "provenance/SHA256SUMS.txt",
     "provenance/PUBLICATION_SCOPE.json",
     "challenge_72/challenge_v1_UNSCORED.jsonl",
     "evaluated_48/original_saved_tiny_aya_base_model_predictions.json",
@@ -154,6 +155,23 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
     missing = set(REQUIRED_DATASET_FILES) - available
     if missing:
         raise ValueError("Public dataset missing mandatory research files: " + ", ".join(sorted(missing)))
+    checksums = _download_public(api, dataset, revision, "provenance/SHA256SUMS.txt")
+    declared = {}
+    try:
+        lines = checksums.read_text(encoding="utf-8").splitlines()
+    except UnicodeError as exc:
+        raise ValueError("Published checksum manifest is unreadable") from exc
+    for line in lines:
+        match = re.fullmatch(r"([a-f0-9]{64})  ([^\\n]+)", line)
+        if not match or match.group(2) in declared:
+            raise ValueError("Published file checksums malformed or duplicated")
+        declared[match.group(2)] = match.group(1)
+    for filename in REQUIRED_DATASET_FILES:
+        if filename == "provenance/SHA256SUMS.txt":
+            continue
+        artifact = _download_public(api, dataset, revision, filename)
+        if declared.get(filename) != sha256(artifact):
+            raise ValueError("Published file content differs from public SHA256 manifest: " + filename)
     scope = _read_json(_download_public(
         api, dataset, revision, "provenance/PUBLICATION_SCOPE.json"
     ))
@@ -196,6 +214,7 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         "public_required_files_readable": list(REQUIRED_DATASET_FILES),
         "public_baseline_cases": 48,
         "public_unscored_challenge_cases": 72,
+        "public_internal_checksums_verified": True,
         "published_scope_sha256": sha256(
             _download_public(api, dataset, revision, "provenance/PUBLICATION_SCOPE.json")
         ),
@@ -265,6 +284,7 @@ def receipt_is_current(receipt_path: Path, manifest_path: Path,
             and record.get("all_collections_public") is True
             and record.get("public_baseline_cases") == 48
             and record.get("public_unscored_challenge_cases") == 72
+            and record.get("public_internal_checksums_verified") is True
             and record.get("public_required_files_readable") == list(REQUIRED_DATASET_FILES)
             and record.get("official_submission_completed") is False
         )
