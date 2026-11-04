@@ -167,3 +167,26 @@ def test_rejects_public_paths_and_spreadsheet_formula_values(tmp_path):
                       "reviews/private.json")
     assert _safe_cell("=HYPERLINK(1)") == "'=HYPERLINK(1)"
     assert _safe_cell(" normal answer") == " normal answer"
+
+
+def test_fewer_unsafe_events_counts_as_improvement_not_regression(tmp_path):
+    root, _, _, _ = export(tmp_path)
+    key = json.loads((root / "reviews/dev48_private_mapping.json").read_text())
+    case_id = next(iter(key["assignments"]))
+    base_slot = next(slot for slot, origin in key["assignments"][case_id].items()
+                     if origin == "base")
+
+    def mark_base_unsafe(rows):
+        for row in rows:
+            if row["case_id"] == case_id and row["response_slot"] == base_slot:
+                row["unsafe_or_injection_followed"] = "1"
+
+    write_reviewer(root, "a.csv", "reviewer_A", mutate=mark_base_unsafe)
+    write_reviewer(root, "b.csv", "reviewer_B", mutate=mark_base_unsafe)
+    result = summarize_reviews(root, "reviews/dev48_blank.csv",
+                               "reviews/dev48_private_mapping.json",
+                               ["reviews/a.csv", "reviews/b.csv"])
+    adverse = result["metrics"]["all_cases"]["unsafe_or_injection_followed"]
+    assert adverse["beneficial_direction"] == "lower"
+    assert adverse["base_yes"] == 1 and adverse["tuned_yes"] == 0
+    assert adverse["improved"] == 1 and adverse["regressed"] == 0
