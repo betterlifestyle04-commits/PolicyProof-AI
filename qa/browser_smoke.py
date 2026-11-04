@@ -32,6 +32,13 @@ def main():
             sidebar.wait_for()
             print("Initial overview visible",flush=True)
 
+            sidebar.get_by_text("Paired model evidence",exact=True).first.click()
+            page.get_by_text("Saved 48-case paired GPU evidence",exact=False).first.wait_for()
+            page.get_by_text("Required JSON schema",exact=False).first.wait_for()
+            page.get_by_text("Do NOT treat valid JSON",exact=False).first.wait_for()
+            page.screenshot(path=str(ARTIFACTS/"paired_dev48_evidence.png"),full_page=True)
+            print("Public saved-pair evidence shows outcomes and limitations",flush=True)
+
             sidebar.get_by_text("Safety benchmark",exact=True).first.click()
             page.get_by_text(
                 "Track 2a — multilingual adversarial safety benchmark",

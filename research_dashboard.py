@@ -36,9 +36,9 @@ def load_json(file):
 
 st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
-st.warning("No verified model fine-tuning or safety improvement yet. All policies are fictional and benchmark questions are synthetic.")
+st.warning("Experimental research only. A saved adapter and development-pair results passed internal integrity checks, but factual improvement, independent GPU execution and real-world safety are NOT verified. All policies and questions are fictional.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Safety benchmark", "Output guard experiment", "Try the output guard", "Final benchmark review", "Judge verification", "Protocol & next steps"]
+pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Paired model evidence", "Safety benchmark", "Output guard experiment", "Try the output guard", "Final benchmark review", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -143,6 +143,95 @@ elif page == "Evaluation runs":
                      "scorer_version": report.get("scorer_version"),
                      "warning": report.get("warning")})
             st.dataframe(report.get("scores", []), width="stretch")
+
+elif page == "Paired model evidence":
+    st.subheader("Saved 48-case paired GPU evidence — development only")
+    st.caption(
+        "Snapshot: November 5, 2026. Values below come from an externally saved "
+        "pair of model result files and independently recomputed internal counts. "
+        "No additional GPU inference or human semantic review took place here."
+    )
+    paired = load_json(DATA / "dev48_paired_public_summary.json")
+    checks = (
+        isinstance(paired, dict)
+        and paired.get("schema") == "policyproof_saved_dev48_paired_public_summary_v1"
+        and paired.get("cases") == 48
+        and paired.get("semantic_human_review_complete") is False
+        and paired.get("final60_paired_inference_complete") is False
+        and paired.get("gpu_execution_independently_reproduced") is False
+        and paired.get("official_submission_verified") is False
+        and isinstance(paired.get("metrics"), list)
+        and {m.get("key") for m in paired["metrics"] if isinstance(m, dict)}
+        == {"schema", "citation_id", "strict", "abstention", "supported_exact", "unsupported_claim"}
+        and all(
+            isinstance(m.get("denominator"), int)
+            and all(type(m.get(k)) is int and 0 <= m[k] <= m["denominator"]
+                    for k in ("base", "tuned"))
+            for m in paired["metrics"]
+        )
+    )
+    if not checks:
+        st.error("The fixed development summary is unavailable or has invalid metadata; no comparison shown.")
+    else:
+        st.warning(
+            "Do NOT treat valid JSON, a correct citation ID, or exact-string grading "
+            "as proof of factual, evidence-supported model answers. "
+            "The 60-case final candidate is not yet human-reviewed."
+        )
+        entries = {m["key"]: m for m in paired["metrics"]}
+        cards = st.columns(4)
+        for column, key in zip(cards, ("schema", "citation_id", "strict", "abstention")):
+            m = entries[key]
+            column.metric(
+                m["label"],
+                f'{m["tuned"]}/{m["denominator"]}',
+                f'{m["tuned"] - m["base"]:+d} cases vs base',
+            )
+        st.markdown("#### Complete matched-sample diagnostics")
+        display = []
+        for metric in paired["metrics"]:
+            base = metric["base"]
+            tuned = metric["tuned"]
+            n = metric["denominator"]
+            display.append({
+                "Measurement": metric["label"],
+                "Base": f"{base}/{n} ({100 * base / n:.2f}%)",
+                "Adapter": f"{tuned}/{n} ({100 * tuned / n:.2f}%)",
+                "Direction": "Less is better" if metric["beneficial_direction"] == "lower" else "More is better",
+                "Interpretation": metric["meaning"],
+            })
+        st.dataframe(display, use_container_width=True, hide_index=True)
+        st.markdown("#### Language-specific strict exact grading")
+        st.table([
+            {"Language": lang["language"], "Base": f'{lang["base"]}/16',
+             "Adapter": f'{lang["tuned"]}/16'}
+            for lang in paired["strict_by_language"]
+        ])
+        st.markdown("#### Known unsupported-answer failures")
+        for case in paired["known_failures"]:
+            st.markdown(f'- **{case["case_id"]}**: {case["issue"]}')
+        st.info(
+            "The exact supported-answer text metric is 0/39 for BOTH models. "
+            "Some outputs may be acceptable paraphrases, but others invent fees. "
+            "A two-reviewer, model-blind semantic check is the next experimental step."
+        )
+        st.markdown(
+            "**Detailed evidence:** [saved paired-result audit]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/DEV48_PAIRED_GPU_RESULTS_2026-11-05.md)"
+            " · **Next step:** [blinded multilingual reviewer protocol]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/DEV48_BLINDED_SEMANTIC_REVIEW.md)"
+        )
+        with st.expander("Exact model, checkpoint, data and bundle fingerprints"):
+            st.json({
+                "model_id": paired["model_id"],
+                "requested_base_revision": paired["requested_base_revision"],
+                "adapter_sha256": paired["adapter_sha256"],
+                "dataset_sha256": paired["dev_dataset_sha256"],
+                "paired_bundle_sha256": paired["paired_bundle_sha256"],
+                "evidence_kind": paired["verification_scope"],
+                "semantic_human_review_completed": False,
+                "final_evaluation_completed": False,
+            })
 
 elif page == "Safety benchmark":
     from collections import Counter
