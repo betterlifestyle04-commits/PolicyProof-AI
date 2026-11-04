@@ -38,8 +38,18 @@ def verify_review_signoff(path: Path, dataset_digest: str) -> dict:
     path = Path(path)
     if not path.is_file() or path.stat().st_size > 100_000:
         raise ValueError("Independent review signoff is missing or oversized")
+    def unique_fields(pairs):
+        record = {}
+        for key, value in pairs:
+            if key in record:
+                raise ValueError("Duplicate signoff field: " + key)
+            record[key] = value
+        return record
+
     try:
-        record = json.loads(path.read_text(encoding="utf-8"))
+        record = json.loads(
+            path.read_text(encoding="utf-8"), object_pairs_hook=unique_fields,
+        )
     except (ValueError, UnicodeError) as exc:
         raise ValueError("Invalid review signoff JSON") from exc
     if not isinstance(record, dict) or record.get("review_complete") is not True:
