@@ -40,8 +40,9 @@ def verify_review_signoff(
 ) -> dict:
     """Verify exact source-linked review records; NOT real human identity/competence."""
     path = Path(path)
-    if not path.is_file() or path.stat().st_size > 100_000:
-        raise ValueError("Independent review signoff is missing or oversized")
+    if (not path.is_file() or path.is_symlink()
+        or not 0 < path.stat().st_size <= 100_000):
+        raise ValueError("Independent review signoff is missing, symlinked or oversized")
     def unique_fields(pairs):
         record = {}
         for key, value in pairs:
@@ -53,6 +54,9 @@ def verify_review_signoff(
     try:
         record = json.loads(
             path.read_text(encoding="utf-8"), object_pairs_hook=unique_fields,
+            parse_constant=lambda val: (_ for _ in ()).throw(
+                ValueError("Nonfinite review signoff value: " + val)
+            ),
         )
     except (ValueError, UnicodeError) as exc:
         raise ValueError("Invalid review signoff JSON") from exc
