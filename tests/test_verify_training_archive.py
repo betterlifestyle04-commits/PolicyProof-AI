@@ -1,0 +1,178 @@
+"""CPU-only integrity checks; fake fixtures are NEVER inference/training evidence."""
+import hashlib
+import json
+import struct
+from pathlib import Path
+from zipfile import ZipFile
+
+import pytest
+
+from scripts.verify_training_archive import (
+    CURATOR_TRAIN_SHA256, digest, inspect_training_archive,
+    inspect_training_directory, validate_safetensors,
+)
+
+
+def _safetensors(*, bad_range=False, bad_name=False):
+    keys = ("base_model.model.a.lora_A.weight", "base_model.model.a.lora_B.weight")
+    if bad_name:
+        keys = ("model.a.weight", "model.b.weight")
+    header = {
+        keys[0]: {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
+        keys[1]: {"dtype": "F32", "shape": [1], "data_offsets": [3 if bad_range else 4, 8]},
+    }
+    encoded = json.dumps(header).encode()
+    return struct.pack("<Q", len(encoded)) + encoded + bytes(range(8))
+
+
+def _fixture(tmp_path, *, backend="aligntune_wrapper", revision="a" * 40):
+    folder = tmp_path / "run"
+    adapter = folder / "adapter"
+    adapter.mkdir(parents=True)
+    model = adapter / "adapter_model.safetensors"
+    model.write_bytes(_safetensors())
+    config = adapter / "adapter_config.json"
+    config.write_text(json.dumps({"peft_type": "LORA", "r": 16}))
+    receipt = {
+        "status": "completed", "model": "CohereLabs/tiny-aya-global",
+        "optimizer_steps": 10, "examples": 78,
+        "dataset_sha256": CURATOR_TRAIN_SHA256,
+        "trainer_backend": backend,
+        "aligntune_trainer_completed": backend == "aligntune_wrapper",
+        "model_revision": revision,
+        "code_commit": "b" * 40,
+        "adapter_sha256": {model.name: digest(model)},
+        "adapter_config_sha256": digest(config),
+    }
+    (folder / "run_info.json").write_text(json.dumps(receipt))
+    return folder
+
+
+def _edit_info(directory, modify):
+    path = directory / "run_info.json"
+    data = json.loads(path.read_text())
+    modify(data)
+    path.write_text(json.dumps(data))
+
+
+def test_peft_header_and_declared_sha_consistency(tmp_path):
+    directory = _fixture(tmp_path)
+    result = inspect_training_directory(directory)
+    assert result["status"] == "ARTIFACT_INTEGRITY_CHECKED"
+    assert result["file_hashes_match"]
+    assert result["tensor_count"] == 2
+    assert result["track1_submission_evidence_candidate"] is True
+    assert result["training_independently_verified"] is False
+    assert result["model_improvement_verified"] is False
+
+
+def test_manual_fallback_is_not_aligntune_track1_completion(tmp_path):
+    directory = _fixture(tmp_path, backend="manual_torch_smoke_fallback")
+    result = inspect_training_directory(directory)
+    assert result["backend"] == "manual_torch_smoke_fallback"
+    assert result["track1_submission_evidence_candidate"] is False
+    assert result["file_hashes_match"] is True
+
+
+def test_unpinned_base_revision_cannot_qualify_as_release_candidate(tmp_path):
+    directory = _fixture(tmp_path, revision=None)
+    result = inspect_training_directory(directory)
+    assert not result["base_revision_pinned"]
+    assert not result["track1_submission_evidence_candidate"]
+
+
+def test_rejects_missing_or_malformed_checkpoint(tmp_path):
+    directory = _fixture(tmp_path)
+    weights = directory / "adapter/adapter_model.safetensors"
+    weights.write_text("not an adapter")
+    with pytest.raises(ValueError, match="safetensors"):
+        inspect_training_directory(directory)
+
+
+def test_rejects_modified_tensor_bytes_even_if_header_valid(tmp_path):
+    directory = _fixture(tmp_path)
+    weights = directory / "adapter/adapter_model.safetensors"
+    data = bytearray(weights.read_bytes())
+    data[-1] ^= 0x01
+    weights.write_bytes(data)
+    with pytest.raises(ValueError, match="weights hash"):
+        inspect_training_directory(directory)
+
+
+def test_rejects_mutated_config_hash(tmp_path):
+    directory = _fixture(tmp_path)
+    config = directory / "adapter/adapter_config.json"
+    config.write_text(json.dumps({"peft_type":"LORA","r":8}))
+    with pytest.raises(ValueError, match="config hash"):
+        inspect_training_directory(directory)
+
+
+@pytest.mark.parametrize("edit", [
+    lambda d: d.update(status="failed"),
+    lambda d: d.update(optimizer_steps=9),
+    lambda d: d.update(optimizer_steps=True),
+    lambda d: d.update(model="other"),
+    lambda d: d.update(examples=60),
+    lambda d: d.update(dataset_sha256="0" * 64),
+    lambda d: d.update(code_commit="not-a-commit"),
+    lambda d: d.update(adapter_sha256={}),
+    lambda d: d.update(trainer_backend="mock"),
+])
+def test_rejects_untrustworthy_run_receipts(tmp_path, edit):
+    directory = _fixture(tmp_path)
+    _edit_info(directory, edit)
+    with pytest.raises(ValueError):
+        inspect_training_directory(directory)
+
+
+def test_manual_fallback_requires_explicit_disclaimer(tmp_path):
+    directory = _fixture(tmp_path, backend="manual_torch_smoke_fallback")
+    _edit_info(directory, lambda d: d.update(aligntune_trainer_completed=True))
+    with pytest.raises(ValueError, match="disclaim"):
+        inspect_training_directory(directory)
+
+
+@pytest.mark.parametrize("bad_range,bad_name", [(True, False), (False, True)])
+def test_forged_safetensors_headers_fail(tmp_path, bad_range, bad_name):
+    path = tmp_path / "adapter_model.safetensors"
+    path.write_bytes(_safetensors(bad_range=bad_range, bad_name=bad_name))
+    with pytest.raises(ValueError):
+        validate_safetensors(path)
+
+
+def test_zip_inspection_and_hash_are_read_only(tmp_path):
+    directory = _fixture(tmp_path)
+    zpath = tmp_path / "valid.zip"
+    with ZipFile(zpath, "w") as z:
+        for f in directory.rglob("*"):
+            if f.is_file():
+                z.write(f, f.relative_to(directory))
+    result = inspect_training_archive(zpath)
+    assert result["archive_sha256"] == digest(zpath)
+    assert result["archive_member_count"] == 3
+    assert result["track1_submission_evidence_candidate"] is True
+
+
+@pytest.mark.parametrize("unsafe", ["../outside.txt", "adapter/../../evil", "/etc/passwd"])
+def test_zip_blocks_path_traversal(tmp_path, unsafe):
+    directory = _fixture(tmp_path)
+    zpath = tmp_path / "unsafe.zip"
+    with ZipFile(zpath, "w") as z:
+        for f in directory.rglob("*"):
+            if f.is_file():
+                z.write(f, f.relative_to(directory))
+        z.writestr(unsafe, "not allowed")
+    with pytest.raises(ValueError, match="Unsafe"):
+        inspect_training_archive(zpath)
+
+
+def test_zip_does_not_accept_fake_nonpeft_weights(tmp_path):
+    directory = _fixture(tmp_path)
+    zpath = tmp_path / "bad.zip"
+    (directory / "adapter/adapter_model.safetensors").write_bytes(b"bad")
+    with ZipFile(zpath, "w") as z:
+        for f in directory.rglob("*"):
+            if f.is_file():
+                z.write(f, f.relative_to(directory))
+    with pytest.raises(ValueError):
+        inspect_training_archive(zpath)
