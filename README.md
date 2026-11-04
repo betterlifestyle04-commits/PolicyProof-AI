@@ -207,3 +207,11 @@ python -m scripts.build_track2a_release_candidate \
 ```
 
 Get the ZIP from the `policyproof-track2a-real-curatorkit-auditkit-20261103` artifact of a **passing main-branch CI run**, or reproduce it locally with the documented CPU toolkit commands. The older hash-pinned owner publication script **intentionally does not accept** this new release candidate until its contents and licensing are independently approved. This improvement is **not** a Hugging Face upload, model fine-tune, new model inference, or official submission. [Read the reproducibility and release protocol](docs/TRACK2A_REPRODUCIBLE_HANDOFF.md).
+
+## New: owner-approved v2 dataset publication is prepared (no upload yet)
+
+The fresh **15-member** research ZIP produced by our current CuratorKIT/AuditKIT CPU CI job now has a **separate, strictly consent-gated Hugging Face dataset publisher**. The original historical 20-file pinned publisher and digest remain unchanged.
+
+`scripts.publish_track2a_candidate` checks the **exact 64-character SHA256 supplied from a trusted CI run**, validates the complete bundle, recomputes original model metrics, checks honest 48-evaluated / 72-unscored status, and **defaults to an offline, license-free inspection**. It can prepare a temporary public-file preview after the **owner chooses a permitted license**. An actual network upload requires both `--confirm-rights` and `--confirm-publication`, a private `HF_TOKEN`, and the owner's dataset repository/collection choice. It verifies the staged file hashes **before any network call**, then independently checks the uploaded repo, collection, declared license, saved 48/72 records and SHA256SUMS with anonymous access before recording success.
+
+This tool **has not published anything**, does not decide the owner's licensing rights, and cannot create a trained model or meet Lexsi's still-unresolved model-collection requirement. [Owner-facing publication runbook](docs/TRACK2A_V2_PUBLISHING.md).
