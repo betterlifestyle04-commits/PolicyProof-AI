@@ -1,5 +1,11 @@
 name: Research scaffold CI
 on: [push, pull_request]
+# Only the most recent push to a branch needs expensive CPU/browser verification.
+# Main-branch runs remain independent. This prevents a flood of stale CI
+# executions during rapid iterative review-source hardening.
+concurrency:
+  group: policyproof-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   tests:
     runs-on: ubuntu-latest
