@@ -212,7 +212,10 @@ def test_tuned_failure_preserves_complete_base_for_explicit_resume(monkeypatch, 
     assert result["base_pass_reused_from_previously_saved_evidence"]
     assert calls == ["base", "tuned", "tuned_resumed"]
     assert tuned_path.is_file() and paired_path.is_file()
-    assert json.loads(paired_path.read_text())["resumed_existing_base_pass"] is True
+    saved_pair = json.loads(paired_path.read_text())
+    assert saved_pair["resumed_existing_base_pass"] is True
+    assert saved_pair["base_gpu_executed_in_this_process"] is False
+    assert saved_pair["tuned_gpu_executed_in_this_process"] is True
     with pytest.raises(FileExistsError, match="already exists"):
         execute_gpu_pair(
             tmp_path, tmp_path/"adapter", base_path, tuned_path, paired_path,
