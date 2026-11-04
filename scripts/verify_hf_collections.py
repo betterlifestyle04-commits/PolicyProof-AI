@@ -17,6 +17,7 @@ import re
 from urllib.parse import urlsplit
 
 from policyproof.core import ROOT, sha256
+from scripts.publish_track2a_dataset import LICENSES
 
 MANIFEST_REL = "docs/hf_publication_manifest.json"
 RECEIPT_REL = "artifacts/hf_anonymous_access_receipt.json"
@@ -176,7 +177,10 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
         api, dataset, revision, "provenance/PUBLICATION_SCOPE.json"
     ))
     if not isinstance(scope, dict) or (
-        scope.get("evaluated_base_model_cases") != 48
+        scope.get("selected_license") not in LICENSES
+        or not isinstance(scope.get("original_archive_checksums_sha256"), str)
+        or not re.fullmatch(r"[0-9a-f]{64}", scope["original_archive_checksums_sha256"])
+        or scope.get("evaluated_base_model_cases") != 48
         or scope.get("new_unscored_model_cases") != 72
         or scope.get("independent_human_review_completed") is not False
         or scope.get("tuned_adapter_included") is not False
@@ -208,9 +212,14 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
             for item in cases)):
         raise ValueError("Public 72-case challenge is incomplete, already scored or mismarked")
     readme = _download_public(api, dataset, revision, "README.md")
-    if not readme.read_text(encoding="utf-8").strip():
-        raise ValueError("Public dataset card is empty")
+    card = readme.read_text(encoding="utf-8")
+    if not card.startswith("---\\n") or not re.search(
+        r"(?m)^license: " + re.escape(scope["selected_license"]) + r"$",
+        card.split("---", 2)[1] if len(card.split("---", 2)) > 1 else "",
+    ):
+        raise ValueError("Dataset card has no matching declared public license")
     return {
+        "declared_dataset_license": scope["selected_license"],
         "public_required_files_readable": list(REQUIRED_DATASET_FILES),
         "public_baseline_cases": 48,
         "public_unscored_challenge_cases": 72,
