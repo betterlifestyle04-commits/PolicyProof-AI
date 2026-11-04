@@ -61,7 +61,8 @@ def test_peft_header_and_declared_sha_consistency(tmp_path):
     assert result["status"] == "ARTIFACT_INTEGRITY_CHECKED"
     assert result["file_hashes_match"]
     assert result["tensor_count"] == 2
-    assert result["track1_submission_evidence_candidate"] is True
+    assert result["track1_submission_evidence_candidate"] is False
+    assert result["expected_tiny_aya_lora_geometry"] is False
     assert result["training_independently_verified"] is False
     assert result["model_improvement_verified"] is False
 
@@ -150,7 +151,7 @@ def test_zip_inspection_and_hash_are_read_only(tmp_path):
     result = inspect_training_archive(zpath)
     assert result["archive_sha256"] == digest(zpath)
     assert result["archive_member_count"] == 3
-    assert result["track1_submission_evidence_candidate"] is True
+    assert result["track1_submission_evidence_candidate"] is False
 
 
 @pytest.mark.parametrize("unsafe", ["../outside.txt", "adapter/../../evil", "/etc/passwd"])
@@ -176,3 +177,37 @@ def test_zip_does_not_accept_fake_nonpeft_weights(tmp_path):
                 z.write(f, f.relative_to(directory))
     with pytest.raises(ValueError):
         inspect_training_archive(zpath)
+
+
+
+def test_expected_tiny_aya_parameter_geometry_is_required_for_release(tmp_path):
+    """Format-valid tiny fake adapters cannot pass as genuine Tiny Aya LoRA."""
+    directory = _fixture(tmp_path)
+    path = directory / "adapter/adapter_model.safetensors"
+    header = {}
+    offset = 0
+    total = 0
+    for index in range(144):
+        for side in ("A", "B"):
+            name = f"base_model.model.layers.{index}.lora_{side}.weight"
+            count = 16 * 832  # 13,312 elements per tensor
+            size = count * 4
+            header[name] = {
+                "dtype": "F32", "shape": [16, 832],
+                "data_offsets": [offset, offset + size],
+            }
+            offset += size
+            total += count
+    assert len(header) == 288
+    assert total == 3_833_856
+    encoded = json.dumps(header).encode()
+    path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + bytes(offset))
+    _edit_info(directory, lambda d: d.update(
+        adapter_sha256={path.name: digest(path)}
+    ))
+    result = inspect_training_directory(directory)
+    assert result["expected_tiny_aya_lora_geometry"]
+    assert result["track1_submission_evidence_candidate"]
+    # A forged but internally consistent file still cannot prove actual GPU
+    # optimizer steps. The release gate explicitly avoids that claim.
+    assert result["training_independently_verified"] is False
