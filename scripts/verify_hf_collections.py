@@ -153,7 +153,7 @@ def _download_public(api, repo: str, revision: str, filename: str) -> Path:
 
 def _safe_public_filename(name: str) -> bool:
     if (not isinstance(name, str) or not 1 <= len(name) <= 300
-        or "\\\\" in name or "\\x00" in name
+        or chr(92) in name or chr(0) in name
         or name.startswith("/") or name.endswith("/")):
         return False
     parts = PurePosixPath(name).parts
@@ -166,9 +166,10 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
     listed = api.list_repo_files(
         repo_id=dataset, repo_type="dataset", revision=revision, token=False
     )
-    if (not isinstance(listed, list) or len(listed) != len(set(listed))
+    if (not isinstance(listed, list)
         or len(listed) > MAX_PUBLIC_FILE_COUNT + 2
-        or not all(_safe_public_filename(item) for item in listed)):
+        or not all(_safe_public_filename(item) for item in listed)
+        or len(listed) != len(set(listed))):
         raise ValueError("Public dataset file inventory is unsafe or duplicated")
     available = set(listed)
     missing = set(REQUIRED_DATASET_FILES) - available
