@@ -168,3 +168,8 @@ python -m scripts.frozen_pair_inference
 ```
 
 Only after genuinely completed independent benchmark review and a hash-verified, 40-character-revision-pinned LoRA adapter are present can an operator explicitly authorize separate real GPU base and adapter predictions with identical prompts and generation parameters, followed by paired AuditKIT scoring. The runner never uses the already inspected 48-case development outputs as the 60-case baseline and does not auto-report improvement. **Neither this feature nor its CPU tests represent completed GPU inference or fine-tuning.** [Read the frozen evaluation runbook](docs/FROZEN_PAIRED_INFERENCE.md).
+
+
+### Recovery if real GPU evaluation is interrupted
+
+After a genuine, authorized 60-case paired evaluation begins, the original-base report is now **persisted immediately after a complete base pass**. If adapted-model inference or AuditKIT fails, the base results are preserved. An explicit `--resume-base` rerun can reuse those same outputs **only** after strict revalidation of frozen dataset bytes, pinned revision, generation settings, 60 unique case IDs, raw outputs, scores, and declared inference metadata. The validator rejects corrupt or mismatched evidence and refuses to overwrite any existing result. This capability reduces duplicate GPU work; it is **not evidence that real GPU inference has occurred**. [Recovery instructions](docs/RECOVERABLE_PAIRED_EVALUATION.md).

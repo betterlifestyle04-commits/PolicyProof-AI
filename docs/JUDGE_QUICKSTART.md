@@ -102,3 +102,8 @@ For a future genuine AlignTune output ZIP, judges can inspect the structural has
 ## New paired-model evaluation preflight (November 4, 2026)
 
 Run `python -m scripts.frozen_pair_inference` without any flags from a clean checkout to see why genuine 60-case paired GPU evaluation remains blocked. It checks the unchanged final-candidate hash, human-review signoff, and a PEFT adapter with an AlignTune-declared run, matching hashes and pinned base-model revision. **No model is loaded or called.** The public **Judge verification** page shows the same fail-closed prerequisite table. Once independent review and actual training exist, follow [the paired GPU evaluation runbook](FROZEN_PAIRED_INFERENCE.md); do not use the earlier 48-case development outputs as the 60-case baseline.
+
+
+## Reproducible recovery of the original model pass
+
+The 60-case paired GPU runner now writes the complete original-base output **before** attempting the adapted-model inference. Its explicit `--resume-base` mode checks that saved file's provenance, 60-case coverage, dataset SHA, model revision, decoding settings, and recomputed deterministic metrics; invalid files are rejected before any GPU call. This is protection against wasting scarce GPU time if loading the adapter fails, **not** proof of successful model training or inference in the current repository. See [the interruption-safe evaluation guide](RECOVERABLE_PAIRED_EVALUATION.md).
