@@ -248,6 +248,7 @@ def train_existing_t4(trainer, *, root="/content/PolicyProof-AI", model_sha=None
             "duration_s": round(time.monotonic() - started, 1),
             "peak_gpu_gib": round(torch.cuda.max_memory_allocated() / 1024**3, 2),
             "adapter_sha256": {p.name: sha(p) for p in saved},
+            "adapter_config_sha256": sha(adapter / "adapter_config.json"),
             "code_revision": subprocess.check_output(
                 ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
             ).strip(),
