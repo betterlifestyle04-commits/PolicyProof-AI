@@ -322,8 +322,8 @@ def test_undeclared_public_file_is_never_silently_accepted(tmp_path):
 @pytest.mark.parametrize("suspicious", [
     "../secrets.txt",
     "docs/../secrets.txt",
-    "docs/\\\\secret.txt",
-    "docs/secret\\x00.txt",
+    "docs/\\secret.txt",
+    "docs/secret\x00.txt",
     "/absolute/file.txt",
 ])
 def test_public_file_inventory_rejects_unsafe_repository_paths(tmp_path, suspicious):
