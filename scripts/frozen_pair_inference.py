@@ -306,6 +306,8 @@ def execute_gpu_pair(
     paired = comparison(base_report, tuned_report, rows, digest)
     paired["generation_config"] = dict(GENERATION)
     paired["gpu_executed_in_this_process"] = True
+    paired["base_gpu_executed_in_this_process"] = not resume_base
+    paired["tuned_gpu_executed_in_this_process"] = True
     paired["resumed_existing_base_pass"] = resume_base
     paired["semantics_independently_reviewed"] = False
     write_evidence_once(tuned_output, tuned_report)
