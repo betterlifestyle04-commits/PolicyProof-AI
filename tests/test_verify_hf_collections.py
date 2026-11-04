@@ -239,3 +239,30 @@ def test_public_dataset_card_declares_selected_license(tmp_path):
     result = verify_anonymous_access(manifest, api=AnonymousFakeAPI(tmp_path))
     assert result["declared_dataset_license"] == "cc-by-4.0"
     assert result["dataset_license_rights_independently_verified"] is False
+
+
+
+def test_dataset_only_verification_can_proceed_without_any_model_collection(tmp_path):
+    manifest = manifest_file(tmp_path, model_collection_url=None)
+    api = AnonymousFakeAPI(tmp_path)
+    partial = verify_anonymous_access(manifest, api=api, dataset_only=True)
+    assert partial["status"] == "ANONYMOUS_DATASET_ACCESS_VERIFIED_ONLY"
+    assert partial["model_repositories"] == []
+    assert partial["model_collection_requirement_verified"] is False
+    assert partial["all_collections_public"] is False
+    assert partial["public_unscored_challenge_cases"] == 72
+    assert not any(call[0] == "get_collection" and call[1] == MODELS
+                   for call in api.calls)
+    path = tmp_path / "artifacts" / "hf_dataset_only_receipt.json"
+    path.parent.mkdir()
+    path.write_text(json.dumps(partial))
+    # A real dataset by itself does not satisfy the contest's collection rules.
+    assert not receipt_is_current(path, manifest)
+
+
+def test_full_verification_rejects_missing_model_collection(tmp_path):
+    manifest = manifest_file(tmp_path, model_collection_url=None)
+    with pytest.raises(ValueError, match="Missing or oversized"):
+        validate_manifest(manifest)
+    with pytest.raises(ValueError):
+        verify_anonymous_access(manifest, api=AnonymousFakeAPI(tmp_path))
