@@ -9,6 +9,7 @@ The review files belong in a private local reviews/ folder, never public CI.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from pathlib import Path, PurePosixPath
 import re
@@ -109,7 +110,12 @@ def verify_review_evidence(
         code = check_reviewer_code(entry.get("reviewer_code"))
         path = _safe_private_path(root, entry.get("path"), ".csv")
         _declared_hash(path, entry.get("sha256"))
-        measured_code, ratings = read_and_validate_review(path, cases, dataset_digest)
+        try:
+            measured_code, ratings = read_and_validate_review(
+                path, cases, dataset_digest,
+            )
+        except (csv.Error, UnicodeError) as exc:
+            raise ValueError("Malformed or unreadable reviewer CSV evidence") from exc
         if code != measured_code:
             raise ValueError("Review file code does not match declared reviewer")
         # Every reviewer must independently fill all 180 fields with affirmative
@@ -130,7 +136,10 @@ def verify_review_evidence(
     summary_path = _safe_private_path(root, declared_report.get("path"), ".json")
     _declared_hash(summary_path, declared_report.get("sha256"))
     observed = _strict_json(summary_path)
-    recomputed = consolidate_reviews(review_paths, cases, dataset_digest)
+    try:
+        recomputed = consolidate_reviews(review_paths, cases, dataset_digest)
+    except (csv.Error, UnicodeError) as exc:
+        raise ValueError("Malformed reviewer CSV during reconciliation") from exc
     if observed != recomputed:
         raise ValueError("Reconciliation differs from the source reviewer CSV evidence")
     if (recomputed["status"] != "READY_FOR_MANUAL_ADJUDICATION_AND_SIGNOFF"
@@ -158,12 +167,20 @@ def verify_review_evidence(
             raise ValueError("Explicit reviewer approval and no-model-output declarations required")
         claimed = approval.get("competent_languages")
         if (not isinstance(claimed, list) or not claimed
-            or len(claimed) != len(set(claimed))
-            or not all(isinstance(lang, str) and lang in LANGUAGES for lang in claimed)):
+            or not all(isinstance(lang, str) and lang in LANGUAGES for lang in claimed)
+            or len(claimed) != len(set(claimed))):
             raise ValueError("Reviewer must declare which languages they can competently assess")
         languages.update(claimed)
     if set(codes) != seen or not LANGUAGES.issubset(languages):
         raise ValueError("Reviewers do not collectively declare English, Norwegian and Arabic competence")
+    # Make a double-read race unable to validate an intermediate version of
+    # the evidence files. These hashes must still match after reconciliation.
+    for entry, path in zip(files, review_paths):
+        _declared_hash(path, entry["sha256"])
+    _declared_hash(summary_path, declared_report["sha256"])
+    final_dataset = root / "data/final_holdout_v1.jsonl"
+    if not final_dataset.is_file() or sha256(final_dataset) != dataset_digest:
+        raise ValueError("Frozen final benchmark changed during review verification")
 
     return {
         "source_review_files_verified": len(review_paths),
