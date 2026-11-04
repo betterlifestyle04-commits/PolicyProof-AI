@@ -11,6 +11,7 @@ import json
 
 from policyproof.core import ROOT, sha256
 from scripts.verify_evidence import verify_baseline
+from scripts.verify_training_archive import inspect_training_directory
 
 
 def evaluate_readiness(root=ROOT):
@@ -37,23 +38,30 @@ def evaluate_readiness(root=ROOT):
             pass
     checks["baseline_auditkit"]={"passed":valid_audit,"details":"Recorded baseline replay through AuditKIT; no training"}
 
+    # A self-reported run_info.json plus an arbitrary non-empty file MUST
+    # NOT mark a model as trained. Verify actual PEFT safetensors structure,
+    # both file hashes, curated-data digest, source commit and backend claim.
+    # Even this does not independently prove GPU execution or model quality.
     model_completed=False
+    structurally_checked=False
+    adapter_notes=[]
     for weights in (root/"artifacts").rglob("adapter_model.safetensors"):
-        runinfo=weights.parent.parent/"run_info.json"
-        adaptercfg=weights.parent/"adapter_config.json"
-        if not runinfo.is_file() or not adaptercfg.is_file() or weights.stat().st_size == 0:
-            continue
         try:
-            record=json.loads(runinfo.read_text(encoding="utf-8"))
-            steps=record.get("optimizer_steps",record.get("steps"))
-            if (record.get("status")=="completed" and type(steps) is int
-                    and steps>=10 and adaptercfg.stat().st_size>0
-                    and record.get("trainer_backend") != "mock"):
-                model_completed=True
-                break
-        except (OSError,ValueError,TypeError):
+            verified=inspect_training_directory(weights.parent.parent)
+        except (OSError,ValueError,TypeError,KeyError) as exc:
+            adapter_notes.append(type(exc).__name__ + ": " + str(exc)[:130])
             continue
-    checks["trained_adapter"]={"passed":model_completed,"details":"Completed optimizer steps and nonempty PEFT checkpoint required"}
+        structurally_checked=True
+        if verified["track1_submission_evidence_candidate"]:
+            model_completed=True
+    checks["adapter_artifact_integrity"]={
+        "passed":structurally_checked,
+        "details":"CPU-checked safetensors shape, LoRA tensors and SHA256 metadata; training execution remains self-reported",
+    }
+    checks["trained_adapter"]={
+        "passed":model_completed,
+        "details":"Structurally validated 10+ optimizer-step receipt, pinned base revision and declared AlignTune trainer (NOT independently verified training)",
+    }
 
     review=root/"docs/final_benchmark_review_signoff.json"
     human_reviewed=False
