@@ -6,7 +6,7 @@
 
 The original paired GPU runner waited for base inference, adapted-model inference, and a successful AuditKIT comparison *before saving any of the model's outputs*. A CUDA out-of-memory or adapter-loading failure in the second pass could discard the entire successful base pass. Rerunning unnecessarily consumes scarce accelerator time and risks changing experimental conditions.
 
-The revised runner now writes the **complete 60-case base output as soon as it finishes** using an exclusive-create, fsync-backed JSON writer. It does not save incomplete sets of predictions. Subsequent errors leave the verified base stage on disk and do **not** produce a misleading successful paired evaluation artifact. If AuditKIT scoring fails, the base file remains while no paired result is claimed.
+The revised runner now writes the **complete 60-case base output as soon as it finishes** using an exclusive-create, fsync-backed JSON writer. It does not save incomplete sets of predictions. Subsequent errors leave the verified base stage on disk and do **not** produce a misleading successful paired evaluation artifact. If the tuned model produces all 60 outputs, the tuned file is also saved **before AuditKIT**. If AuditKIT then fails, **both model reports remain** while no paired-result claim is produced.
 
 ## Default preflight remains free and read-only
 
@@ -29,7 +29,7 @@ python -m scripts.frozen_pair_inference \
   --paired-output artifacts/paired_auditkit.json
 ```
 
-The runner creates **base** JSON immediately after all 60 base predictions complete; then runs the adapted model and AuditKIT comparison. Each output path uses **exclusive creation**, never overwriting an existing artifact. Stored base and candidate reports are generated from actual GPU model outputs *only in a genuine execution*.
+The runner creates **base** JSON immediately after all 60 base predictions complete, then writes the complete **tuned** JSON before performing the AuditKIT comparison. Each output path uses **exclusive creation**, never overwriting an existing artifact. Stored base and candidate reports are generated from actual GPU model outputs *only in a genuine execution*.
 
 ## Recovery if the adapted-model pass fails
 
@@ -59,8 +59,32 @@ This **does not prove** the underlying GPU run occurred: metadata can be forged 
 
 ## Evidence integrity and limitations
 
-Only the base JSON is persisted on a tuned-model failure. A completed paired result is written only after both complete reports and a successful native AuditKIT replay. If process termination occurs between writing tuned and paired files, the runner will refuse to overwrite them; inspect the artifacts and use the separate offline paired AuditKIT replay rather than generating new predictions unnecessarily.
+On tuned-model failure only the base report exists. If the tuned pass finishes but **AuditKIT fails**, both reports exist and the paired output does not. A paired result is written only after both complete reports and a successful native AuditKIT replay. The strict CPU-only command documented below avoids repeating either model pass.
 
 The software tests use **synthetic stubbed responses in temporary test files**, not a real Tiny Aya model. They validate write-once semantics, dataset/provenance consistency, attempted resume after a simulated second-stage failure, and rejection of altered data; they must never be counted as research observations.
 
 The core project remains **not submission-ready**: genuine GPU training, independent benchmark validation, paired model inference, and public Hugging Face collection requirements are incomplete. See [full paired inference instructions](FROZEN_PAIRED_INFERENCE.md) and [submission readiness](SUBMISSION_READINESS.md).
+
+
+## New: finish a failed AuditKIT step with no GPU
+
+When **both** complete inference reports already exist, and **no** paired report exists, use the CPU-only comparison finalizer. The default command is read-only and reports the current blockers:
+
+```bash
+python -m scripts.finish_saved_pair
+```
+
+After independently inspecting the original GPU console logs, dataset freeze, reviewer signoff and adapter provenance, deliberately opt in:
+
+```bash
+python -m scripts.finish_saved_pair \\
+  --base artifacts/final_base_inference.json \\
+  --tuned artifacts/final_tuned_inference.json \\
+  --adapter-directory artifacts/align_qlora_smoke \\
+  --output artifacts/paired_auditkit.json \\
+  --finalize --confirm-saved-inference
+```
+
+The finalizer requires the **same mandatory preflight** as the GPU runner, a complete 60-case dataset SHA, two separately saved models with the same base revision and deterministic settings, a real-declared tuned adapter SHA matching the verified local PEFT checkpoint, complete unique case IDs and original raw outputs whose recorded scores exactly recompute. It then runs the **actual AuditKIT 1.1.3 precomputed evaluator on CPU only**, and writes a new paired report exclusively if the comparison succeeds.
+
+The report explicitly records that **neither base nor tuned inference ran in this recovery process**, preserving the original response-file SHA hashes. A self-declared original inference run is **not cryptographic proof** of real GPU execution. Do not use the synthetic CI fixtures as model evidence or present replaying saved data as an improvement in model safety. Existing outputs are never overwritten, even on retry.
