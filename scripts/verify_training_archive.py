@@ -198,6 +198,17 @@ def inspect_training_directory(directory: Path) -> dict:
             raise ValueError("Extended training-only validation losses incomplete or invalid")
     revision = info.get("model_revision", info.get("base_revision"))
     pinned_base = isinstance(revision, str) and REVISION.fullmatch(revision) is not None
+    if backend == "manual_torch_extended_fallback":
+        evidence = info.get("loaded_revision_evidence")
+        observed = evidence.get("loaded_model_revision_observed") if isinstance(evidence, dict) else None
+        confirmed = evidence.get("loaded_model_revision_verified") if isinstance(evidence, dict) else None
+        # An HF model_info remote SHA is not proof of actual loaded weights.
+        if observed is not None and (
+            not isinstance(observed, str) or not REVISION.fullmatch(observed)
+            or observed != revision
+        ):
+            raise ValueError("Loaded extended-model revision conflicts with declared base")
+        pinned_base = bool(pinned_base and confirmed is True and observed == revision)
     aligntune_path = backend == "aligntune_wrapper"
     expected_geometry = (
         tensor["tensor_count"] == EXPECTED_TRAINABLE_TENSORS
