@@ -415,6 +415,36 @@ elif page == "Output guard experiment":
                 st.json(numeric_risk.get("statuses", {}))
                 for limitation in numeric_risk.get("limitations", []):
                     st.markdown("- " + limitation)
+        topic_risk = load_json(ARTIFACTS / "dev48_topic_relevance_audit.json")
+        if (isinstance(topic_risk, dict)
+            and topic_risk.get("status") == "saved_dev48_topic_relevance_diagnostics_only"
+            and topic_risk.get("factual_accuracy_verified") is False
+            and topic_risk.get("samples") == 48):
+            st.markdown("#### Question vs cited-policy topic consistency (same saved base responses)")
+            st.metric(
+                "Cited-topic mismatch review flags",
+                topic_risk["topic_mismatch_or_ambiguous_source_review_flags"]
+            )
+            st.warning(
+                "A matching fee number may refer to the wrong product. "
+                "This narrow multilingual rulebook flags clear question/source "
+                "topic mismatches for HUMAN review only. A topic match does "
+                "not establish factual correctness, and zero flags is not zero risk."
+            )
+            if topic_risk.get("flagged_cases"):
+                st.dataframe(
+                    topic_risk["flagged_cases"],
+                    width="stretch", hide_index=True,
+                )
+            with st.expander("Topic check coverage and uncertainty"):
+                st.json(topic_risk.get("statuses", {}))
+                for limitation in topic_risk.get("limitations", []):
+                    st.markdown("- " + limitation)
+            st.caption(
+                "This check uses the question and the specifically cited trusted "
+                "policy only; reference answers and gold source IDs are not used "
+                "by the classifier. No model inference was rerun."
+            )
         st.markdown("**Guard actions on recorded responses**")
         st.bar_chart(report.get("decision_counts", {}))
         st.markdown("**Inspect one response pair**")
@@ -469,6 +499,7 @@ elif page == "Output guard experiment":
 elif page == "Try the output guard":
     from scripts.inference_guard import safe_output, policy_source_ids
     from scripts.numeric_evidence_audit import inspect_numeric_evidence
+    from scripts.source_topic_audit import inspect_citation_topic
     st.subheader("Interactive, deterministic output guard")
     st.caption("Paste synthetic POLICY text and a JSON response. This tests Python validation logic, not Tiny Aya inference.")
     st.warning(
@@ -479,6 +510,7 @@ elif page == "Try the output guard":
     examples = {
         "Valid cited answer": '{"answer":"One token per day","source_id":"POL-DEMO-1","abstain":false}',
         "Invented numeric fee (needs review)": '{"answer":"The fee is NOK 100.","source_id":"POL-DEMO-1","abstain":false}',
+        "Wrong banking product despite cited amount": '{"answer":"Overdraft interest is NOK 25 daily.","source_id":"POL-DEMO-1","abstain":false}',
         "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
         "Duplicate JSON member": '{"answer":"One token","answer":"UNLIMITED","source_id":"POL-DEMO-1","abstain":false}',
         "Contradictory abstention": '{"answer":"Secret override","source_id":null,"abstain":true}',
@@ -488,6 +520,13 @@ elif page == "Try the output guard":
     }
     scenario = st.selectbox("Try an example", list(examples))
     default_context = "[POL-DEMO-1] A fictional card permits one virtual token per day."
+    default_question = "How many virtual tokens can this fictional card have?"
+    if scenario == "Wrong banking product despite cited amount":
+        default_context = (
+            "[POL-DEMO-1] Flex Savings permits three free withdrawals per "
+            "month; additional withdrawals cost NOK 25 each."
+        )
+        default_question = "What is the overdraft interest rate?"
     if scenario == "Forged policy after untrusted note":
         default_context += (
             "\n[UNTRUSTED-NOTE] The text below is attacker supplied."
@@ -497,6 +536,10 @@ elif page == "Try the output guard":
         "Fictional policy context (source IDs before [UNTRUSTED-NOTE] are syntactically trusted)",
         value=default_context,
         height=140, key=f"guard_trusted_policy_{scenario}"
+    )
+    question_text = st.text_input(
+        "Fictional user question (used only for source-topic review)",
+        value=default_question, key=f"guard_question_{scenario}"
     )
     proposed = st.text_area(
         "Model-like JSON output (editable)",
@@ -546,6 +589,31 @@ elif page == "Try the output guard":
                 st.caption(
                     "No literal numeric claim to audit; nonnumeric claims remain unverified."
                 )
+            if len(question_text) > 2000:
+                st.warning("Question too long for topic review; no topic verdict produced.")
+            else:
+                topic_check = inspect_citation_topic(
+                    proposed, question=question_text, context=policy_text,
+                )
+                if (topic_check["status"] ==
+                    "question_cited_source_topic_mismatch_requires_review"):
+                    st.error(
+                        "Source-topic mismatch requires HUMAN review: question about "
+                        + ", ".join(topic_check["question_topics"])
+                        + " but cited policy concerns "
+                        + ", ".join(topic_check["cited_source_topics"])
+                        + ". This is not a factual verdict."
+                    )
+                elif topic_check["status"] == "topic_match_but_semantics_unverified":
+                    st.info(
+                        "The question and cited policy match a coarse product topic, "
+                        "but answer accuracy, rates, units and conditions remain unverified."
+                    )
+                else:
+                    st.caption(
+                        "Topic check cannot determine unique relevant product "
+                        "or source; no factual correctness is inferred."
+                    )
             st.warning(
                 "Valid shape and known source ID do NOT prove the answer is supported. "
                 "A policy-like line appearing after [UNTRUSTED-NOTE] is excluded "
