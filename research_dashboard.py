@@ -392,6 +392,24 @@ elif page == "Output guard experiment":
             "The guard cannot prove the answers are semantically correct; exact "
             "supported-answer matching remains 0/39 both before and after."
         )
+        numeric_risk = load_json(ARTIFACTS / "dev48_numeric_risk_audit.json")
+        if (isinstance(numeric_risk, dict)
+            and numeric_risk.get("status") == "saved_dev48_numeric_risk_diagnostics_only"
+            and numeric_risk.get("factual_accuracy_verified") is False
+            and numeric_risk.get("samples") == 48):
+            st.markdown("#### Cited-source numeric risk screening (same saved base responses)")
+            st.metric("Cases needing numeric evidence review", numeric_risk["numeric_review_flags"])
+            st.caption(
+                "Flags numeric literals missing from the specific cited source. "
+                "It does not verify that matching numbers are used in the correct context "
+                "or that other statements are accurate. No model inference was rerun."
+            )
+            if numeric_risk.get("flagged_cases"):
+                st.dataframe(numeric_risk["flagged_cases"], use_container_width=True, hide_index=True)
+            with st.expander("Numeric audit limitations and case classifications"):
+                st.json(numeric_risk.get("statuses", {}))
+                for limitation in numeric_risk.get("limitations", []):
+                    st.markdown("- " + limitation)
         st.markdown("**Guard actions on recorded responses**")
         st.bar_chart(report.get("decision_counts", {}))
         st.markdown("**Inspect one response pair**")
@@ -445,6 +463,7 @@ elif page == "Output guard experiment":
 
 elif page == "Try the output guard":
     from scripts.inference_guard import safe_output, policy_source_ids
+    from scripts.numeric_evidence_audit import inspect_numeric_evidence
     st.subheader("Interactive, deterministic output guard")
     st.caption("Paste synthetic POLICY text and a JSON response. This tests Python validation logic, not Tiny Aya inference.")
     st.warning(
@@ -454,6 +473,7 @@ elif page == "Try the output guard":
     )
     examples = {
         "Valid cited answer": '{"answer":"One token per day","source_id":"POL-DEMO-1","abstain":false}',
+        "Invented numeric fee (needs review)": '{"answer":"The fee is NOK 100.","source_id":"POL-DEMO-1","abstain":false}',
         "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
         "Duplicate JSON member": '{"answer":"One token","answer":"UNLIMITED","source_id":"POL-DEMO-1","abstain":false}',
         "Contradictory abstention": '{"answer":"Secret override","source_id":null,"abstain":true}',
@@ -502,6 +522,25 @@ elif page == "Try the output guard":
         if decision.action != "valid_supported_shape":
             st.info("Fail-closed behavior: the validator returns canonical abstention instead of guessing an answer.")
         else:
+            numeric_check = inspect_numeric_evidence(proposed, context=policy_text)
+            if numeric_check["status"] == "unmatched_literal_requires_review":
+                st.error(
+                    "Numeric evidence review needed: "
+                    + ", ".join(numeric_check["unmatched_literals"])
+                    + " does not appear in the specifically cited policy text. "
+                    "This is a risk flag, not a human factual verdict."
+                )
+            elif numeric_check["status"] == "source_boundary_ambiguous":
+                st.error("Numeric audit could not uniquely identify the cited source block.")
+            elif numeric_check["status"] == "literal_present_but_semantics_unverified":
+                st.info(
+                    "Answer number(s) appear in the cited policy text, but the validator "
+                    "CANNOT verify that they describe the right fee, product, or time unit."
+                )
+            else:
+                st.caption(
+                    "No literal numeric claim to audit; nonnumeric claims remain unverified."
+                )
             st.warning(
                 "Valid shape and known source ID do NOT prove the answer is supported. "
                 "A policy-like line appearing after [UNTRUSTED-NOTE] is excluded "
