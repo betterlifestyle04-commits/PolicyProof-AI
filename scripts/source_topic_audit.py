@@ -114,6 +114,9 @@ def inspect_citation_topic(raw: str, *, question: str, context: str) -> dict:
         "topic_match_is_not_semantic_entailment": True,
     }
     if decision.action != "valid_supported_shape":
+        if decision.action == "ambiguous_policy_source":
+            result["status"] = "source_boundary_ambiguous"
+            result["human_review_required"] = True
         return result
     parsed = json.loads(decision.output)
     result["source_id"] = parsed["source_id"]
