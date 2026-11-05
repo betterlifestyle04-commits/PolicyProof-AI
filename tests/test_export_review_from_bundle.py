@@ -117,11 +117,11 @@ def test_manifest_does_not_authorize_modified_member(tmp_path):
 
 
 def test_rejects_extra_member_and_missing_member(tmp_path):
-    for change in (
+    for index, change in enumerate((
         lambda d: {**d, "evil.txt": b"extra"},
         lambda d: {k: v for k, v in d.items() if k != "dev48_base.json"},
-    ):
-        root, archive, digest = make_fake_bundle(tmp_path / ("extra" if "extra" in str(change) else "missing"), zip_entries=change)
+    )):
+        root, archive, digest = make_fake_bundle(tmp_path / f"invalid_{index}", zip_entries=change)
         with pytest.raises(ValueError, match="Unexpected, missing"):
             verify_bundle(archive, digest)
 
