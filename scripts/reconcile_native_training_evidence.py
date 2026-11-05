@@ -124,14 +124,20 @@ def inspect_native_training_evidence(
     elif local_hashes is None or local_hashes != zip_hashes:
         status = "LOCAL_ADAPTER_HASH_CONFLICT_OR_MISSING"
     elif local == archived:
-        # Matching metadata is insufficient if the ZIP holds a toy/malformed
-        # geometry instead of Tiny Aya's 288 LoRA tensors/3,833,856 elements.
+        # Equal receipts do not by themselves establish an eligible Track 1
+        # adapter. Manual PyTorch fallback, wrong Tiny Aya tensor geometry,
+        # or a missing observed base-model revision must remain distinct.
         match = True
-        status = (
-            "MATCHED_SELF_REPORTED_COMPLETION"
-            if archive_report["expected_tiny_aya_lora_geometry"]
-            else "MATCHED_RECEIPTS_WRONG_ADAPTER_GEOMETRY"
-        )
+        if not archive_report["expected_tiny_aya_lora_geometry"]:
+            status = "MATCHED_RECEIPTS_WRONG_ADAPTER_GEOMETRY"
+        elif not archive_report["track1_trainer_path_declared"]:
+            status = "MATCHED_NON_ALIGNTUNE_BACKEND"
+        elif not archive_report["base_revision_pinned"]:
+            status = "MATCHED_UNVERIFIED_LOADED_BASE_REVISION"
+        elif not archive_report["track1_submission_evidence_candidate"]:
+            status = "MATCHED_INCOMPLETE_TRACK1_PROVENANCE"
+        else:
+            status = "MATCHED_SELF_REPORTED_COMPLETION"
     elif (local.get("status") in {
         "packaging", "archive_published_local_receipt_failed", "failed",
     } and _immutable_receipt_view(local) == _immutable_receipt_view(archived)):
@@ -140,6 +146,12 @@ def inspect_native_training_evidence(
         status = "RECEIPT_CONTRADICTION"
 
     # Even perfect local/archive consistency is not independent GPU proof.
+    # A Track 1 *candidate* is a structural/provenance designation, never
+    # evidence of genuine execution or improved multilingual responses.
+    track1_candidate = bool(
+        match and archive_report is not None
+        and archive_report["track1_submission_evidence_candidate"]
+    )
     return {
         "status": status,
         "local_status": local.get("status") if local is not None else None,
@@ -154,6 +166,15 @@ def inspect_native_training_evidence(
             if archive_report is not None else False
         ),
         "local_and_archived_receipts_identical": match,
+        "archive_declares_aligntune_trainer": bool(
+            archive_report is not None
+            and archive_report["track1_trainer_path_declared"]
+        ),
+        "archive_loaded_base_revision_verified": bool(
+            archive_report is not None
+            and archive_report["base_revision_loaded_evidence_verified"]
+        ),
+        "consistent_track1_artifact_candidate": track1_candidate,
         "local_adapter_hashes_match_archive": (
             local_hashes == zip_hashes
             if archive_report is not None and local_hashes is not None
@@ -162,21 +183,20 @@ def inspect_native_training_evidence(
         "safe_for_unreviewed_published_model_claim": False,
         "independent_gpu_training_verified": False,
         "independent_semantic_quality_verified": False,
-        "owner_review_required": not (
-            match and archive_report is not None
-            and archive_report["expected_tiny_aya_lora_geometry"]
-        ),
+        # No CPU receipt comparison can clear the need to review GPU
+        # execution logs and independent model evaluation for a submission.
+        "owner_review_required": True,
         "guidance": (
-            "Local and archived evidence match internally with expected "
-            "Tiny Aya adapter tensor geometry. Preserve both "
-            "original artifacts and raw Colab logs. CPU integrity cannot "
-            "prove optimizer execution or response correctness."
-            if (match and archive_report is not None
-                and archive_report["expected_tiny_aya_lora_geometry"]) else
+            "Adapter, receipts, claimed AlignTune backend and loaded-model "
+            "revision evidence are internally consistent as a Track 1 "
+            "candidate. Preserve original files and raw Colab logs; obtain "
+            "independent review of actual GPU execution and model quality."
+            if track1_candidate else
             "Do not retrain or overwrite existing files to fix this state. "
             "Preserve local receipt, adapter directory, ZIP (if any), and "
-            "raw Colab logs. Investigate the discrepancy before sharing "
-            "a model-completion claim."
+            "raw Colab logs. A manual PyTorch fallback, unverified loaded "
+            "base-model revision, incorrect tensor geometry, or any evidence "
+            "disagreement cannot be upgraded to native AlignTune completion."
         ),
     }
 
