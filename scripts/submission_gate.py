@@ -11,7 +11,7 @@ import json
 import re
 
 from policyproof.core import ROOT, sha256
-from scripts.verify_evidence import verify_baseline
+from scripts.verify_evidence import verify_baseline, read_evidence_json
 from scripts.verify_training_archive import inspect_training_directory
 from scripts.submission_evidence import (
     paired_evaluation_from_sources, public_hf_evidence, source_linked_review,
@@ -33,10 +33,10 @@ def evaluate_readiness(root=ROOT):
 
     audit=root/"artifacts/auditkit_actual_baseline_replay.json"
     valid_audit=False
-    if audit.exists():
+    if audit.exists() or audit.is_symlink():
         try:
-            receipt=json.loads(audit.read_text(encoding="utf-8"))
-            baseline_metadata=json.loads(baseline.read_text(encoding="utf-8")) if valid_baseline else {}
+            receipt=read_evidence_json(audit, limit=2_000_000)
+            baseline_metadata=read_evidence_json(baseline) if valid_baseline else {}
             valid_audit=(
                 receipt.get("status")=="complete"
                 and type(receipt.get("sample_count")) is int
@@ -55,7 +55,7 @@ def evaluate_readiness(root=ROOT):
                 and isinstance(receipt.get("auditkit_fingerprint"),str)
                 and bool(receipt["auditkit_fingerprint"])
             )
-        except (ValueError,OSError):
+        except (ValueError,OSError,TypeError):
             pass
     checks["baseline_auditkit"]={"passed":valid_audit,"details":"Recorded baseline replay through AuditKIT; no training"}
 
