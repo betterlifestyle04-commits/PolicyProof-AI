@@ -45,6 +45,14 @@ AlignTune's own trainer also saves intermediate checkpoint, tokenizer and metada
 
 The [new sixth CI job](REAL_ALIGN_SDK_SOURCE_CONTRACT_2026-11-05.md) installs the exact **AlignTune 0.1.28 and TRL 1.7.1 published distributions** without ML dependencies and examines their original factory/SFTConfig/config-extractor AST. This strengthens the mocked late-configuration tests and fails if the pinned upstream contract drifts. **No real SFTConfig is instantiated in this job, and no actual T4 optimizer step has been run.**
 
+## Transactional native adapter release (November 5, 2026)
+
+Actual AlignTune 0.1.28 `TRLSFTTrainer.train()` returns its independent `TrainOutput.steps` in a dictionary. The native 10/40-step launcher now requires **the returned integer `steps` to match both `trainer.state.global_step` and the requested optimizer budget**. The ZIP receipt records the returned value; the CPU-only archive verifier checks it for native40. This is a consistency check between *self-reported* local counters, not independent proof of GPU execution.
+
+Training completion and safe archive publication are now separate states. After verified training the local `run_info.json` is written with `status=packaging` through a temporary file and atomic replace. The ZIP is assembled under a private `.partial` filename, contains only the original safe PEFT safetensors, adapter config and the **completed** JSON receipt, and is checked for exact members and CRC before publication. A same-filesystem atomic **hard link** publishes the finished ZIP under its final name **only if that name is still unused**. Any interrupted ZIP operation, malformed CRC or destination race fails without overwriting another archive or exposing a partial ZIP under the intended filename; cleanable temporary files are removed on ordinary exceptions. The local receipt becomes `completed` only after archive publication succeeds. A failure is recorded `failed`, even if the optimizer had already completed 40 steps. On a hard process kill, a temporary `.partial` file may remain, but it is never an approved final artifact.
+
+The original on-disk AlignTune checkpoints and logs remain in the Colab working directory. The portable ZIP has exactly three files and uses the existing size/format bounds. All logs and ZIP metadata remain **self-reported** until an actual independent GPU/semantic verification.
+
 ## Tests and reproducibility without GPU
 
 ```bash
