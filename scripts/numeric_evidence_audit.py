@@ -18,13 +18,12 @@ import unicodedata
 
 from policyproof.core import ROOT, read_jsonl, sha256
 from scripts.auditkit_replay import check_saved_outputs
-from scripts.inference_guard import safe_output, _UNTRUSTED_MARKER
+from scripts.inference_guard import safe_output, trusted_policy_blocks
 
 NUMERIC = re.compile(
     r"(?<!\w)(?:\d{1,3}(?:[ ,.\u00a0\u202f\u066c]\d{3})+|\d+(?:[.,\u066b]\d+)?)(?::\d{2})?(?!\w)",
     flags=re.UNICODE,
 )
-SOURCE = re.compile(r"(?m)^\[(POL-[A-Za-z0-9-]+)\][ \t]+")
 ENGLISH_NUMBERS = {
     "zero": "0", "one": "1", "two": "2", "three": "3",
     "four": "4", "five": "5", "six": "6", "seven": "7",
@@ -80,28 +79,6 @@ def number_literals(text: str, *, include_english_words: bool = False) -> set[st
     return result
 
 
-def trusted_policy_blocks(context: str) -> dict[str, str]:
-    """Extract only bracketed source lines before the first injection marker.
-
-    IDs may occur only once: ambiguous duplicate IDs are excluded, not merged.
-    This syntax gate is NOT a secure provenance system for real customer data.
-    """
-    if not isinstance(context, str):
-        return {}
-    trusted = _UNTRUSTED_MARKER.split(context, maxsplit=1)[0]
-    matches = list(SOURCE.finditer(trusted))
-    blocks: dict[str, str] = {}
-    duplicates: set[str] = set()
-    for i, match in enumerate(matches):
-        source_id = match.group(1)
-        next_start = matches[i + 1].start() if i + 1 < len(matches) else len(trusted)
-        if source_id in blocks:
-            duplicates.add(source_id)
-        else:
-            blocks[source_id] = trusted[match.end():next_start].strip()
-    return {name: content for name, content in blocks.items() if name not in duplicates}
-
-
 def inspect_numeric_evidence(raw: str, *, context: str) -> dict:
     """Audit literal answer numbers against the cited source, not all sources.
 
@@ -110,12 +87,19 @@ def inspect_numeric_evidence(raw: str, *, context: str) -> dict:
     """
     decision = safe_output(raw, context=context)
     if decision.action != "valid_supported_shape":
+        ambiguous = decision.action == "ambiguous_policy_source"
+        # The conservative guard already checked schema, types and unique JSON
+        # keys before returning this action. Preserve the original *claimed*
+        # source and numbers for human triage, never as an approved citation.
+        claim = json.loads(raw) if ambiguous else {}
         return {
-            "status": "no_supported_answer_to_check",
+            "status": ("source_boundary_ambiguous" if ambiguous
+                       else "no_supported_answer_to_check"),
             "guard_action": decision.action,
-            "source_id": None, "answer_literals": [],
+            "source_id": claim.get("source_id"),
+            "answer_literals": sorted(number_literals(claim.get("answer", ""))),
             "source_literals": [], "unmatched_literals": [],
-            "human_review_required": False,
+            "human_review_required": ambiguous,
             "factual_support_verified": False,
         }
     parsed = json.loads(decision.output)

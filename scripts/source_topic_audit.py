@@ -114,6 +114,14 @@ def inspect_citation_topic(raw: str, *, question: str, context: str) -> dict:
         "topic_match_is_not_semantic_entailment": True,
     }
     if decision.action != "valid_supported_shape":
+        if decision.action == "ambiguous_policy_source":
+            # The guard verified the original raw JSON shape before this
+            # action. Retain the claimed ID solely for a reviewer to locate
+            # the conflicting/empty policy headers; never approve the claim.
+            result["source_id"] = json.loads(raw)["source_id"]
+            result["question_topics"] = detected_topics(question)
+            result["status"] = "source_boundary_ambiguous"
+            result["human_review_required"] = True
         return result
     parsed = json.loads(decision.output)
     result["source_id"] = parsed["source_id"]

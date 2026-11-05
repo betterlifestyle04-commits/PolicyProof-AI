@@ -43,6 +43,10 @@ This requires the audited source ZIP checksum (pinned by default), verifies the 
 
 **Critical blinding safeguard:** Keep this owner-only report confidential until two independent reviewers have completed their 96-row A/B semantic judgments. Showing base/tuned names or relative flag counts during review would compromise model blinding. This report is only a triage aid and cannot substitute for full independent review.
 
+## Consistent citation authority (November 5, 2026)
+
+A duplicated `[POL-...]` header or a cited header followed by no actual policy text is now rejected by the common output guard as `ambiguous_policy_source`. The numeric reviewer triage retains the *claimed* citation and numerical literals but refuses to treat them as a trustworthy policy block. The topic audit escalates the same defect. This prevents disagreement between the syntactic guard and source-local auditors; it **does not** validate real document provenance or accuracy.
+
 ## Where the heuristic cannot help
 
 A model response claiming **"overdraft interest is NOK 25 daily"** while citing POL-U003 will probably pass this numeric *literal* match, because the source does mention NOK 25—in a completely different sense: savings withdrawal fees. That result is intentionally still labeled **semantics unverified**, never **correct**. Unit and subject entailment require actual independent human judgment or a separately validated semantic system.

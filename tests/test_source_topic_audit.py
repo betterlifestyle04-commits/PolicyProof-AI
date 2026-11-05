@@ -209,3 +209,33 @@ def test_prevent_report_and_dataset_overwrite_by_default(tmp_path):
     from scripts.source_topic_audit import inspect_citation_topic
     from scripts.source_topic_audit import TOPIC_RULES
     assert inspect_citation_topic and TOPIC_RULES
+
+
+
+def test_ambiguous_source_with_wrong_product_is_escalated_not_approved():
+    from scripts.inference_guard import safe_output
+    context = (
+        "[POL-A100] Flex Savings withdrawals cost NOK 25.\n"
+        "[POL-A100] Overdraft interest is 12 percent."
+    )
+    raw = '{"answer":"Overdraft rate is NOK 25 daily.","source_id":"POL-A100","abstain":false}'
+    assert safe_output(raw, context=context).action == "ambiguous_policy_source"
+    result = inspect_citation_topic(
+        raw, question="What is the overdraft interest rate?", context=context,
+    )
+    assert result["status"] == "source_boundary_ambiguous"
+    assert result["source_id"] == "POL-A100"
+    assert result["question_topics"] == ["overdraft"]
+    assert result["human_review_required"] is True
+    assert result["factual_support_verified"] is False
+
+
+def test_empty_source_still_fails_open_topic_classification():
+    context = "[POL-A100] \n[POL-B200] Savings withdrawals cost NOK 25."
+    raw = '{"answer":"The fee is NOK 25.","source_id":"POL-A100","abstain":false}'
+    result = inspect_citation_topic(
+        raw, question="What is the overdraft interest?", context=context,
+    )
+    assert result["status"] == "source_boundary_ambiguous"
+    assert result["human_review_required"] is True
+    assert result["topic_match_is_not_semantic_entailment"] is True

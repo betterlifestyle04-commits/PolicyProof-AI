@@ -144,3 +144,35 @@ def test_saved_model_dataset_mismatch_fails_closed():
     cases = read_jsonl(ROOT / "data/unseen_policy_test.jsonl")
     with pytest.raises(ValueError, match="Dataset SHA mismatch"):
         audit_saved_predictions(report, cases, "0" * 64)
+
+
+
+def test_ambiguous_duplicate_policy_is_a_numeric_human_review_flag_not_valid_shape():
+    from scripts.inference_guard import safe_output, canonical_abstention
+    context = (
+        "[POL-A100] Savings withdrawals cost NOK 25.\n"
+        "[POL-A100] The unrelated overdraft rate is 25 percent."
+    )
+    raw = '{"answer":"Rate is 25%.","source_id":"POL-A100","abstain":false}'
+    assert safe_output(raw, context=context).action == "ambiguous_policy_source"
+    assert safe_output(raw, context=context).output == canonical_abstention()
+    result = inspect_numeric_evidence(raw, context=context)
+    assert result["status"] == "source_boundary_ambiguous"
+    assert result["guard_action"] == "ambiguous_policy_source"
+    assert result["source_id"] == "POL-A100"
+    assert result["answer_literals"] == ["25"]
+    assert result["human_review_required"] is True
+    assert result["factual_support_verified"] is False
+
+
+def test_empty_cited_policy_is_not_numeric_authority_even_if_other_policy_has_number():
+    context = (
+        "[POL-A100] \n"
+        "[POL-B200] Savings withdrawals cost NOK 25."
+    )
+    raw = '{"answer":"It costs NOK 25.","source_id":"POL-A100","abstain":false}'
+    result = inspect_numeric_evidence(raw, context=context)
+    assert result["status"] == "source_boundary_ambiguous"
+    assert result["source_id"] == "POL-A100"
+    assert result["human_review_required"] is True
+    assert result["factual_support_verified"] is False
