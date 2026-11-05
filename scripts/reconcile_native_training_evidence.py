@@ -124,8 +124,14 @@ def inspect_native_training_evidence(
     elif local_hashes is None or local_hashes != zip_hashes:
         status = "LOCAL_ADAPTER_HASH_CONFLICT_OR_MISSING"
     elif local == archived:
-        status = "MATCHED_SELF_REPORTED_COMPLETION"
+        # Matching metadata is insufficient if the ZIP holds a toy/malformed
+        # geometry instead of Tiny Aya's 288 LoRA tensors/3,833,856 elements.
         match = True
+        status = (
+            "MATCHED_SELF_REPORTED_COMPLETION"
+            if archive_report["expected_tiny_aya_lora_geometry"]
+            else "MATCHED_RECEIPTS_WRONG_ADAPTER_GEOMETRY"
+        )
     elif (local.get("status") in {
         "packaging", "archive_published_local_receipt_failed", "failed",
     } and _immutable_receipt_view(local) == _immutable_receipt_view(archived)):
@@ -156,12 +162,17 @@ def inspect_native_training_evidence(
         "safe_for_unreviewed_published_model_claim": False,
         "independent_gpu_training_verified": False,
         "independent_semantic_quality_verified": False,
-        "owner_review_required": not match,
+        "owner_review_required": not (
+            match and archive_report is not None
+            and archive_report["expected_tiny_aya_lora_geometry"]
+        ),
         "guidance": (
-            "Local and archived evidence match internally. Preserve both "
+            "Local and archived evidence match internally with expected "
+            "Tiny Aya adapter tensor geometry. Preserve both "
             "original artifacts and raw Colab logs. CPU integrity cannot "
             "prove optimizer execution or response correctness."
-            if match else
+            if (match and archive_report is not None
+                and archive_report["expected_tiny_aya_lora_geometry"]) else
             "Do not retrain or overwrite existing files to fix this state. "
             "Preserve local receipt, adapter directory, ZIP (if any), and "
             "raw Colab logs. Investigate the discrepancy before sharing "
