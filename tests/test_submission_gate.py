@@ -44,13 +44,15 @@ def test_two_separate_hf_collections_required_even_if_urls_present(tmp_path):
     }
     (d/"hf_publication_manifest.json").write_text(json.dumps(manifest))
     state=evaluate_readiness(tmp_path)
-    assert state["checks"]["huggingface_artifacts"]["passed"] is True
+    assert state["checks"]["huggingface_artifacts"]["passed"] is False
     assert state["checks"]["public_hf_collections"]["passed"] is False
     manifest["public_items_ungated_verified"]=True
     (d/"hf_publication_manifest.json").write_text(json.dumps(manifest))
     state=evaluate_readiness(tmp_path)
-    assert state["checks"]["public_hf_collections"]["passed"] is True
+    assert state["checks"]["huggingface_artifacts"]["passed"] is False
+    assert state["checks"]["public_hf_collections"]["passed"] is False
     assert state["ready_for_submission"] is False
+    assert state["owner_manifest_claims_are_not_proof"] is True
 
 
 def test_abstract_is_less_than_500_words_and_does_not_claim_finished_training():

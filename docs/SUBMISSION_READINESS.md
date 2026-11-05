@@ -1,4 +1,8 @@
-# Lexsi 2026 submission readiness — verified status (2026-11-03)
+# Lexsi 2026 submission readiness — archival notes updated Nov 5
+
+> **November 5 update (supersedes stale Nov 3 progress details below):** A user-provided 40-step PyTorch LoRA fallback and saved 48-case GPU paired development results now exist; this is **not** demonstrated successful native AlignTune training and **not** human-verified factual improvement. The [new strict release-evidence protocol](RELEASE_EVIDENCE_GATES_2026-11-05.md) requires actual source-linked 60-case review, preserved paired base/tuned reports with recomputed scores, and a fresh manifest-matched anonymous Hugging Face receipt. No final 60-case evaluation, public HF collection verification, or official submission is currently verified. The previous Nov 3 narrative below is archival and must not be used to describe the latest training state.
+
+
 
 **Track:** 1 — Fine-tuning and Data Curation  
 **Project:** PolicyProof AI · multilingual evidence-grounded synthetic policy QA  
