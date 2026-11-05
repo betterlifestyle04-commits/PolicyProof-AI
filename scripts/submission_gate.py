@@ -18,6 +18,112 @@ from scripts.submission_evidence import (
 )
 
 
+# A roadmap is not a substitute for training, review, licensing, or submission.
+# Keep evidence actions separate from the passing criteria; they are derived
+# solely from the validator's actual measured booleans.
+_EVIDENCE_ACTIONS = (
+    {
+        "check": "saved_baseline",
+        "title": "Verify the unchanged base-model baseline",
+        "work_type": "CPU evidence verification",
+        "action": "Recover the original 48 saved Tiny Aya predictions and exact development dataset; run the read-only baseline validator.",
+        "proof_needed": "Saved raw predictions, matching dataset SHA-256 and reproducible scores",
+        "depends_on": (),
+    },
+    {
+        "check": "trained_adapter",
+        "title": "Produce a genuine native AlignTune model adapter",
+        "work_type": "User-operated GPU training",
+        "action": "On an eligible GPU, execute the opt-in native AlignTune 40-step Colab run using the audited 78-row dataset. Preserve original logs and unmodified adapter ZIP.",
+        "proof_needed": "Native trainer logs, observed loaded-model commit, full adapter hashes and validated training receipt",
+        "depends_on": (),
+    },
+    {
+        "check": "human_review_advisory",
+        "title": "Review the 60-case frozen gold labels independently",
+        "work_type": "Human bilingual review",
+        "action": "Have at least two competent reviewers inspect all English, Norwegian and Arabic source labels without seeing model outputs; preserve distinct original review files.",
+        "proof_needed": "Original reviewer CSVs, unanimous or adjudicated source judgments and SHA-bound reconciliation",
+        "depends_on": (),
+    },
+    {
+        "check": "paired_finetuned_evaluation",
+        "title": "Run the frozen paired base-versus-trained evaluation",
+        "work_type": "GPU inference and CPU audit",
+        "action": "After native training and gold review, run both models on the same 60 frozen cases with identical decoding, then preserve raw outputs and recomputed paired scores.",
+        "proof_needed": "120 original model responses, adapter and benchmark digests, per-case scores and AuditKIT receipts",
+        "depends_on": ("trained_adapter", "human_review_advisory"),
+    },
+    {
+        "check": "huggingface_artifacts",
+        "title": "Publish and verify authorized Hugging Face artifacts",
+        "work_type": "Owner-approved external publication",
+        "action": "Verify license rights, then publish only authorized adapter, dataset and logs; obtain a fresh anonymous Hub-access receipt bound to the publication manifest.",
+        "proof_needed": "Authorized published repositories, verified revision and manifest-linked anonymous access receipt",
+        "depends_on": ("trained_adapter",),
+    },
+    {
+        "check": "public_hf_collections",
+        "title": "Verify both public Hugging Face collections",
+        "work_type": "External access verification",
+        "action": "Confirm anonymous, ungated access and correct model/dataset collection memberships; recheck freshness before submitting.",
+        "proof_needed": "Fresh receipt with separate accessible model and dataset collections and their required repositories",
+        "depends_on": ("huggingface_artifacts",),
+    },
+    {
+        "check": "public_repo_materials",
+        "title": "Keep source code and submission narrative available",
+        "work_type": "Documentation",
+        "action": "Maintain public source, research limitations and a factual submission write-up; independently open the site as a judge.",
+        "proof_needed": "README, submission draft and independently accessible public repository",
+        "depends_on": (),
+    },
+)
+
+
+def next_evidence_actions(checks: dict, mandatory_checks: tuple | list) -> list[dict]:
+    """Deterministic list of unmet local gates and their prerequisites.
+
+    ACTIONABLE means dependencies *within this local gate* are satisfied; it
+    does not mean GPU capacity, reviewer availability or external publishing
+    permission is available.
+    """
+    mandatory = set(mandatory_checks)
+    actions = []
+    for entry in _EVIDENCE_ACTIONS:
+        check = entry["check"]
+        if check not in mandatory or checks[check]["passed"] is True:
+            continue
+        waiting = [
+            dependency for dependency in entry["depends_on"]
+            if checks[dependency]["passed"] is not True
+        ]
+        actions.append({
+            "priority": len(actions) + 1,
+            "requirement": check,
+            "title": entry["title"],
+            "work_type": entry["work_type"],
+            "state": "WAITING_FOR_DEPENDENCIES" if waiting else "ACTIONABLE_LOCALLY",
+            "waiting_on": waiting,
+            "action": entry["action"],
+            "proof_needed": entry["proof_needed"],
+            "action_performed_by_report": False,
+        })
+    if not actions:
+        actions.append({
+            "priority": 1,
+            "requirement": "manual_release_review",
+            "title": "Perform final human release and official submission review",
+            "work_type": "Human license, accuracy and organizer verification",
+            "state": "ACTIONABLE_LOCALLY",
+            "waiting_on": [],
+            "action": "Revalidate public Hugging Face access, license rights and actual GPU and reviewer evidence; submit through the official process and retain confirmation.",
+            "proof_needed": "Independent release signoff and official organizer submission confirmation",
+            "action_performed_by_report": False,
+        })
+    return actions
+
+
 def evaluate_readiness(root=ROOT):
     root = Path(root)
     checks = {}
@@ -124,8 +230,11 @@ def evaluate_readiness(root=ROOT):
     required=("saved_baseline","trained_adapter","human_review_advisory",
               "paired_finetuned_evaluation","huggingface_artifacts",
               "public_hf_collections","public_repo_materials")
-    ready=all(checks[name]["passed"] for name in required)
+    ready=all(checks[name]["passed"] is True for name in required)
+    blocking=[name for name in required if checks[name]["passed"] is not True]
     return {
+        "blocking_requirements": blocking,
+        "next_evidence_actions": next_evidence_actions(checks, required),
         "status":"READY_FOR_MANUAL_REVIEW" if ready else "NOT_READY",
         "ready_for_submission":ready,"checks":checks,
         "mandatory_checks":list(required),
