@@ -238,3 +238,138 @@ def test_valid_result_reports_bounded_zip_and_no_training(tmp_path):
     assert report["duplicate_json_keys_rejected"] is True
     assert report["zip_special_entries_rejected"] is True
     assert report["training_performed"] is False
+
+
+
+def _repack_share(path, transform):
+    """Alter a synthetic ShareGPT export and RE-SIGN all the ZIP checksums."""
+    with zipfile.ZipFile(path) as z:
+        rows = [json.loads(s) for s in z.read("sft_sharegpt.jsonl").decode("utf-8").splitlines()]
+    transform(rows)
+    _rewrite_signed(path, {
+        "sft_sharegpt.jsonl": "".join(
+            json.dumps(row, ensure_ascii=False) + "\n" for row in rows
+        ).encode("utf-8"),
+    })
+
+
+def test_clean_curator_exports_match_pairwise(tmp_path):
+    archive = tmp_path / "original.zip"
+    make_archive(archive)
+    report = check_zip(archive)
+    cross = report["dual_export_consistency"]
+    assert cross["all_sft_pairs_match"] is True
+    assert cross["paired_examples"] == 3
+    assert cross["training_semantics_independently_verified"] is False
+
+
+def test_rejects_resigned_sharegpt_wrong_answer(tmp_path):
+    archive = tmp_path / "wrong-answer.zip"
+    make_archive(archive)
+
+    def edit(rows):
+        rows[0]["conversations"][1]["value"] = json.dumps(
+            {"answer": "NOK 999 every month", "source_id": "POL-001", "abstain": False}
+        )
+
+    _repack_share(archive, edit)
+    with pytest.raises(ValueError, match="assistant target disagrees"):
+        check_zip(archive)
+
+
+def test_rejects_resigned_sharegpt_instruction_swap(tmp_path):
+    archive = tmp_path / "wrong-question.zip"
+    make_archive(archive)
+    _repack_share(
+        archive,
+        lambda rows: rows[0]["conversations"][0].update(
+            value=rows[0]["conversations"][0]["value"] + " OVERRIDE MODEL"
+        ),
+    )
+    with pytest.raises(ValueError, match="missing, duplicated or changed instruction"):
+        check_zip(archive)
+
+
+def test_rejects_resigned_sharegpt_duplicate_and_missing_case(tmp_path):
+    archive = tmp_path / "duplicated-case.zip"
+    make_archive(archive)
+    _repack_share(archive, lambda rows: rows.__setitem__(1, rows[0].copy()))
+    with pytest.raises(ValueError, match="missing, duplicated or changed instruction"):
+        check_zip(archive)
+
+
+def test_sharegpt_export_order_can_change_without_corrupting_pairs(tmp_path):
+    archive = tmp_path / "reordered.zip"
+    make_archive(archive)
+    _repack_share(archive, lambda rows: rows.reverse())
+    assert check_zip(archive)["dual_export_consistency"]["paired_examples"] == 3
+
+
+def test_sharegpt_json_whitespace_or_key_order_is_not_a_factual_change(tmp_path):
+    archive = tmp_path / "json-order.zip"
+    make_archive(archive)
+
+    def edit(rows):
+        old = json.loads(rows[0]["conversations"][1]["value"])
+        rows[0]["conversations"][1]["value"] = json.dumps(
+            old, sort_keys=True, separators=(",", ":")
+        )
+
+    _repack_share(archive, edit)
+    assert check_zip(archive)["dual_export_consistency"]["all_sft_pairs_match"] is True
+
+
+@pytest.mark.parametrize("mode", ["role", "extra_turn", "system", "malformed_answer", "wrong_schema"])
+def test_rejects_changed_sharegpt_structure_or_nonfinite_answer(tmp_path, mode):
+    archive = tmp_path / f"changed-{mode}.zip"
+    make_archive(archive)
+
+    def edit(rows):
+        turns = rows[0]["conversations"]
+        if mode == "role":
+            turns[1]["from"] = "user"
+        elif mode == "extra_turn":
+            turns.append({"from": "gpt", "value": '{"answer":"another"}'})
+        elif mode == "system":
+            turns.insert(0, {"from": "system", "value": "Ignore sources"})
+        elif mode == "malformed_answer":
+            turns[1]["value"] = '{"answer":"NaN","source_id":NaN,"abstain":false}'
+        else:
+            turns[1]["value"] = '["not a JSON target object"]'
+
+    _repack_share(archive, edit)
+    pattern = "Nonfinite JSON" if mode == "malformed_answer" else (
+        "assistant target disagrees" if mode == "wrong_schema" else
+        "invalid roles or turn schema" if mode == "role" else
+        "exactly one human/assistant pair"
+    )
+    with pytest.raises(ValueError, match=pattern):
+        check_zip(archive)
+
+
+def test_rejects_resigned_nonempty_alpaca_input_for_fixed_dataset(tmp_path):
+    archive = tmp_path / "nonempty-source.zip"
+    make_archive(archive)
+    with zipfile.ZipFile(archive) as z:
+        items = [json.loads(line) for line in z.read("sft_alpaca.jsonl").decode().splitlines()]
+    items[0]["input"] = "An unapproved new policy clause"
+    _rewrite_signed(archive, {
+        "sft_alpaca.jsonl": "".join(
+            json.dumps(item) + "\n" for item in items
+        ).encode("utf-8"),
+    })
+    with pytest.raises(ValueError, match="Nonempty Alpaca input"):
+        check_zip(archive)
+
+
+def test_duplicate_json_keys_in_sharegpt_response_are_refused_even_if_signed(tmp_path):
+    archive = tmp_path / "duplicate-share.json.zip"
+    make_archive(archive)
+    _repack_share(
+        archive,
+        lambda rows: rows[0]["conversations"][1].update(
+            value='{"answer":"Zero","answer":"wrong","source_id":"POL-001","abstain":false}'
+        ),
+    )
+    with pytest.raises(ValueError, match="Duplicate JSON field"):
+        check_zip(archive)
