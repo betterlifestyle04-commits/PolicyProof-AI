@@ -135,10 +135,12 @@ def inspect_sdk_source(paths: dict[str, Path]) -> dict:
         or not _has_assignment_target(method[0], "final_params")):
         raise ValueError("AlignTune extra_params merge contract changed")
     if not any(
-        isinstance(n, (ast.AnnAssign, ast.Assign))
-        and any(isinstance(t, ast.Name) and t.id == "max_length"
-                for t in ast.walk(n.target)
-                if isinstance(n, ast.AnnAssign))
+        (isinstance(n, ast.AnnAssign)
+         and isinstance(n.target, ast.Name)
+         and n.target.id == "max_length")
+        or (isinstance(n, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "max_length"
+                    for target in n.targets for t in ast.walk(target)))
         for n in trl_sft.body
     ):
         raise ValueError("Pinned TRL SFTConfig missing max_length")
