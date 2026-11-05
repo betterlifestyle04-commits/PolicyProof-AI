@@ -229,6 +229,12 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
     note = destination / "run_info.json"
     started = time.monotonic()
 
+    # Durable *before* the first optimizer call. KeyboardInterrupt, a kernel
+    # disconnect, or an abrupt process exit cannot manufacture a "completed"
+    # receipt or erase the fact that this training attempt started.
+    _write_receipt_atomic(note, metadata)
+    archive_published = False
+
     try:
         # One training attempt. Failing here is recorded and not retried.
         training_result = wrapper.train()
@@ -288,6 +294,7 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         # atomically published. The ZIP's contained receipt is 'completed'.
         _write_receipt_atomic(note, {**metadata, "status": "packaging"})
         _publish_adapter_archive(destination, archive, metadata)
+        archive_published = True
         _write_receipt_atomic(note, metadata)
         print(
             f"RECORDED: {optimizer_steps} AlignTune optimizer steps and "
@@ -298,7 +305,14 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         return archive
     except Exception as exc:
         metadata.update({
-            "status": "failed",
+            # A published ZIP may be internally valid even when the final
+            # *local* receipt update fails. Do NOT misclassify that separately
+            # archived evidence as a failed optimizer or as a fully reconciled
+            # release. A read-only owner audit must inspect both artifacts.
+            "status": (
+                "archive_published_local_receipt_failed"
+                if archive_published else "failed"
+            ),
             "error_type": type(exc).__name__,
             "error": str(exc)[:1200],
             "optimizer_steps_observed": int(
@@ -306,6 +320,22 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
             ) if getattr(wrapper, "trainer", None) else None,
             "seconds": round(time.monotonic() - started, 1),
         })
-        _write_receipt_atomic(note, metadata)
-        print("Training did not complete. Failure saved:", note, flush=True)
+        try:
+            _write_receipt_atomic(note, metadata)
+        except Exception as write_error:
+            # The earlier 'packaging' receipt is preserved if this write
+            # fails; never hide the original exception or delete an existing
+            # sealed ZIP that may be the only intact trained adapter.
+            print(
+                "WARNING: could not update local training receipt:",
+                type(write_error).__name__, str(write_error)[:250], flush=True,
+            )
+        if archive_published:
+            print(
+                "IMPORTANT: adapter ZIP was published, but final local receipt "
+                "synchronization failed. Do NOT retrain; perform the read-only "
+                "training-evidence reconciliation first:", archive, flush=True,
+            )
+        else:
+            print("Training or archive publication did not complete. Receipt:", note, flush=True)
         raise
