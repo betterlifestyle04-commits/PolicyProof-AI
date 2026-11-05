@@ -124,6 +124,19 @@ def prepare_t4_no_scaler(wrapper, *, target_steps: int = 10) -> dict:
     # This is configuration only; no optimizer or model-loading action occurs.
     train_config.max_steps = target_steps
     extras["max_steps"] = target_steps
+
+    # The original 78 training rows are not an evaluation set. In real
+    # AlignTune 0.1.28, SFT TrainingConfig defaults
+    # load_best_model_at_end=True, while the SFT builder resolves
+    # eval_strategy='no' when eval_dataset is None. Its late config extractor
+    # can then re-enable load_best_model_at_end. Disable both sources before
+    # constructing TRL SFTConfig, or abort if it reappears afterward.
+    no_eval_dataset = getattr(wrapper, "eval_dataset", None) is None
+    previous_best_model = getattr(train_config, "load_best_model_at_end", None)
+    if no_eval_dataset:
+        train_config.load_best_model_at_end = False
+        extras["load_best_model_at_end"] = False
+
     wrapper.config.model.precision = PrecisionType.FP32
     old_factory_amp = synchronize_factory_amp_flags(train_config)
     old_extras = train_config.extra_params
@@ -149,6 +162,14 @@ def prepare_t4_no_scaler(wrapper, *, target_steps: int = 10) -> dict:
         )
     if Path(config.output_dir).resolve() != Path(wrapper.config.logging.output_dir).resolve():
         raise RuntimeError("TRL would train in an unexpected output directory")
+    if no_eval_dataset:
+        strategy = getattr(config, "eval_strategy", None)
+        strategy = getattr(strategy, "value", strategy)
+        if strategy != "no" or getattr(config, "load_best_model_at_end", None) is not False:
+            raise RuntimeError(
+                "TRL no-eval SFTConfig must disable evaluation and "
+                "load_best_model_at_end before any optimizer step"
+            )
 
     # Do not reuse the old HF Trainer/scaler/optimizer after a failed step.
     old_trainer = getattr(wrapper, "trainer", None)
@@ -178,6 +199,13 @@ def prepare_t4_no_scaler(wrapper, *, target_steps: int = 10) -> dict:
         "original_factory_max_steps_override": existing_override,
         "trl_output_dir": str(config.output_dir),
         "trl_gradient_accumulation": int(config.gradient_accumulation_steps),
+        "eval_dataset_present": not no_eval_dataset,
+        "original_load_best_model_at_end": previous_best_model,
+        "trl_eval_strategy": (
+            getattr(getattr(config, "eval_strategy", None), "value",
+                    getattr(config, "eval_strategy", None))
+        ),
+        "trl_load_best_model_at_end": getattr(config, "load_best_model_at_end", None),
         "factory_extra_params_fp16": old_extras.get("fp16"),
         "original_factory_fp16": old_factory_amp["fp16"],
         "factory_extra_params_bf16": old_extras.get("bf16"),
