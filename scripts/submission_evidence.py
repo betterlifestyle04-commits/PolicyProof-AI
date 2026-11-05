@@ -15,6 +15,7 @@ from scripts.frozen_pair_inference import (
     FINAL_REL, GENERATION, MODEL_ID, SIGNOFF_REL, verify_review_signoff,
 )
 from scripts.paired_run_recovery import validate_saved_base, validate_saved_tuned
+from scripts.final_pair_diagnostics import diagnostics_from_raw_reports
 from scripts.verify_hf_collections import (
     _read_json, _url_id, receipt_is_current, validate_manifest,
 )
@@ -126,6 +127,12 @@ def paired_evaluation_from_sources(
             raise ValueError("Paired audit provenance/safety disclaimer mismatch")
         if paired.get("case_matched_deterministic_counts") != _paired_deltas(rows, base, tuned):
             raise ValueError("Paired counts do not reproduce from full preserved raw reports")
+        if (paired.get("case_matched_exploratory_diagnostics")
+            != diagnostics_from_raw_reports(rows, base, tuned)):
+            raise ValueError(
+                "Language, category, or paired uncertainty diagnostics do not "
+                "reproduce from complete preserved raw model predictions"
+            )
         for label, path in (("base", base_file), ("tuned", tuned_file)):
             declared = paired.get(label + "_report_sha256")
             # Recovered comparisons contain file hashes; direct GPU-generated
@@ -135,7 +142,8 @@ def paired_evaluation_from_sources(
         if sha256(benchmark) != digest:
             raise ValueError("Frozen benchmark changed during source inspection")
         return True, (
-            "60 source-linked base+tuned outputs, raw scores and paired counts "
+            "60 source-linked base+tuned outputs, scores, paired counts and "
+            "exploratory language/category diagnostics "
             "recomputed against unchanged final candidate; GPU logs and "
             "semantic improvements still not independently authenticated"
         )
