@@ -12,6 +12,7 @@ checkpointed and restarted, not modified in-place.
 """
 from __future__ import annotations
 import gc
+from pathlib import Path
 from collections import Counter
 
 
@@ -69,7 +70,7 @@ def audit_training_state(wrapper) -> dict:
     }
 
 
-def prepare_t4_no_scaler(wrapper) -> dict:
+def prepare_t4_no_scaler(wrapper, *, target_steps: int = 10) -> dict:
     """Disable FP16 AMP/GradScaler; retain frozen 4-bit base and FP32 LoRA.
 
     Fails closed if training was partially completed, LoRA weights are not
@@ -78,6 +79,24 @@ def prepare_t4_no_scaler(wrapper) -> dict:
     import torch
     from aligntune.core.sft.config import PrecisionType
     from aligntune.core.sft.training_args_builder import build_sft_config
+
+    # Only the two explicitly documented experiments may reach a TRL trainer.
+    # Prevent accidental 0/-1/unbounded training or bool-as-int inputs.
+    if type(target_steps) is not int or target_steps not in (10, 40):
+        raise ValueError("Native training must request exactly 10 or 40 optimizer steps")
+    train_config = wrapper.config.train
+    original_steps = getattr(train_config, "max_steps", None)
+    if (type(original_steps) is not int
+        or original_steps not in (10, target_steps)):
+        raise ValueError("Unexpected pre-existing AlignTune optimizer budget")
+    extras = getattr(train_config, "extra_params", None)
+    if not isinstance(extras, dict):
+        raise ValueError("AlignTune train.extra_params must be a dict")
+    existing_override = extras.get("max_steps")
+    if (existing_override is not None
+        and (type(existing_override) is not int
+             or existing_override not in (10, target_steps))):
+        raise ValueError("Unexpected late TRL optimizer-budget override")
 
     before = audit_training_state(wrapper)
     if before["existing_optimizer_steps"] != 0:
@@ -100,10 +119,14 @@ def prepare_t4_no_scaler(wrapper) -> dict:
     if len(wrapper.train_dataset) != 78:
         raise ValueError("Expected the 78 validated training-only samples")
 
-    # Change the policy that is read when AlignTune builds the NEW TRL SFTConfig.
+    # AlignTune merges train.extra_params AFTER other training options,
+    # including max_steps. Synchronize both places before building SFTConfig.
+    # This is configuration only; no optimizer or model-loading action occurs.
+    train_config.max_steps = target_steps
+    extras["max_steps"] = target_steps
     wrapper.config.model.precision = PrecisionType.FP32
-    old_factory_amp = synchronize_factory_amp_flags(wrapper.config.train)
-    old_extras = wrapper.config.train.extra_params
+    old_factory_amp = synchronize_factory_amp_flags(train_config)
+    old_extras = train_config.extra_params
 
     # Verify SFTConfig actually omits FP16/BF16 AMP. This constructs arguments
     # only; it does not instantiate SFTTrainer or start gradient training.
@@ -119,6 +142,13 @@ def prepare_t4_no_scaler(wrapper) -> dict:
             "train.extra_params: fp16=" + str(config.fp16) +
             ", bf16=" + str(config.bf16) + "; abort recovery"
         )
+    if type(config.max_steps) is not int or config.max_steps != target_steps:
+        raise RuntimeError(
+            f"TRL optimizer budget mismatch: wanted {target_steps}, "
+            f"configured {config.max_steps!r}. Abort before training."
+        )
+    if Path(config.output_dir).resolve() != Path(wrapper.config.logging.output_dir).resolve():
+        raise RuntimeError("TRL would train in an unexpected output directory")
 
     # Do not reuse the old HF Trainer/scaler/optimizer after a failed step.
     old_trainer = getattr(wrapper, "trainer", None)
@@ -143,6 +173,10 @@ def prepare_t4_no_scaler(wrapper) -> dict:
         "trl_config_fp16": bool(config.fp16),
         "trl_config_bf16": bool(config.bf16),
         "trl_max_steps": int(config.max_steps),
+        "configured_target_optimizer_steps": target_steps,
+        "original_max_steps": original_steps,
+        "original_factory_max_steps_override": existing_override,
+        "trl_output_dir": str(config.output_dir),
         "trl_gradient_accumulation": int(config.gradient_accumulation_steps),
         "factory_extra_params_fp16": old_extras.get("fp16"),
         "original_factory_fp16": old_factory_amp["fp16"],
