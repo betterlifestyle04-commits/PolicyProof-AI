@@ -147,7 +147,7 @@ def evaluate_readiness(root=ROOT):
 
 # Submission reports are *outputs*, not permissions to rewrite frozen data,
 # review votes, source manifests, or previously captured run evidence.
-_REPORT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,126}\\.json$")
+_REPORT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,126}\.json$")
 
 
 def write_new_report(text: str, output: str, root=ROOT) -> Path:
@@ -158,7 +158,7 @@ def write_new_report(text: str, output: str, root=ROOT) -> Path:
     clobbering research evidence, reviewer CSVs, or release manifests.
     """
     if (not isinstance(output, str) or len(output) > 150
-        or "\\\\" in output or ":" in output or "\\x00" in output
+        or "\\" in output or ":" in output
         or any(ord(char) < 32 for char in output)):
         raise ValueError("Report output must be a fresh artifacts/<name>.json")
     parts = output.split("/")
