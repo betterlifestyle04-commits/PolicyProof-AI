@@ -7,6 +7,7 @@ import pytest
 
 from policyproof.core import ROOT
 from scripts.submission_gate import evaluate_readiness, write_new_report
+from scripts.build_public_demo import verify_existing_gate_report
 
 
 def test_current_worktree_not_ready_without_real_checkpoint():
@@ -145,3 +146,48 @@ def test_readiness_report_refuses_symlinked_artifacts_directory(tmp_path):
     with pytest.raises(ValueError, match="Unsafe report output directory"):
         write_new_report("overwrite", "artifacts/report.json", tmp_path)
     assert list(elsewhere.iterdir()) == []
+
+
+def test_public_demo_reuses_identical_immutable_gate_snapshot(tmp_path):
+    record = {"status": "NOT_READY", "ready_for_submission": False}
+    path = write_new_report(
+        '{"status":"NOT_READY","ready_for_submission":false}',
+        "artifacts/submission_gate.json", tmp_path,
+    )
+    before = path.read_bytes()
+    assert verify_existing_gate_report(path, record) == record
+    assert path.read_bytes() == before
+
+
+def test_public_demo_rejects_stale_or_tampered_gate_report_without_rewriting(tmp_path):
+    path = write_new_report(
+        '{"status":"NOT_READY","ready_for_submission":false}',
+        "artifacts/submission_gate.json", tmp_path,
+    )
+    before = path.read_bytes()
+    with pytest.raises(ValueError, match="differs from current source evidence"):
+        verify_existing_gate_report(
+            path, {"status": "NOT_READY", "ready_for_submission": False,
+                   "extra_evidence_check": "new"},
+        )
+    assert path.read_bytes() == before
+
+
+def test_public_demo_rejects_duplicate_keys_in_existing_gate_snapshot(tmp_path):
+    path = write_new_report(
+        '{"status":"NOT_READY","status":"READY_FOR_MANUAL_REVIEW"}',
+        "artifacts/submission_gate.json", tmp_path,
+    )
+    with pytest.raises(ValueError, match="invalid JSON"):
+        verify_existing_gate_report(path, {"status": "READY_FOR_MANUAL_REVIEW"})
+
+
+def test_public_demo_rejects_existing_symlinked_gate_snapshot(tmp_path):
+    elsewhere = tmp_path / "original.json"
+    elsewhere.write_text('{"status":"NOT_READY"}')
+    path = tmp_path / "artifacts" / "submission_gate.json"
+    path.parent.mkdir()
+    path.symlink_to(elsewhere)
+    with pytest.raises(ValueError, match="bounded regular file"):
+        verify_existing_gate_report(path, {"status": "NOT_READY"})
+    assert elsewhere.read_text() == '{"status":"NOT_READY"}'
