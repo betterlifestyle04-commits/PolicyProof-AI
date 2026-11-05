@@ -632,6 +632,68 @@ elif page == "Final benchmark review":
 
 elif page == "Judge verification":
     st.subheader("Reproducibility and submission integrity")
+    from scripts.submission_gate import evaluate_readiness
+    from scripts.track2a_readiness import readiness as track2a_evidence_readiness
+    track1_gate = evaluate_readiness(ROOT)
+    track2a_gate = track2a_evidence_readiness(ROOT)
+    st.markdown("#### Release decision ledger — independent evidence, not self-attestation")
+    left, right = st.columns(2)
+    mandatory = track1_gate["mandatory_checks"]
+    with left:
+        st.metric(
+            "Track 1 checks passing",
+            str(sum(track1_gate["checks"][key]["passed"] for key in mandatory))
+            + "/" + str(len(mandatory))
+        )
+        st.caption("Training, source-linked review, frozen paired results and HF publication.")
+    with right:
+        st.metric(
+            "Track 2a checks passing",
+            str(sum(check["passed"] for check in track2a_gate["checks"].values()))
+            + "/" + str(len(track2a_gate["checks"]))
+        )
+        st.caption("CuratorKIT/AuditKIT, unscored challenge, write-up and HF access.")
+    if track1_gate["ready_for_submission"] or track2a_gate["ready_to_submit"]:
+        st.info(
+            "One track has passed its LOCAL evidence gate only. Independently verify "
+            "the live artifact access, licensing and organizer submission form before claiming submission."
+        )
+    else:
+        st.warning(
+            "Neither track has passed its full local submission gate. "
+            "A working website and successful CI tests do not substitute for missing "
+            "model, independent-review, or Hugging Face publication evidence."
+        )
+    st.dataframe(
+        [
+            {
+                "Track": label,
+                "Evidence condition": key.replace("_", " ").title(),
+                "State": "SOURCE-LINKED / LOCAL CHECK PASSED" if check["passed"] else "BLOCKED",
+                "Proof / caveat": check["details"],
+            }
+            for label, receipt in (("Track 1", track1_gate), ("Track 2a", track2a_gate))
+            for key, check in receipt["checks"].items()
+        ], width="stretch", hide_index=True,
+    )
+    st.caption(
+        "A local success is not independently authenticated human review, GPU execution, "
+        "model truth or official submission confirmation. The Track 1 gate rejects "
+        "a stand-alone paired report and manually toggled Hugging Face flags."
+    )
+    st.download_button(
+        "Download current local decision ledger (JSON; NOT submission proof)",
+        data=json.dumps(
+            {"track1": track1_gate, "track2a": track2a_gate},
+            ensure_ascii=False, indent=2,
+        ),
+        file_name="policyproof_local_readiness_NOT_SUBMISSION_PROOF.json",
+        mime="application/json",
+    )
+    st.markdown(
+        "[Release gate verification protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/RELEASE_EVIDENCE_GATES_2026-11-05.md)"
+    )
     st.markdown("#### Frozen base vs adapter evaluation readiness")
     from scripts.frozen_pair_inference import build_preflight
     pair_gate = build_preflight(ROOT)
