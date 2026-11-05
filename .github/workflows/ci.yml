@@ -153,6 +153,23 @@ jobs:
         run: python -m pip install 'curatorkit==0.1.22' 'auditkit==1.1.3'
       - name: Generate and verify synthetic original benchmark
         run: python -m scripts.prepare
+      - name: Re-export the 78 original training rows with real CuratorKIT and verify both formats (NO GPU)
+        run: |
+          python -m scripts.run_curator --output artifacts/curator_train_dual_export
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from policyproof.core import read_jsonl
+          from scripts.verify_curator_archive import check_dual_export_consistency
+          directory = Path("artifacts/curator_train_dual_export")
+          alpaca = read_jsonl(directory / "sft_alpaca.jsonl")
+          share = read_jsonl(directory / "sft_sharegpt.jsonl")
+          report = check_dual_export_consistency(alpaca, share)
+          assert report["all_sft_pairs_match"] is True
+          assert report["paired_examples"] == 78
+          assert report["training_semantics_independently_verified"] is False
+          print(json.dumps(report, indent=2))
+          PY
       - name: Actual CuratorKIT curation followed by AuditKIT evaluation of saved base-model outputs
         run: python -m scripts.track2a_chain --output-dir artifacts/track2a_safety
       - name: Verify curation and report files exist
