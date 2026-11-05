@@ -42,6 +42,16 @@ class ConfigExtractor:
 class PrecisionType(Enum):
     FP32 = "fp32"
 ''',
+    "aligntune_trl_train": '''
+class TRLSFTTrainer:
+    def train(self):
+        if self.model is None:
+            self.setup_model()
+        if self.dataset is None:
+            self.setup_data()
+            self.dataset = self.train_dataset
+        return self.trainer.train()
+''',
     "trl_config": '''
 class SFTConfig(TrainingArguments):
     max_length: int = 1024
@@ -68,6 +78,7 @@ def test_synthetic_declared_sdk_contract_has_honest_limits(source_files):
     assert report["align_trainer_optimizer_steps_executed"] == 0
     assert report["quantized_tiny_aya_model_loaded"] is False
     assert report["model_improvement_verified"] is False
+    assert report["aligntune_train_dataset_cache_branch_verified"] is True
     assert set(report["packages"]) == set(BASE_SOURCE)
     assert all(len(item["source_sha256"]) == 64
                for item in report["packages"].values())
@@ -81,6 +92,9 @@ def test_synthetic_declared_sdk_contract_has_honest_limits(source_files):
     ("aligntune_factory", 'kwargs.get("max_steps")', 'kwargs.get("unknown")', "factory"),
     ("aligntune_extractor", "final_params = {**extra_params}", "merged = {**extra_params}", "merge"),
     ("aligntune_config", "class PrecisionType", "class OldPrecisionType", "PrecisionType"),
+    ("aligntune_trl_train", "if self.dataset is None:", "if self.dataset is not None:", "dataset cache"),
+    ("aligntune_trl_train", "self.setup_data()", "self.download_different_data()", "dataset cache"),
+    ("aligntune_trl_train", "self.dataset = self.train_dataset", "self.dataset = []", "dataset cache"),
     ("trl_config", "max_length:", "old_length:", "max_length"),
 ])
 def test_read_only_sdk_contract_rejects_upstream_drift(
