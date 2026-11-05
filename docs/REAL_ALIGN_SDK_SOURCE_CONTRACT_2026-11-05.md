@@ -33,6 +33,10 @@ The revised training guard now sets **both** 'config.train.load_best_model_at_en
 
 This is a configuration consistency fix based on **real source inspection** and mock execution. It is not a completed real TRL runtime or GPU training test.
 
+## Actual trainer data-cache branch verified
+
+The source-only CI check now also inspects the **real installed** `aligntune/backends/trl/sft/sft_generation.py` module. In the pinned `TRLSFTTrainer.train`, the conditional `if self.dataset is None:` calls `self.setup_data()` and reassigns `self.dataset = self.train_dataset`. This second-load behavior matters because PolicyProof verifies the original 78 training samples *before* calling AlignTune's training method. The native 10/40-step wrapper now hands off the exact already-loaded object via `wrapper.dataset = wrapper.train_dataset` to avoid a second load. The CPU mocks reproduce that branch, and CI fails if the real pinned source no longer has those semantics. Runtime execution of genuine optimizer steps remains unverified.
+
 ## Crucial limits
 
 The wheels are installed without their heavyweight ML dependencies. We do **not** import either package, instantiate the real TRL SFTConfig, load Tiny Aya weights, run CUDA kernels, execute AlignTune optimizer steps, or infer any model improvements. Those are distinct validations. The actual runtime and GPU checks can only be evidenced by a real, fresh Stage 11 T4 session with saved adapter, raw logs, and an independently checked model revision.
