@@ -8,10 +8,11 @@ This does not reinstall, download a second model, or use test cases.
 It runs optimizer steps only after a checked no-AMP SFTConfig preflight.
 """
 from __future__ import annotations
-import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 import time
 import zipfile
 
@@ -19,6 +20,81 @@ from scripts.recover_t4_training import recover_t4
 from scripts.check_align_config import check_train_data
 from scripts.restore_colab_session import EXPECTED_SHA
 from scripts.t4_no_amp_recovery import audit_training_state
+
+
+
+def _write_receipt_atomic(path: Path, receipt: dict) -> None:
+    """Write a complete local receipt via atomic replace."""
+    path = Path(path)
+    if path.is_symlink() or path.parent.is_symlink():
+        raise ValueError("Unsafe training receipt path")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=".policyproof-receipt-", suffix=".partial", delete=False,
+        ) as handle:
+            temp = Path(handle.name)
+            json.dump(receipt, handle, indent=2, allow_nan=False)
+            handle.write("\n")
+        os.replace(temp, path)
+    finally:
+        if temp is not None:
+            temp.unlink(missing_ok=True)
+
+
+def _publish_adapter_archive(destination: Path, archive: Path, receipt: dict) -> Path:
+    """Validate a temporary adapter ZIP before atomic non-overwriting publish."""
+    from scripts.verify_training_archive import SINGLE_FILE_LIMIT, ARCHIVE_LIMIT
+
+    destination, archive = Path(destination), Path(archive)
+    if archive.is_symlink() or archive.exists():
+        raise FileExistsError("Refusing to overwrite existing adapter archive")
+    if archive.parent.is_symlink():
+        raise ValueError("Unsafe adapter archive parent")
+    entries = (
+        (destination / "adapter/adapter_model.safetensors",
+         "adapter/adapter_model.safetensors"),
+        (destination / "adapter/adapter_config.json", "adapter/adapter_config.json"),
+    )
+    payload = (json.dumps(receipt, indent=2, allow_nan=False) + "\n").encode("utf-8")
+    if not 0 < len(payload) <= SINGLE_FILE_LIMIT:
+        raise RuntimeError("Unsafe training receipt size")
+    total = len(payload)
+    for file, name in entries:
+        if (file.is_symlink() or not file.is_file()
+            or not 0 < file.stat().st_size <= SINGLE_FILE_LIMIT):
+            raise RuntimeError("Unsafe or oversized PEFT package file: " + name)
+        total += file.stat().st_size
+    if total > ARCHIVE_LIMIT:
+        raise RuntimeError("PEFT package exceeds bounded verifier limit")
+
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    temp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=archive.parent, delete=False,
+            prefix=".policyproof-adapter-", suffix=".partial",
+        ) as handle:
+            temp = Path(handle.name)
+        with zipfile.ZipFile(temp, "w", compression=zipfile.ZIP_DEFLATED) as z:
+            for file, name in entries:
+                z.write(file, name)
+            z.writestr("run_info.json", payload)
+        with zipfile.ZipFile(temp, "r") as z:
+            if (z.namelist() != [name for _, name in entries] + ["run_info.json"]
+                or z.testzip() is not None or z.read("run_info.json") != payload):
+                raise RuntimeError("Corrupt or unexpected ZIP before publication")
+        if temp.stat().st_size > ARCHIVE_LIMIT:
+            raise RuntimeError("Compressed PEFT ZIP exceeds verifier limit")
+        # Hard link on the SAME filesystem fails if the final name exists.
+        # Unlike os.replace, it never overwrites a conflicting archive.
+        os.link(temp, archive)
+        return archive
+    finally:
+        if temp is not None:
+            temp.unlink(missing_ok=True)
 
 
 def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
@@ -89,7 +165,11 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         "/content/policyproof_align_native40.zip" if optimizer_steps == 40
         else "/content/policyproof_align_smoke.zip"
     )
-    if (destination.exists() and any(destination.iterdir())) or archive.exists():
+    if (destination.is_symlink()
+        or (destination.exists() and (
+            not destination.is_dir() or any(destination.iterdir())
+        ))
+        or archive.is_symlink() or archive.exists()):
         raise FileExistsError(
             "Training output already exists; inspect it rather than overwriting"
         )
@@ -151,8 +231,16 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
 
     try:
         # One training attempt. Failing here is recorded and not retried.
-        wrapper.train()
+        training_result = wrapper.train()
         actual_steps = int(wrapper.trainer.state.global_step)
+        # Real AlignTune 0.1.28 returns TRL TrainOutput.steps in a dict;
+        # the returned count must match trainer state, not just our wish.
+        if (not isinstance(training_result, dict)
+            or type(training_result.get("steps")) is not int
+            or training_result["steps"] != actual_steps):
+            raise RuntimeError(
+                "AlignTune training-result steps missing or different from trainer state"
+            )
         if actual_steps != optimizer_steps:
             raise RuntimeError(
                 f"Expected {optimizer_steps} optimizer steps, found {actual_steps}"
@@ -171,6 +259,13 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         metadata.update({
             "status": "completed",
             "optimizer_steps_completed": actual_steps,
+            "aligntune_train_result_steps": training_result["steps"],
+            "portable_adapter_members": [
+                "adapter/adapter_model.safetensors",
+                "adapter/adapter_config.json",
+                "run_info.json",
+            ],
+            "artifact_publish_method": "validated_temporary_zip_then_atomic_link",
             "trainer_backend": "aligntune_wrapper",
             "optimizer_steps": actual_steps,
             "training_engine": "AlignTune TRL wrapper.train()",
@@ -189,31 +284,11 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
                 ["git", "-C", str(root), "rev-parse", "HEAD"], text=True
             ).strip(),
         })
-        note.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-        archive.parent.mkdir(parents=True, exist_ok=True)
-        # AlignTune's TRL train() also writes intermediate checkpoints and
-        # tokenizer files to destination. They can be huge and do not belong
-        # in the <=220 MB adapter-only verification package. Preserve the
-        # complete working directory locally, but ZIP exactly the 3
-        # allowlisted reproducible PEFT files. Do not include intermediate
-        # full-model checkpoints, logs, duplicated adapters, or secrets.
-        package_files = (
-            adapter / "adapter_model.safetensors",
-            adapter / "adapter_config.json",
-            note,
-        )
-        from scripts.verify_training_archive import (
-            SINGLE_FILE_LIMIT, ARCHIVE_LIMIT,
-        )
-        for file in package_files:
-            if (not file.is_file() or file.is_symlink()
-                or not 0 < file.stat().st_size <= SINGLE_FILE_LIMIT):
-                raise RuntimeError("Unsafe or oversized PEFT package file")
-        if sum(p.stat().st_size for p in package_files) > ARCHIVE_LIMIT:
-            raise RuntimeError("PEFT package exceeds bounded verifier limit")
-        with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as z:
-            for p in package_files:
-                z.write(p, p.relative_to(destination))
+        # A local receipt stays at 'packaging' until the final ZIP name is
+        # atomically published. The ZIP's contained receipt is 'completed'.
+        _write_receipt_atomic(note, {**metadata, "status": "packaging"})
+        _publish_adapter_archive(destination, archive, metadata)
+        _write_receipt_atomic(note, metadata)
         print(
             f"RECORDED: {optimizer_steps} AlignTune optimizer steps and "
             "adapter checks completed (GPU execution NOT independently attested)",
@@ -231,6 +306,6 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
             ) if getattr(wrapper, "trainer", None) else None,
             "seconds": round(time.monotonic() - started, 1),
         })
-        note.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+        _write_receipt_atomic(note, metadata)
         print("Training did not complete. Failure saved:", note, flush=True)
         raise
