@@ -1,6 +1,10 @@
 """Evidence-action plan tests: all progress states are synthetic, never GPU proof."""
 
-from scripts.submission_gate import _EVIDENCE_ACTIONS, next_evidence_actions
+import pytest
+
+from scripts.submission_gate import (
+    _EVIDENCE_ACTIONS, evaluate_readiness, next_evidence_actions,
+)
 
 
 REQUIRED = tuple(action["check"] for action in _EVIDENCE_ACTIONS)
@@ -68,3 +72,21 @@ def test_plan_does_not_include_already_completed_requirements():
     assert "trained_adapter" not in action_names
     assert "public_repo_materials" not in action_names
     assert "human_review_advisory" in action_names
+
+
+def test_unmapped_new_release_gate_cannot_appear_manually_ready():
+    checks = _checks(*REQUIRED)
+    checks["unmapped_future_regulatory_gate"] = {"passed": False}
+    with pytest.raises(ValueError, match="No evidence-action definition"):
+        next_evidence_actions(checks, (*REQUIRED, "unmapped_future_regulatory_gate"))
+
+
+def test_empty_real_readiness_report_exposes_blockers_and_does_not_perform_them(tmp_path):
+    state = evaluate_readiness(tmp_path)
+    assert state["ready_for_submission"] is False
+    assert state["blocking_requirements"] == state["mandatory_checks"]
+    assert [item["requirement"] for item in state["next_evidence_actions"]] == state[
+        "mandatory_checks"
+    ]
+    assert all(item["action_performed_by_report"] is False
+               for item in state["next_evidence_actions"])
