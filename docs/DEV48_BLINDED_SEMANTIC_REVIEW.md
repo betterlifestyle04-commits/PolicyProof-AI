@@ -6,7 +6,7 @@
 
 The 40-step adapter improved JSON and source-ID compliance, while all 39 supported/injection answers still failed the exact reference-text match. Exact-string scoring can miss valid paraphrases; correct citations can also mask unsupported or incorrect factual claims. Qualified reviewers must judge facts, evidence and appropriate abstentions directly.
 
-The tool reads TWO previously saved, real-declared paired GPU inference reports, checks matching base revision, data SHA, model settings and recomputed scores, then produces 96 anonymized A/B responses across 48 fictional development cases. The A/B assignment is randomized per case, and a separate private key preserves the identities. NO expected gold answers, model labels or reviewer votes are embedded in the blank CSV.
+The tool reads TWO previously saved, real-declared paired GPU inference reports, checks matching base revision, data SHA, model settings and recomputed scores, then produces 96 anonymized A/B responses across 48 fictional development cases. The A/B assignment is randomized and balanced eight-to-eight in each language, and a separate private key preserves the identities. The **v2 reviewer CSV additionally hides original case IDs** (which previously revealed `UNKNOWN` and `INJECT`) and replaces answerability categories with the same neutral `review_case` label on all 96 rows. The owner-only key retains original IDs and categories for post-vote subgroup analysis. NO expected gold answers, model labels or reviewer votes are embedded in the blank CSV. Note: the question and policy text remain visible by design; their content can still suggest answerability, so this is not a magically category-blind semantic study.
 
 This is a development-only review, not an independent GPU rerun. Self-declared run metadata does not independently prove that CUDA was used.
 
@@ -41,6 +41,8 @@ The command defaults to the *original externally audited* paired ZIP SHA-256 `e9
 
 The script fails closed if reports, revisions, sample IDs, recorded scores or dataset digest are inconsistent. Both exported files are created exclusively, never overwritten, and the reviews/ directory is Git-ignored. Never put these private files in a Git commit, Hugging Face artifact or submission package.
 
+**Important version boundary:** The old v1 packet exposed category labels and descriptive case IDs. Generate a **new v2 packet in a fresh private working folder** if your reviewers have not started; never overwrite or combine v1 and v2 review files. Preserve any genuine already-completed v1 reviews as separate, weaker-blinded historical evidence rather than retroactively claiming they were masked. The v2 summarizer explicitly rejects v1 keys.
+
 Copy the blank packet into reviews/reviewer_A.csv and reviews/reviewer_B.csv. Each reviewer edits their own copy without viewing the other's judgments. Use a CSV editor or import all fields as text. The script prefixes display-only apostrophes to formula-like leading strings to protect spreadsheet users; this should not change reviewers' assessment of the intended response. Preserve all seven identity columns unchanged.
 
 Each reviewer sets one consistent pseudonym in reviewer_code and fills ALL three fields for ALL 96 responses:
@@ -59,7 +61,7 @@ Add reviewer_notes when answers miss thresholds, negative wording, conditions, e
       --reviews reviews/reviewer_A.csv reviews/reviewer_B.csv \
       --output reviews/dev48_review_summary.json
 
-The script validates the original packet digest and ensures no reviewer changed source evidence, questions, responses, IDs or A/B slots. It rejects missing, duplicated, invalid or incomplete review verdicts and duplicate pseudonyms. Disagreements are listed with the case ID and anonymous response slot; comparative metrics are withheld until human adjudication. Never secretly change votes just to force agreement; document reasons in notes and preserve prior signed review files.
+The script validates the original packet digest and ensures no reviewer changed source evidence, questions, responses, masked IDs or A/B slots. It checks that the private original-ID/category mapping matches the fixed 48-case dataset and that each language has balanced A/B assignments; the original categories are restored **only after** reviewer votes are loaded. It rejects missing, duplicated, invalid or incomplete review verdicts and duplicate pseudonyms. Disagreements are listed with the case ID and anonymous response slot; comparative metrics are withheld until human adjudication. Never secretly change votes just to force agreement; document reasons in notes and preserve prior signed review files.
 
 If all reviewers agree, the summary provides descriptive paired rates, Wilson intervals and exact small-sample discordance p values, with overall, supported/unsupported and English/Norwegian/Arabic subsets. It still explicitly does NOT attest reviewer identity, reviewer competence, human independence or broader safety. The private mapping and complete reviewed CSVs are confidential and Git-ignored.
 
