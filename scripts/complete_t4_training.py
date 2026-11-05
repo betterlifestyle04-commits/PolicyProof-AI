@@ -109,6 +109,23 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
             "load_best_model_at_end enabled — aborting before training"
         )
 
+    # The REAL AlignTune 0.1.28 TRLSFTTrainer.train() uses a separate
+    # `self.dataset` cache. If it is None, train() invokes setup_data()
+    # again, even when setup_data() was already called and its 78 training
+    # rows were checked. Reuse that exact prevalidated object instead.
+    # Refuse a different prepopulated training view or an evaluation split.
+    if getattr(wrapper, "eval_dataset", None) is not None:
+        raise RuntimeError("Unexpected evaluation dataset in training-only run")
+    source_dataset = wrapper.train_dataset
+    existing_training_view = getattr(wrapper, "dataset", None)
+    if existing_training_view is not None and existing_training_view is not source_dataset:
+        raise RuntimeError(
+            "AlignTune cached dataset differs from the verified 78-row train dataset"
+        )
+    wrapper.dataset = source_dataset
+    if wrapper.dataset is not wrapper.train_dataset or len(wrapper.dataset) != 78:
+        raise RuntimeError("Could not bind the original verified training-only dataset")
+
     metadata = {
         "status": "in_progress",
         "kind": ("40-step native AlignTune QLoRA trial" if optimizer_steps == 40
@@ -116,6 +133,8 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         "requested_optimizer_steps": optimizer_steps,
         "dataset_sha256": sha256(data),
         "examples": 78,
+        "aligntune_cached_train_dataset_reused": True,
+        "second_data_manager_load_requested": False,
         "model": "CohereLabs/tiny-aya-global",
         "base_revision": model_revision,
         "loaded_revision_evidence": loaded_revision_evidence,
@@ -140,10 +159,15 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
             )
         adapter.mkdir(parents=True, exist_ok=True)
         wrapper.save_model(output_dir=str(adapter))
-        weights = [p for p in adapter.iterdir()
-                   if p.name in ("adapter_model.safetensors", "adapter_model.bin")]
-        if not (adapter / "adapter_config.json").is_file() or not weights:
-            raise RuntimeError("Trainer returned but PEFT adapter files are incomplete")
+        weights = [adapter / "adapter_model.safetensors"]
+        if not (adapter / "adapter_config.json").is_file() or not weights[0].is_file():
+            raise RuntimeError(
+                "Trainer returned but safe PEFT adapter files are incomplete"
+            )
+        if any(p.is_symlink() for p in (*weights, adapter / "adapter_config.json")):
+            raise RuntimeError("PEFT adapter outputs must be regular files")
+        if wrapper.dataset is not source_dataset:
+            raise RuntimeError("AlignTune replaced the original checked training dataset")
         metadata.update({
             "status": "completed",
             "optimizer_steps_completed": actual_steps,
@@ -167,10 +191,29 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
         })
         note.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
         archive.parent.mkdir(parents=True, exist_ok=True)
+        # AlignTune's TRL train() also writes intermediate checkpoints and
+        # tokenizer files to destination. They can be huge and do not belong
+        # in the <=220 MB adapter-only verification package. Preserve the
+        # complete working directory locally, but ZIP exactly the 3
+        # allowlisted reproducible PEFT files. Do not include intermediate
+        # full-model checkpoints, logs, duplicated adapters, or secrets.
+        package_files = (
+            adapter / "adapter_model.safetensors",
+            adapter / "adapter_config.json",
+            note,
+        )
+        from scripts.verify_training_archive import (
+            SINGLE_FILE_LIMIT, ARCHIVE_LIMIT,
+        )
+        for file in package_files:
+            if (not file.is_file() or file.is_symlink()
+                or not 0 < file.stat().st_size <= SINGLE_FILE_LIMIT):
+                raise RuntimeError("Unsafe or oversized PEFT package file")
+        if sum(p.stat().st_size for p in package_files) > ARCHIVE_LIMIT:
+            raise RuntimeError("PEFT package exceeds bounded verifier limit")
         with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as z:
-            for p in sorted(destination.rglob("*")):
-                if p.is_file():
-                    z.write(p, p.relative_to(destination))
+            for p in package_files:
+                z.write(p, p.relative_to(destination))
         print(
             f"RECORDED: {optimizer_steps} AlignTune optimizer steps and "
             "adapter checks completed (GPU execution NOT independently attested)",
