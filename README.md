@@ -1,3 +1,7 @@
+## November 5 — real human disagreement resolution, still blinded
+
+The [dev48 human review protocol](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md) now includes **dispute-only third human adjudication**, fixing the previous dead end when two genuine reviewers disagreed. [CPU Colab: prepare anonymized dispute packet](notebooks/09_dev48_blind_dispute_export_cpu.ipynb) → [CPU Colab: verify a genuinely completed third review](notebooks/10_dev48_blind_dispute_resolve_cpu.ipynb). The private original reviewer CSVs and model-mapping key are SHA-pinned and never overwritten, and **only contested judgment fields** can be reconciled by a real independent adjudicator. No human votes, factual model improvement, or official submission acceptance are generated automatically.
+
 ## November 5 — no oracle labels in blinded human-review packets
 
 The [development A/B human-review workflow](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md) now exports **v2 masked packets**: opaque random case identifiers and the same neutral `review_case` category for every response. This fixes leakage of `UNKNOWN`/`INJECT` case IDs and unsupported-answer labels to blinded reviewers. The owner-only sealed key stores the true IDs/categories, and model order is balanced 8/8 per language. [One-ZIP CPU review notebook](notebooks/07_dev48_blind_human_review_cpu.ipynb) checks these protections before download. No reviewer judgments are fabricated or collected by the change; human review remains outstanding.
