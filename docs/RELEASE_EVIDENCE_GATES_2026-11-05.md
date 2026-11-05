@@ -41,7 +41,7 @@ From the repo root:
     python -m scripts.submission_gate --output artifacts/submission_gate.json
     python -m scripts.track2a_readiness --output artifacts/track2a_readiness.json
 
-Add --strict to a particular readiness command to receive a nonzero exit code while incomplete. Both default commands are nonpublishing, no GPU, no new Tiny Aya inference and no model training.
+The Track 1 `--output` option now accepts only a **new, direct `artifacts/<name>.json` filename**. It creates the report exclusively and refuses existing files, symlink targets, traversal, public docs, benchmark sources and human-review records. For a new run, choose another filename (for example `artifacts/submission_gate_second_check.json`); do not erase old research evidence to re-run a gate. Add `--strict` to receive a nonzero exit code while incomplete. Both default commands are nonpublishing, no GPU, no new Tiny Aya inference and no model training.
 
 On the [public observatory](https://policyproof-ai-observatory.onrender.com), open **Judge verification → Release decision ledger** to see the exact conditions that pass or block each track. The downloadable JSON report is a snapshot of local structural checks only, not external verification.
 
