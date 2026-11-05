@@ -122,6 +122,7 @@ def test_negative_vote_with_fresh_hashes_still_blocks_manual_signoff(tmp_path):
     with reviewer.open(newline="",encoding="utf-8") as stream:
         rows=list(csv.DictReader(stream))
     rows[0]["evidence_support_yes_no"]="no"
+    reviewer.unlink()  # Deliberate test-only tampered input; normal export is exclusive.
     write_review_csv(reviewer, rows)
     signoff["review_evidence"]["review_files"][0]["sha256"] = sha256(reviewer)
     path.write_text(json.dumps(signoff))
@@ -135,6 +136,7 @@ def test_blank_vote_with_fresh_checksum_still_blocks(tmp_path):
     with reviewer.open(newline="", encoding="utf-8") as stream:
         rows=list(csv.DictReader(stream))
     rows[0]["translation_faithful_yes_no"]=""
+    reviewer.unlink()  # Deliberate test-only tampered input; normal export is exclusive.
     write_review_csv(reviewer, rows)
     signoff["review_evidence"]["review_files"][1]["sha256"] = sha256(reviewer)
     path.write_text(json.dumps(signoff))
@@ -209,6 +211,7 @@ def test_csv_gold_label_mutation_with_updated_sha_still_rejected(tmp_path):
     with reviewer.open(newline="",encoding="utf-8") as stream:
         rows=list(csv.DictReader(stream))
     rows[0]["proposed_gold_answer"]="fabricated gold"
+    reviewer.unlink()  # Deliberate test-only tampered input; normal export is exclusive.
     write_review_csv(reviewer,rows)
     signoff["review_evidence"]["review_files"][0]["sha256"]=sha256(reviewer)
     path.write_text(json.dumps(signoff))
