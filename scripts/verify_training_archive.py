@@ -198,16 +198,29 @@ def inspect_training_directory(directory: Path) -> dict:
             raise ValueError("Extended training-only validation losses incomplete or invalid")
     revision = info.get("model_revision", info.get("base_revision"))
     pinned_base = isinstance(revision, str) and REVISION.fullmatch(revision) is not None
-    if backend == "manual_torch_extended_fallback":
+    if backend == "manual_torch_extended_fallback" or (
+        backend == "aligntune_wrapper" and steps == 40
+    ):
+        if backend == "aligntune_wrapper" and (
+            info.get("kind") != "40-step native AlignTune QLoRA trial"
+            or info.get("requested_optimizer_steps") != 40
+            or info.get("training_engine") != "AlignTune TRL wrapper.train()"
+            or info.get("final_benchmark_or_challenge_used_for_training") is not False
+            or info.get("independent_gpu_execution_attested") is not False
+        ):
+            raise ValueError("Native 40-step trainer receipt lacks an approved provenance shape")
         evidence = info.get("loaded_revision_evidence")
         observed = evidence.get("loaded_model_revision_observed") if isinstance(evidence, dict) else None
         confirmed = evidence.get("loaded_model_revision_verified") if isinstance(evidence, dict) else None
-        # An HF model_info remote SHA is not proof of actual loaded weights.
+        # A remote Hub model_info SHA alone cannot authenticate the weights
+        # actually loaded in Colab. No observed _commit_hash => unverified.
         if observed is not None and (
             not isinstance(observed, str) or not REVISION.fullmatch(observed)
             or observed != revision
         ):
             raise ValueError("Loaded extended-model revision conflicts with declared base")
+        if confirmed is True and observed != revision:
+            raise ValueError("Claimed verified model revision lacks matching observed SHA")
         pinned_base = bool(pinned_base and confirmed is True and observed == revision)
     aligntune_path = backend == "aligntune_wrapper"
     expected_geometry = (
@@ -229,6 +242,12 @@ def inspect_training_directory(directory: Path) -> dict:
         "backend": backend,
         "base_revision_pinned": pinned_base,
         "track1_trainer_path_declared": aligntune_path,
+        "native_aligntune_40step_receipt_checked": bool(
+            aligntune_path and steps == 40
+        ),
+        "base_revision_loaded_evidence_verified": bool(
+            aligntune_path and steps == 40 and pinned_base
+        ),
         "track1_submission_evidence_candidate": bool(
             pinned_base and aligntune_path and expected_geometry
         ),
