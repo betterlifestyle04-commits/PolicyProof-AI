@@ -27,6 +27,12 @@ def test_private_sidecar_checks_two_saved_reports_without_model_calls(tmp_path):
     assert saved["tuned"]["samples"] == 48
     assert saved["model_inference_performed"] is False
     assert saved["human_semantic_review_completed"] is False
+    assert saved["base_question_source_topic_audit"]["samples"] == 48
+    assert saved["tuned_question_source_topic_audit"]["samples"] == 48
+    assert saved["base_question_source_topic_audit"]["factual_accuracy_verified"] is False
+    assert saved["tuned_question_source_topic_audit"]["topic_detection_uses_gold_answer_or_expected_source"] is False
+    assert summary["base_topic_mismatch_review_flags"] >= 0
+    assert summary["tuned_topic_mismatch_review_flags"] >= 0
     assert archive.exists()
 
 
@@ -75,3 +81,38 @@ def test_newly_invented_amount_is_a_flag_not_semantic_model_accuracy(tmp_path):
     assert summary["tuned_number_review_flags"] >= 1
     assert summary["newly_flagged"] >= 1
     assert data["semantic_model_improvement_verified"] is False
+
+
+
+def test_private_pair_topic_flags_on_wrong_savings_citation_for_overdraft(
+    tmp_path
+):
+    """The amount is IN the source, but about the wrong product."""
+    fixture = json.loads((ROOT / "data/policies.json").read_text(encoding="utf-8"))
+    _, _, cases = prepare_rows(fixture)
+    original = next(x for x in cases if x["id"] == "UNSEEN-UNKNOWN-no-1")
+
+    def edit(base, tuned, paired):
+        fake = (
+            '{"answer":"Overtrekksrenten er NOK 25 per dag.",'
+            '"source_id":"POL-U003","abstain":false}'
+        )
+        item = next(x for x in tuned["predictions"] if x["id"] == original["id"])
+        item["raw"] = fake
+        mapped = {x["id"]: x["raw"] for x in tuned["predictions"]}
+        tuned["scores"] = [score(x, mapped[x["id"]]) for x in cases]
+        tuned["metrics"] = aggregate(tuned["scores"])
+
+    root, archive, digest = make_fake_bundle(tmp_path, edits=edit)
+    summary = make_pair_numeric_triage(root, archive, digest)
+    saved = json.loads((root /
+        "reviews/dev48_numeric_triage_owner_only.json").read_text())
+    risk = next(x for x in saved["tuned_question_source_topic_audit"]["flagged_cases"]
+                if x["id"] == original["id"])
+    assert risk["question_topics"] == ["overdraft"]
+    assert risk["cited_source_topics"] == ["savings_withdrawal"]
+    assert risk["status"] == "question_cited_source_topic_mismatch_requires_review"
+    assert original["id"] in saved["topic_newly_flagged_case_ids"]
+    assert summary["newly_topic_flagged"] >= 1
+    assert saved["semantic_model_improvement_verified"] is False
+    assert saved["do_not_share_with_reviewers"] is True

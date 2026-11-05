@@ -1,3 +1,7 @@
+## November 5 — wrong-product source-citation checks (no GPU)
+
+The [conservative multilingual cited-topic audit](docs/CITED_POLICY_TOPIC_AUDIT_2026-11-05.md) now flags clear cases where a model gives an overdraft-rate answer using a **real but unrelated savings withdrawal fee**: a number can match the cited policy and still concern the wrong product. The public guard demo and private SHA-pinned base-vs-adapter triage expose topic discrepancies without training, new inference or using gold labels for topic classification. **A topic match is not evidence entailment, a flag is not a factual verdict, and neither model quality nor submission status is proved.**
+
 ## November 5 — CuratorKIT ZIP security and early training-data validation
 
 The training-data [CuratorKIT export notebook](notebooks/02_curatorkit_training_data.ipynb) now validates the exact pinned 78-row original export and scans the ZIP **before download**. The shared [archive verifier](scripts/verify_curator_archive.py) limits total decompressed size, member count, compression bombs, symlinks, path anomalies, and ambiguous signed JSON. The [Colab T4 restorer](scripts/restore_colab_session.py) additionally pins the source ZIP checksum **across validation and private staging** so an archive swapped mid-import cannot silently populate training files. [Full safeguard and reproduction guide](docs/CURATORKIT_ZIP_SAFETY_2026-11-05.md). CPU security tests verify these controls; **no new real AlignTune training, independent human semantic review, or final model evaluation occurred.**
