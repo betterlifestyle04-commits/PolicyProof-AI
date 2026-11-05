@@ -21,7 +21,9 @@ from scripts.dev48_gpu_pair import (
 )
 from scripts.paired_guard_uncertainty import exact_discordance_p, wilson_interval
 
-SCHEMA = "policyproof_dev48_blinded_semantic_review_v1"
+SCHEMA = "policyproof_dev48_blinded_semantic_review_v2"
+BLIND_CATEGORY = "review_case"
+BLIND_CASE = re.compile(r"^CASE-[0-9a-f]{16}$")
 IDENTITY = (
     "case_id", "language", "category", "question", "provided_evidence",
     "response_slot", "raw_response",
@@ -125,17 +127,32 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
     b = {p["id"]: p["raw"] for p in base["predictions"]}
     t = {p["id"]: p["raw"] for p in tuned["predictions"]}
     assignments = {}
+    case_metadata = {}
     packet_rows = []
+    # Real case IDs contain category/oracle clues such as UNKNOWN and INJECT.
+    # Do not put these, or the answerability label, in a reviewer-visible CSV.
+    # The secure owner-only key retains the mapping for post-vote analysis.
     for row in rows:
+        while True:
+            blinded_case_id = "CASE-" + secrets.token_hex(8)
+            if blinded_case_id not in assignments:
+                break
         swapped = bool(secrets.randbits(1))
-        assignments[row["id"]] = {"A": "tuned" if swapped else "base",
-                                  "B": "base" if swapped else "tuned"}
+        assignments[blinded_case_id] = {
+            "A": "tuned" if swapped else "base",
+            "B": "base" if swapped else "tuned",
+        }
+        case_metadata[blinded_case_id] = {
+            "original_case_id": row["id"],
+            "language": row["language"],
+            "category": row["category"],
+        }
         for slot in ("A", "B"):
-            origin = assignments[row["id"]][slot]
+            origin = assignments[blinded_case_id][slot]
             packet_rows.append({
-                "case_id": row["id"],
+                "case_id": blinded_case_id,
                 "language": row["language"],
-                "category": row["category"],
+                "category": BLIND_CATEGORY,
                 "question": _safe_cell(row["question"]),
                 "provided_evidence": _safe_cell(row["context"]),
                 "response_slot": slot,
@@ -160,6 +177,9 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
         "model_revision": base["model_revision"],
         "adapter_sha256": tuned["adapter_sha256"],
         "assignments": assignments,
+        "case_metadata": case_metadata,
+        "case_ids_masked": True,
+        "category_masked": True,
         "human_review_performed": False,
     }
     with key_path.open("x", encoding="utf-8") as handle:
@@ -168,7 +188,9 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
     return {"status": "BLINDED_DEV48_PACKET_EXPORTED_NO_HUMAN_REVIEW",
             "packet": str(packet_path), "private_key": str(key_path),
             "cases": len(rows), "response_rows": len(packet_rows),
-            "dataset_sha256": digest, "model_labels_in_packet": False}
+            "dataset_sha256": digest, "model_labels_in_packet": False,
+            "gold_categories_in_packet": False,
+            "source_case_ids_in_packet": False}
 
 
 def _pair_metrics(consensus: dict, keys: list[str], field: str) -> dict:
@@ -205,9 +227,13 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
     if (key.get("schema") != SCHEMA
         or key.get("dev_only_not_final") is not True
         or key.get("human_review_performed") is not False
+        or key.get("case_ids_masked") is not True
+        or key.get("category_masked") is not True
         or key.get("packet_sha256") != sha256(packet_path)
         or not isinstance(key.get("assignments"), dict)
-        or len(key["assignments"]) != 48):
+        or len(key["assignments"]) != 48
+        or not isinstance(key.get("case_metadata"), dict)
+        or len(key["case_metadata"]) != 48):
         raise ValueError("Private mapping key does not match a frozen development packet")
     packet = _read_csv(packet_path)
     template = {}
@@ -223,6 +249,34 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
     expected_cases = {identity[0] for identity in template}
     if set(key["assignments"]) != expected_cases:
         raise ValueError("Mapping key case IDs do not match packet")
+    if (set(key["case_metadata"]) != expected_cases
+        or not all(BLIND_CASE.fullmatch(cid) for cid in expected_cases)):
+        raise ValueError("Blinded identities do not match private mapping")
+    original_rows, original_dataset_sha = check_dev_rows(root / DEV_REL)
+    if key.get("dataset_sha256") != original_dataset_sha:
+        raise ValueError("Blinded reviewer key points to a different frozen dataset")
+    frozen_cases = {row["id"]: row for row in original_rows}
+    originals_seen = set()
+    for case_id, details in key["case_metadata"].items():
+        if not isinstance(details, dict) or set(details) != {
+            "original_case_id", "language", "category"
+        }:
+            raise ValueError("Malformed hidden case metadata")
+        original_id = details["original_case_id"]
+        frozen = frozen_cases.get(original_id)
+        if (frozen is None or original_id in originals_seen
+            or details["language"] != frozen["language"]
+            or details["category"] != frozen["category"]):
+            raise ValueError("Hidden case metadata differs from frozen dataset")
+        originals_seen.add(original_id)
+        for slot in ("A", "B"):
+            visible = template[(case_id, slot)]
+            if (visible[1] != frozen["language"] or
+                visible[2] != BLIND_CATEGORY or
+                visible[0] != case_id):
+                raise ValueError("Reviewer packet leaks gold categories or case IDs")
+    if originals_seen != set(frozen_cases):
+        raise ValueError("Hidden mapping omits frozen dataset cases")
     for case_id, slots in key["assignments"].items():
         if slots != {"A": "base", "B": "tuned"} and slots != {"A": "tuned", "B": "base"}:
             raise ValueError("Invalid or duplicated model identities in key")
@@ -267,6 +321,8 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
         "schema": SCHEMA,
         "development_only": True,
         "not_final_blind_benchmark": True,
+        "reviewer_visible_category_masked": True,
+        "reviewer_visible_case_ids_masked": True,
         "reviewers": list(reviewer_data),
         "reviewer_identities_or_competence_verified": False,
         "human_approval_inferred": False,
@@ -285,7 +341,9 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
     }
     if disputes:
         return result
-    by_case = {r["case_id"]: r for r in packet if r["response_slot"] == "A"}
+    # Once independent votes are locked, owner-only metadata restores the
+    # real category for subgroup analysis without revealing it to reviewers.
+    by_case = key["case_metadata"]
     keys = sorted(consensus)
     if len(keys) != 48 or any(set(consensus[k]) != {"base", "tuned"} for k in keys):
         raise ValueError("Human review is incomplete")
