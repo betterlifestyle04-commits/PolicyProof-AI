@@ -763,6 +763,37 @@ elif page == "Judge verification":
             for key, check in receipt["checks"].items()
         ], width="stretch", hide_index=True,
     )
+    st.markdown("#### Next evidence actions — dependencies and proof")
+    st.caption(
+        "Generated from the current local checks. 'Actionable locally' only means "
+        "its listed prerequisites have passed; it does NOT start GPU training, "
+        "contact reviewers, publish files or prove that compute is available."
+    )
+    st.dataframe(
+        [
+            {
+                "Order": item["priority"],
+                "Required action": item["title"],
+                "Local sequence": (
+                    "After prerequisites" if item["waiting_on"] else "Can start independently"
+                ),
+                "Waiting for": ", ".join(
+                    dep.replace("_", " ") for dep in item["waiting_on"]
+                ) or "—",
+                "Work needed": item["work_type"],
+                "Instructions": item["action"],
+                "Evidence to retain": item["proof_needed"],
+            }
+            for item in track1_gate["next_evidence_actions"]
+        ],
+        width="stretch", hide_index=True,
+    )
+    st.markdown(
+        "[Native AlignTune 40-step GPU protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md)"
+        " · [Frozen 60-case human review protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FINAL_REVIEW_WORKFLOW.md)"
+    )
     st.caption(
         "A local success is not independently authenticated human review, GPU execution, "
         "model truth or official submission confirmation. The Track 1 gate rejects "

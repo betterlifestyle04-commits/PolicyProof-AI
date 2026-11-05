@@ -61,6 +61,12 @@ Native AlignTune candidate archives now require matching reported TRL trainer-st
 
 A new read-only `scripts.reconcile_native_training_evidence` audit distinguishes interrupted Colab sessions, failed or incomplete packaging, fully consistent local and archived receipts, and ZIP publication followed by failed local receipt synchronization. It compares real ZIP safetensors/hashes and the original local adapter, never changes artifacts, and refuses to equate a self-reported local receipt or published ZIP with independently proven T4 optimizer execution. The Stage 11 notebook includes a diagnostic cell that runs without invoking any training. Owner review is mandatory for any discrepancy.
 
+## Dependency-aware worklist on the judge dashboard
+
+The **Judge verification → Next evidence actions** table now derives its rows from the same mandatory Track 1 checks used by the submission gate. It separates independent work (native GPU training, frozen 60-case human review and documentation) from work requiring upstream evidence (paired evaluation needs both training and review; external collection verification needs published artifacts). Each row names the proof to preserve and whether prerequisites are still missing. The downloadable decision JSON also includes `blocking_requirements` and `next_evidence_actions`.
+
+The generated statuses `ACTIONABLE_LOCALLY` and `WAITING_FOR_DEPENDENCIES` are **planning labels**, not evidence that GPU compute is available, human reviews were performed, any Hugging Face upload happened or a submission was accepted. If all machine-readable gates pass, the worklist still requires independent license, research and organizer submission verification.
+
 ## Highest-impact remaining work
 
 1. **Track 1:** Obtain a checkpoint produced by an eligible, demonstrated AlignTune optimizer run (the manual PyTorch 40-step fallback cannot be relabeled AlignTune). Then independently review the frozen 60 cases before any final model scoring.
