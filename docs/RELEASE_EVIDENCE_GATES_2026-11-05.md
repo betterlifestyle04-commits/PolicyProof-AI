@@ -22,6 +22,10 @@ Those were **false-positive readiness paths**. The new gate refuses these shortc
 | Public Hugging Face artifacts and collections | Fresh manifest-SHA-linked anonymous HF Hub API receipt, accessible model/dataset collection entries, adapter repo and logs repo membership | License rights, model relevance, immutable third-party attestation or organizer acceptance |
 | Repository/write-up | README and Track 1 submission draft present | That the submission has been filed or read by judges |
 
+### Saved baseline and AuditKIT receipt safety
+
+The CPU baseline verifier now reads the 48-case source evidence through a bounded, non-symlink JSON parser that rejects duplicate field names and non-finite numbers (including deeply nested fields). The original 48-case dataset must also be a bounded regular file; score rows, prediction records, and numeric metric types are checked before accepting a replay. The submission gate applies the same strict parsing to the saved baseline AuditKIT receipt, preventing contradictory duplicate status keys from appearing complete. These checks **do not authenticate the original GPU inference session**, establish answer correctness, or create any new model outputs. Tests intentionally use synthetic source JSON; no real metrics are newly measured.
+
 The **human-review evidence** now participates in the Track 1 mandatory gate. This is intentionally stricter than whether independent review is a literal eligibility rule: PolicyProof cannot ethically claim validated final benchmark results while treating proposed labels as adjudicated truth.
 
 A local gate result of **READY_FOR_MANUAL_REVIEW** means it is ready for human release review, not submitted, proven safe, or a winner. An attacker who can modify all repository files can still forge a consistent set of saved receipts. The code cannot turn self-declarations into independently authenticated human identities or GPU provenance.

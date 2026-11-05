@@ -24,10 +24,46 @@ from scripts.verify_curator_archive import check_zip
 EXPECTED_CURATOR_TRAIN_SHA256 = (
     "4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c"
 )
+MAX_BASELINE_REPORT_BYTES = 8_000_000
+MAX_BASELINE_DATASET_BYTES = 3_000_000
+
+
+def _reject_duplicate_evidence_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON evidence field: " + key)
+        result[key] = value
+    return result
+
+
+def read_evidence_json(path: Path, *, limit: int = MAX_BASELINE_REPORT_BYTES) -> dict:
+    """Bounded, ambiguity-free source reader; evidence is never modified."""
+    path = Path(path)
+    if (path.is_symlink() or not path.is_file()
+        or not 0 < path.stat().st_size <= limit):
+        raise ValueError("Evidence JSON missing, symlinked, empty or oversized")
+    try:
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_evidence_keys,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                ValueError("Nonfinite JSON evidence: " + token)
+            ),
+        )
+    except (UnicodeError, ValueError, RecursionError) as exc:
+        raise ValueError("Malformed or ambiguous JSON evidence") from exc
+    if not isinstance(value, dict):
+        raise ValueError("Evidence JSON must be an object")
+    return value
 
 
 def verify_baseline(baseline: Path, dataset: Path) -> dict:
-    data = json.loads(Path(baseline).read_text(encoding="utf-8"))
+    data = read_evidence_json(baseline)
+    dataset = Path(dataset)
+    if (dataset.is_symlink() or not dataset.is_file()
+        or not 0 < dataset.stat().st_size <= MAX_BASELINE_DATASET_BYTES):
+        raise ValueError("Baseline dataset missing, symlinked, empty or oversized")
     rows = read_jsonl(dataset)
     actual_hash = sha256(dataset)
     if data.get("engine") != "transformers" or data.get("is_real_model_result") is not True:
@@ -47,7 +83,8 @@ def verify_baseline(baseline: Path, dataset: Path) -> dict:
         raise ValueError("Baseline predictions not complete")
     prediction_map = {}
     for p in predictions:
-        if not isinstance(p.get("id"), str) or not isinstance(p.get("raw"), str):
+        if (not isinstance(p, dict) or not isinstance(p.get("id"), str)
+            or not isinstance(p.get("raw"), str)):
             raise ValueError("Malformed model prediction")
         if p["id"] in prediction_map:
             raise ValueError("Duplicate model prediction ID")
@@ -65,11 +102,17 @@ def verify_baseline(baseline: Path, dataset: Path) -> dict:
         if isinstance(value, (float, int, str)) or value is None:
             original = stored.get(key)
             if isinstance(value, (int, float)) and not isinstance(value, bool):
-                if original is None or not math.isclose(float(original), float(value), abs_tol=0.011):
+                if (type(original) not in (int, float)
+                    or not math.isfinite(original)
+                    or not math.isclose(original, float(value), abs_tol=0.011)):
                     raise ValueError(f"Metric discrepancy: {key}, stored={original}, recomputed={value}")
             elif original != value:
                 raise ValueError(f"Metric discrepancy: {key}")
     if "scores" in data:
+        if (not isinstance(data["scores"], list)
+            or any(not isinstance(x, dict) or not isinstance(x.get("id"), str)
+                   for x in data["scores"])):
+            raise ValueError("Malformed per-row baseline scores")
         original_scores = {x["id"]: x for x in data["scores"]}
         if len(original_scores) != len(data["scores"]) or set(original_scores) != set(prediction_map):
             raise ValueError("Original scorer rows have missing or duplicate IDs")
