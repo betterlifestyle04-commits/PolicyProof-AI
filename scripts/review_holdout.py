@@ -283,7 +283,6 @@ def main() -> None:
         write_review_csv(output, make_review_pack(cases, digest, args.export))
         print(f"Created {len(cases)} blank review rows for {args.export} at {output}")
         return
-    inputs = [Path(path) for path in args.summarize]
     output = _private_new_output(ROOT, args.output, ".json") if args.output else None
     # Reject public and outside reviews input path conventions in CLI mode.
     for source in args.summarize:
@@ -292,6 +291,9 @@ def main() -> None:
             or source.split("/")[1] in ("", ".", "..")
             or "\" in source or ":" in source or chr(0) in source):
             raise ValueError("Reviewer inputs must be direct private reviews/*.csv paths")
+    # Resolve relative inputs under the canonical repository root, never the
+    # process CWD; prevents accidental use of unrelated local files.
+    inputs = [ROOT / name for name in args.summarize]
     report = consolidate_reviews(inputs, cases, digest)
     if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
