@@ -356,8 +356,9 @@ def test_native40_rejects_unexpected_eval_dataset_before_training(fixture):
 def test_native40_refuses_training_if_sdk_replaces_bound_dataset(fixture):
     class ModelRebindsData(FakeTrainer):
         def train(self):
-            super().train()
+            result = super().train()
             self.dataset = list(range(78))
+            return result
     wrapper = ModelRebindsData(steps=40)
     with pytest.raises(RuntimeError, match="replaced the original checked training dataset"):
         target.recover_train_save(
@@ -375,12 +376,13 @@ def test_adapter_zip_excludes_real_trl_checkpoint_and_extra_tokenizer_files(fixt
     import zipfile
     class TrainerWithArtifacts(FakeTrainer):
         def train(self):
-            super().train()
+            result = super().train()
             out = Path(self.config.logging.output_dir)
             checkpoint = out / "checkpoint-40"
             checkpoint.mkdir()
             (checkpoint / "optimizer.pt").write_bytes(b"large checkpoint, not for sharing")
             (out / "trainer_state.json").write_text('{"global_step":40}')
+            return result
 
         def save_model(self, output_dir):
             saved = super().save_model(output_dir)
