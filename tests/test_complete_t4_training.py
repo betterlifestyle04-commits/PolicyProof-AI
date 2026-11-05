@@ -46,6 +46,7 @@ class FakeTrainer:
         if self.fail:
             raise RuntimeError("simulated optimizer failure")
         self.trainer.state.global_step = self.steps
+        return {"steps": self.steps}
 
     def save_model(self, output_dir):
         folder = Path(output_dir)
@@ -446,3 +447,176 @@ def test_native40_never_packages_symlinked_peft_files(fixture):
             optimizer_steps=40, archive_path=archive,
         )
     assert not archive.exists()
+
+
+
+def test_native40_training_result_and_trl_state_must_both_agree(fixture):
+    class FalseResult(FakeTrainer):
+        def train(self):
+            super().train()
+            return {"steps": 39}
+    wrapper = FalseResult(steps=40)
+    output = fixture / "not_published.zip"
+    with pytest.raises(RuntimeError, match="training-result steps"):
+        target.recover_train_save(
+            wrapper, project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    note = json.loads(
+        (fixture/"artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert note["status"] == "failed"
+    assert note["optimizer_steps_observed"] == 40
+    assert not output.exists()
+
+
+def test_native40_refuses_missing_or_string_training_result_steps(fixture):
+    class WrongResult(FakeTrainer):
+        def train(self):
+            super().train()
+            return {"steps": "40"}
+    output = fixture / "wrong_step_type.zip"
+    with pytest.raises(RuntimeError, match="training-result steps"):
+        target.recover_train_save(
+            WrongResult(steps=40), project_dir=fixture,
+            model_revision="a"*40, optimizer_steps=40, archive_path=output,
+        )
+    assert not output.exists()
+
+
+def test_native40_atomic_zip_has_matching_completed_receipt(fixture):
+    import zipfile
+    wrapper = FakeTrainer(steps=40)
+    output = fixture/"published.zip"
+    target.recover_train_save(
+        wrapper, project_dir=fixture, model_revision="a"*40,
+        optimizer_steps=40, archive_path=output,
+    )
+    local = json.loads(
+        (fixture/"artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    with zipfile.ZipFile(output) as archive:
+        assert archive.testzip() is None
+        inside = json.loads(archive.read("run_info.json"))
+        assert local == inside
+        assert archive.namelist() == [
+            "adapter/adapter_model.safetensors",
+            "adapter/adapter_config.json",
+            "run_info.json",
+        ]
+    assert local["status"] == "completed"
+    assert local["aligntune_train_result_steps"] == 40
+    assert local["artifact_publish_method"] == "validated_temporary_zip_then_atomic_link"
+    assert not list(fixture.glob(".policyproof-adapter-*.partial"))
+    assert not list(
+        (fixture/"artifacts/align_qlora_native40").glob(
+            ".policyproof-receipt-*.partial"
+        )
+    )
+
+
+def test_atomic_publish_failure_does_not_leave_partial_final_zip(fixture, monkeypatch):
+    def fail_publish(_src, _dest):
+        raise OSError("simulated disk-full during final publish")
+    monkeypatch.setattr(target.os, "link", fail_publish)
+    output = fixture/"should_not_exist.zip"
+    with pytest.raises(OSError, match="simulated disk-full"):
+        target.recover_train_save(
+            FakeTrainer(steps=40),
+            project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    note = json.loads(
+        (fixture/"artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert note["status"] == "failed"
+    assert note["optimizer_steps_observed"] == 40
+    assert not output.exists()
+    assert not list(fixture.glob(".policyproof-adapter-*.partial"))
+    assert not list(
+        (fixture/"artifacts/align_qlora_native40").glob(
+            ".policyproof-receipt-*.partial"
+        )
+    )
+
+
+def test_atomic_publish_collision_does_not_overwrite_new_owner_zip(
+    fixture, monkeypatch,
+):
+    real_link = target.os.link
+    output = fixture / "owner_claimed.zip"
+    def another_writer_arrived(src, dst):
+        output.write_bytes(b"OWNER'S EXISTING ARCHIVE")
+        real_link(src, dst)
+    monkeypatch.setattr(target.os, "link", another_writer_arrived)
+    with pytest.raises(FileExistsError):
+        target.recover_train_save(
+            FakeTrainer(steps=40),
+            project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    assert output.read_bytes() == b"OWNER'S EXISTING ARCHIVE"
+    assert not list(fixture.glob(".policyproof-adapter-*.partial"))
+    note = json.loads(
+        (fixture/"artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert note["status"] == "failed"
+
+
+def test_existing_dangling_archive_symlink_rejected_before_optimizer(fixture):
+    output = fixture/"dangling.zip"
+    output.symlink_to(fixture/"nonexistent.zip")
+    wrapper = FakeTrainer(steps=40)
+    with pytest.raises(FileExistsError, match="already exists"):
+        target.recover_train_save(
+            wrapper, project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    assert output.is_symlink()
+    assert wrapper.trainer.state.global_step == 0
+
+
+def test_failing_zip_crc_check_leaves_no_final_archive(fixture, monkeypatch):
+    import zipfile
+    original_zip = target.zipfile.ZipFile
+
+    class BrokenCRC(original_zip):
+        def testzip(self):
+            return "adapter/adapter_model.safetensors"
+
+    monkeypatch.setattr(target.zipfile, "ZipFile", BrokenCRC)
+    output = fixture/"bad_crc.zip"
+    with pytest.raises(RuntimeError, match="Corrupt or unexpected ZIP"):
+        target.recover_train_save(
+            FakeTrainer(steps=40),
+            project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    assert not output.exists()
+    assert not list(fixture.glob(".policyproof-adapter-*.partial"))
+    note = json.loads(
+        (fixture/"artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert note["status"] == "failed"
+
+
+def test_receipt_atomic_write_failure_does_not_create_partial_file(
+    fixture, monkeypatch,
+):
+    # Fail at the first atomic receipt update; portable ZIP is not published.
+    def no_replace(_src, _dest):
+        raise OSError("simulated receipt write failure")
+    monkeypatch.setattr(target.os, "replace", no_replace)
+    output = fixture/"receipt_write_failed.zip"
+    with pytest.raises(OSError, match="simulated receipt write failure"):
+        target.recover_train_save(
+            FakeTrainer(steps=40),
+            project_dir=fixture, model_revision="a"*40,
+            optimizer_steps=40, archive_path=output,
+        )
+    assert not output.exists()
+    assert not list(
+        (fixture/"artifacts/align_qlora_native40").glob(
+            ".policyproof-receipt-*.partial"
+        )
+    )
