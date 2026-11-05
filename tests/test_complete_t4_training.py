@@ -304,3 +304,145 @@ def test_native_training_refuses_invalid_no_eval_best_model_policy(fixture, monk
             )
         assert not (fixture/(problem + ".zip")).exists()
     # The no-eval config gate runs before wrapper.train() or adapter export.
+
+
+
+def test_native40_binds_verified_dataset_before_real_train_method_can_reload(fixture):
+    wrapper = FakeTrainer(steps=40)
+    source = wrapper.train_dataset
+    output = fixture / "single_dataset.zip"
+    target.recover_train_save(
+        wrapper, project_dir=fixture, model_revision="a" * 40,
+        optimizer_steps=40, archive_path=output,
+    )
+    assert wrapper.dataset is source
+    assert wrapper.train_dataset is source
+    assert wrapper.data_reload_calls == 0
+    saved = json.loads(
+        (fixture / "artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert saved["aligntune_cached_train_dataset_reused"] is True
+    assert saved["second_data_manager_load_requested"] is False
+
+
+def test_native40_rejects_unverified_cached_dataset_without_training(fixture):
+    wrapper = FakeTrainer(steps=40)
+    original = wrapper.train_dataset
+    wrapper.dataset = list(range(78))  # Looks identical but is not audited object.
+    assert wrapper.dataset is not original
+    with pytest.raises(RuntimeError, match="cached dataset differs"):
+        target.recover_train_save(
+            wrapper, project_dir=fixture, model_revision="a" * 40,
+            optimizer_steps=40, archive_path=fixture / "must_not_exist.zip",
+        )
+    assert wrapper.trainer.state.global_step == 0
+    assert wrapper.data_reload_calls == 0
+    assert not (fixture / "must_not_exist.zip").exists()
+
+
+def test_native40_rejects_unexpected_eval_dataset_before_training(fixture):
+    wrapper = FakeTrainer(steps=40)
+    wrapper.eval_dataset = ["fake evaluation examples"]
+    with pytest.raises(RuntimeError, match="Unexpected evaluation dataset"):
+        target.recover_train_save(
+            wrapper, project_dir=fixture, model_revision="a" * 40,
+            optimizer_steps=40, archive_path=fixture / "must_not_exist.zip",
+        )
+    assert wrapper.trainer.state.global_step == 0
+    assert not (fixture / "must_not_exist.zip").exists()
+
+
+def test_native40_refuses_training_if_sdk_replaces_bound_dataset(fixture):
+    class ModelRebindsData(FakeTrainer):
+        def train(self):
+            super().train()
+            self.dataset = list(range(78))
+    wrapper = ModelRebindsData(steps=40)
+    with pytest.raises(RuntimeError, match="replaced the original checked training dataset"):
+        target.recover_train_save(
+            wrapper, project_dir=fixture, model_revision="a" * 40,
+            optimizer_steps=40, archive_path=fixture / "no_out.zip",
+        )
+    saved = json.loads(
+        (fixture / "artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert saved["status"] == "failed"
+    assert not (fixture / "no_out.zip").exists()
+
+
+def test_adapter_zip_excludes_real_trl_checkpoint_and_extra_tokenizer_files(fixture):
+    import zipfile
+    class TrainerWithArtifacts(FakeTrainer):
+        def train(self):
+            super().train()
+            out = Path(self.config.logging.output_dir)
+            checkpoint = out / "checkpoint-40"
+            checkpoint.mkdir()
+            (checkpoint / "optimizer.pt").write_bytes(b"large checkpoint, not for sharing")
+            (out / "trainer_state.json").write_text('{"global_step":40}')
+
+        def save_model(self, output_dir):
+            saved = super().save_model(output_dir)
+            (Path(output_dir) / "tokenizer.json").write_text(
+                '{"note":"private, extra output"}'
+            )
+            return saved
+
+    wrapper = TrainerWithArtifacts(steps=40)
+    output = fixture / "small_adapter.zip"
+    target.recover_train_save(
+        wrapper, project_dir=fixture, model_revision="a" * 40,
+        optimizer_steps=40, archive_path=output,
+    )
+    with zipfile.ZipFile(output) as archive:
+        assert archive.namelist() == [
+            "adapter/adapter_model.safetensors",
+            "adapter/adapter_config.json",
+            "run_info.json",
+        ]
+        assert "checkpoint-40/optimizer.pt" not in archive.namelist()
+        assert "trainer_state.json" not in archive.namelist()
+        assert "adapter/tokenizer.json" not in archive.namelist()
+    original_out = fixture / "artifacts/align_qlora_native40"
+    assert (original_out / "checkpoint-40/optimizer.pt").is_file()
+    assert (original_out / "adapter/tokenizer.json").is_file()
+
+
+def test_native40_requires_safe_adapter_not_legacy_pickle_binary(fixture):
+    class UnsafeAdapter(FakeTrainer):
+        def save_model(self, output_dir):
+            folder = Path(output_dir)
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "adapter_config.json").write_text('{"peft_type":"LORA"}')
+            (folder / "adapter_model.bin").write_bytes(b"pickle is not acceptable")
+            return str(folder)
+
+    archive = fixture / "unsafe.zip"
+    with pytest.raises(RuntimeError, match="safe PEFT adapter"):
+        target.recover_train_save(
+            UnsafeAdapter(steps=40),
+            project_dir=fixture, model_revision="a" * 40,
+            optimizer_steps=40, archive_path=archive,
+        )
+    assert not archive.exists()
+
+
+def test_native40_never_packages_symlinked_peft_files(fixture):
+    class SymlinkAdapter(FakeTrainer):
+        def save_model(self, output_dir):
+            folder = Path(output_dir)
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "adapter_config.json").write_text('{"peft_type":"LORA"}')
+            outside = folder.parent / "outside-model.safetensors"
+            outside.write_bytes(b"do-not-package")
+            (folder / "adapter_model.safetensors").symlink_to(outside)
+            return str(folder)
+
+    archive = fixture / "symlink.zip"
+    with pytest.raises(RuntimeError, match="regular files"):
+        target.recover_train_save(
+            SymlinkAdapter(steps=40),
+            project_dir=fixture, model_revision="a" * 40,
+            optimizer_steps=40, archive_path=archive,
+        )
+    assert not archive.exists()
