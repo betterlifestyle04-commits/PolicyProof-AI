@@ -399,6 +399,11 @@ elif page == "Output guard experiment":
             and numeric_risk.get("samples") == 48):
             st.markdown("#### Cited-source numeric risk screening (same saved base responses)")
             st.metric("Cases needing numeric evidence review", numeric_risk["numeric_review_flags"])
+            st.warning(
+                "Zero flagged numbers does NOT mean zero factual hallucinations. "
+                "This screens only literal numbers in previously saved base-model outputs; "
+                "the separate tuned-model predictions are not included in this public report."
+            )
             st.caption(
                 "Flags numeric literals missing from the specific cited source. "
                 "It does not verify that matching numbers are used in the correct context "
