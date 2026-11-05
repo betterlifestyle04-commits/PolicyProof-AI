@@ -11,7 +11,7 @@ import csv
 import json
 import re
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from policyproof.core import ROOT, read_jsonl, sha256
 from scripts.validate_final_holdout import validate_final_holdout
@@ -28,6 +28,35 @@ IDENTITY_FIELDS = (
 )
 HEADERS = (*IDENTITY_FIELDS, *REVIEW_FIELDS, "review_notes")
 REVIEWER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,39}$")
+
+MAX_REVIEW_FILE_BYTES = 1_500_000
+
+
+def _private_new_output(root: Path, name: str, extension: str) -> Path:
+    """Constrain CLI writes to a fresh, direct file under gitignored reviews/.
+
+    Never allow a relative traversal, symlink, existing file, public Git path,
+    or dataset path. Used only for owner-controlled output destinations; the
+    lower-level writer also uses exclusive creation for test/library callers.
+    """
+    if (not isinstance(name, str) or len(name) > 180
+        or not name.startswith("reviews/") or not name.endswith(extension)
+        or "\\" in name or ":" in name or chr(0) in name
+        or any(ord(ch) < 32 for ch in name)):
+        raise ValueError("Review output must be a new private reviews/ file")
+    tokens = name.split("/")
+    if (len(tokens) != 2 or any(t in ("", ".", "..") for t in tokens)
+        or len(PurePosixPath(name).parts) != 2):
+        raise ValueError("Unsafe private review output path")
+    root = Path(root).resolve()
+    folder = root / "reviews"
+    if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
+        raise ValueError("Private reviews directory is not safe")
+    target = folder / tokens[1]
+    if target.is_symlink() or target.exists():
+        raise FileExistsError("Refusing to overwrite existing human review evidence: " + name)
+    return target
+
 
 
 def check_reviewer_code(code: str) -> str:
@@ -61,12 +90,29 @@ def make_review_pack(cases: list[dict], digest: str, reviewer_code: str) -> list
 
 
 def write_review_csv(output: Path, rows: list[dict]) -> None:
+    """Create one review packet exclusively; never erase completed human votes."""
     output = Path(output)
+    if output.is_symlink() or output.exists():
+        raise FileExistsError("Refusing to overwrite existing human review evidence")
+    if output.parent.is_symlink():
+        raise ValueError("Private review parent is a symlink")
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=HEADERS, extrasaction="raise")
-        writer.writeheader()
-        writer.writerows(rows)
+    # Validate first to avoid leaving a new partial file on malformed rows.
+    if not isinstance(rows, list) or any(
+        not isinstance(r, dict) or set(r) != set(HEADERS) for r in rows
+    ):
+        raise ValueError("Invalid review packet fields")
+    created = False
+    try:
+        with output.open("x", encoding="utf-8", newline="") as handle:
+            created = True
+            writer = csv.DictWriter(handle, fieldnames=HEADERS, extrasaction="raise")
+            writer.writeheader()
+            writer.writerows(rows)
+    except BaseException:
+        if created:
+            output.unlink(missing_ok=True)
+        raise
 
 
 def read_and_validate_review(
@@ -74,12 +120,21 @@ def read_and_validate_review(
 ) -> tuple[str, dict[str, dict]]:
     """Reject changed gold, evidence, IDs, duplicate rows and verdict typos."""
     path = Path(path)
+    if (path.is_symlink() or not path.is_file()
+        or not 0 < path.stat().st_size <= MAX_REVIEW_FILE_BYTES):
+        raise ValueError(f"{path}: reviewer CSV missing, symlinked, empty or oversized")
     csv.field_size_limit(2_000_000)
-    with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
-        if reader.fieldnames != list(HEADERS):
-            raise ValueError(f"{path}: unexpected review columns or order")
-        records = list(reader)
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if reader.fieldnames != list(HEADERS):
+                raise ValueError(f"{path}: unexpected review columns or order")
+            records = list(reader)
+    except (csv.Error, UnicodeError) as exc:
+        raise ValueError(f"{path}: malformed or unreadable review CSV") from exc
+    if any(None in record or any(value is None for value in record.values())
+           for record in records):
+        raise ValueError(f"{path}: extra or missing CSV columns")
     expected = {r["id"]: r for r in cases}
     if len(expected) != 60 or len(records) != 60:
         raise ValueError(f"{path}: require all 60 benchmark cases exactly once")
@@ -124,8 +179,10 @@ def consolidate_reviews(
     Distinct pseudonyms alone DO NOT prove distinct humans or language fluency.
     This function never signs off or changes benchmark/gold data.
     """
-    if len(paths) < 2:
-        raise ValueError("At least two separate reviewer CSV files are required")
+    if not 2 <= len(paths) <= 4:
+        raise ValueError("Require 2-4 separate reviewer CSV files")
+    if len({Path(path).resolve() for path in paths}) != len(paths):
+        raise ValueError("Reviewer CSV source files must be distinct")
     submitted = [
         (Path(path), *read_and_validate_review(path, cases, dataset_digest))
         for path in paths
@@ -217,22 +274,32 @@ def main() -> None:
         raise ValueError("Refusing to process a noncanonical holdout without a protocol revision")
     cases, digest = read_jsonl(cases_path), sha256(cases_path)
     if args.export:
-        output = Path(args.output or f"reviews/reviewer_{args.export}_final_holdout.csv")
-        if output.resolve() == cases_path.resolve():
-            raise ValueError("Refusing to overwrite frozen benchmark")
+        # Strict owner-only output guard applies even to user-supplied paths.
+        # Review file generation must never replace another review or dataset.
+        output = _private_new_output(
+            ROOT, args.output or f"reviews/reviewer_{args.export}_final_holdout.csv",
+            ".csv",
+        )
         write_review_csv(output, make_review_pack(cases, digest, args.export))
         print(f"Created {len(cases)} blank review rows for {args.export} at {output}")
         return
-    inputs = [Path(path) for path in args.summarize]
+    output = _private_new_output(ROOT, args.output, ".json") if args.output else None
+    # Reject public and outside reviews input path conventions in CLI mode.
+    for source in args.summarize:
+        if (not isinstance(source, str) or not source.startswith("reviews/")
+            or len(source.split("/")) != 2
+            or source.split("/")[1] in ("", ".", "..")
+            or "\\" in source or ":" in source or chr(0) in source):
+            raise ValueError("Reviewer inputs must be direct private reviews/*.csv paths")
+    # Resolve relative inputs under the canonical repository root, never the
+    # process CWD; prevents accidental use of unrelated local files.
+    inputs = [ROOT / name for name in args.summarize]
     report = consolidate_reviews(inputs, cases, digest)
-    if args.output:
-        output = Path(args.output)
-        if output.resolve() in {cases_path.resolve(), *(p.resolve() for p in inputs)}:
-            raise ValueError("Refusing to overwrite input evidence")
+    if output is not None:
         output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        with output.open("x", encoding="utf-8") as handle:
+            json.dump(report, handle, ensure_ascii=False, indent=2, allow_nan=False)
+            handle.write("\n")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

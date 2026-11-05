@@ -11,6 +11,14 @@
 - At least two **different actual humans** should independently review every case, with suitable Norwegian, Arabic and evidence interpretation competence. The validator only checks distinct *codes*, not real identity or language proficiency.
 - The public final candidate is **not genuinely blind**; it remains a versioned, held-out development protocol, not proof of generalization to unseen real financial policy.
 
+## November 5 — non-destructive private review outputs
+
+The 60-case reviewer export and reconciliation CLI now **refuse to overwrite** any existing file, including a blank template that has already been filled by a human. Output destinations must be **direct** files inside the private git-ignored `reviews/` folder; absolute paths, nested paths, traversal, symlinks, public `docs/` and frozen dataset paths are refused. CLI input paths for reconciliation are interpreted relative to the canonical repository root. The reader also refuses symlinked, oversized, malformed, short or extra-column reviewer files. The tool checks no more than four independent reviewer CSVs.
+
+If you rerun an export and see a `FileExistsError`, **preserve the existing file**. If it contains genuine votes, do not delete it to make a command pass. Use a distinct unused reviewer code or filename **only for a genuinely new human review round**. If starting a new round, back up the previous files and their SHA-256 digests first. A new reconciliation output must use an unused filename; old reports are immutable evidence.
+
+This protection prevents accidental loss or public-file corruption. It does **not** establish reviewer independence, language competence, semantic correctness, or authorization to mark a signoff `review_complete=true`.
+
 ## Generate reviewer-specific packs (CPU only)
 
 Each reviewer should download a separate packet from the Streamlit **Final benchmark review** page, or run:
@@ -31,7 +39,7 @@ Review in a spreadsheet editor or CSV tool. Do not change case IDs, question/con
 ```bash
 python -m scripts.review_holdout \
   --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv \
-  --output artifacts/human_review_reconciliation.json
+  --output reviews/reconciliation.json
 ```
 
 This command checks all 60 cases and the exact original content; rejects changed question text, changed source evidence, changed proposed gold, wrong dataset SHA, missing/duplicate case IDs, unknown verdict values, and repeated reviewer codes; then reports:

@@ -1,3 +1,7 @@
+## November 5 — immutable 60-case human-review files
+
+Final candidate gold-label review packet exports and reconciliation are now **private, create-once and non-overwriting**. The [60-case review guide](docs/FINAL_REVIEW_WORKFLOW.md) explains how to preserve genuine reviewer CSVs and their hashes. The CLI refuses paths outside `reviews/`, symlinked inputs, malformed CSV records and duplicate reviewer paths. **No review was performed or signoff granted by this software change.**
+
 ## November 5 — real human disagreement resolution, still blinded
 
 The [dev48 human review protocol](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md) now includes **dispute-only third human adjudication**, fixing the previous dead end when two genuine reviewers disagreed. [CPU Colab: prepare anonymized dispute packet](notebooks/09_dev48_blind_dispute_export_cpu.ipynb) → [CPU Colab: verify a genuinely completed third review](notebooks/10_dev48_blind_dispute_resolve_cpu.ipynb). The private original reviewer CSVs and model-mapping key are SHA-pinned and never overwritten, and **only contested judgment fields** can be reconciled by a real independent adjudicator. No human votes, factual model improvement, or official submission acceptance are generated automatically.

@@ -77,6 +77,7 @@ def test_reject_duplicate_case(tmp_path, fixture_data):
     with path.open(encoding="utf-8", newline="") as handle:
         records = list(csv.DictReader(handle))
     records[1]["case_id"] = records[0]["case_id"]
+    path.unlink()  # Deliberate test-fixture mutation, not a real evidence write.
     write_review_csv(path, records)
     with pytest.raises(ValueError, match="duplicate"):
         read_and_validate_review(path, *fixture_data)
@@ -86,6 +87,7 @@ def test_reject_missing_cases(tmp_path, fixture_data):
     path = _write(tmp_path, fixture_data, "reviewer_A")
     with path.open(encoding="utf-8", newline="") as handle:
         records = list(csv.DictReader(handle))
+    path.unlink()  # Deliberate test-fixture mutation, not a real evidence write.
     write_review_csv(path, records[:-1])
     with pytest.raises(ValueError, match="all 60"):
         read_and_validate_review(path, *fixture_data)
@@ -176,3 +178,176 @@ def test_review_pack_never_pretends_reviewer_exists(fixture_data):
         make_review_pack(cases, digest, "")
     with pytest.raises(ValueError, match="Reviewer code"):
         make_review_pack(cases, digest, "name@example.com")
+
+
+
+def test_export_refuses_to_overwrite_existing_human_csv(tmp_path, fixture_data):
+    original = _write(tmp_path, fixture_data, "human_R1")
+    before = original.read_bytes()
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_review_csv(original, make_review_pack(*fixture_data, "human_R1"))
+    assert original.read_bytes() == before
+
+
+def test_export_refuses_symlinked_completed_human_csv(tmp_path, fixture_data):
+    original = _write(tmp_path, fixture_data, "human_R1")
+    alias = tmp_path / "link.csv"
+    alias.symlink_to(original)
+    before = original.read_bytes()
+    with pytest.raises(FileExistsError, match="overwrite"):
+        write_review_csv(alias, make_review_pack(*fixture_data, "human_R2"))
+    assert alias.is_symlink()
+    assert original.read_bytes() == before
+
+
+def test_reader_rejects_symlinked_and_oversized_reviews(tmp_path, fixture_data):
+    original = _write(tmp_path, fixture_data, "human_R1")
+    alias = tmp_path / "link.csv"
+    alias.symlink_to(original)
+    with pytest.raises(ValueError, match="symlinked"):
+        read_and_validate_review(alias, *fixture_data)
+    huge = tmp_path / "huge.csv"
+    huge.write_bytes(b"x" * 1_500_001)
+    with pytest.raises(ValueError, match="oversized"):
+        read_and_validate_review(huge, *fixture_data)
+
+
+def test_reader_rejects_extra_csv_columns_and_broken_short_rows(tmp_path, fixture_data):
+    valid = _write(tmp_path, fixture_data, "human_R1")
+    with valid.open("r", encoding="utf-8", newline="") as fp:
+        rows = list(csv.reader(fp))
+    extra = tmp_path / "extra.csv"
+    with extra.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.writer(fp)
+        writer.writerows([rows[0], rows[1] + ["INJECTED"], *rows[2:]])
+    with pytest.raises(ValueError, match="extra or missing CSV columns"):
+        read_and_validate_review(extra, *fixture_data)
+    missing = tmp_path / "missing.csv"
+    with missing.open("w", encoding="utf-8", newline="") as fp:
+        writer = csv.writer(fp)
+        writer.writerows([rows[0], rows[1][:-1], *rows[2:]])
+    with pytest.raises(ValueError, match="extra or missing CSV columns"):
+        read_and_validate_review(missing, *fixture_data)
+
+
+def test_reviewer_limit_and_duplicate_paths_fail_before_consolidation(tmp_path, fixture_data):
+    original = _write(tmp_path, fixture_data, "human_R1")
+    with pytest.raises(ValueError, match="2-4"):
+        consolidate_reviews([original], *fixture_data)
+    with pytest.raises(ValueError, match="distinct"):
+        consolidate_reviews([original, original], *fixture_data)
+    others = [_write(tmp_path, fixture_data, "human_R" + str(i))
+              for i in range(2, 6)]
+    with pytest.raises(ValueError, match="2-4"):
+        consolidate_reviews([original, *others], *fixture_data)
+
+
+def _mock_cli_workspace(tmp_path, monkeypatch):
+    """Use a fresh COPY of original frozen data; NEVER write to actual project."""
+    import shutil
+    import scripts.review_holdout as tool
+    root = tmp_path / "private-cli"
+    (root / "data").mkdir(parents=True)
+    (root / "docs").mkdir()
+    (root / "reviews").mkdir()
+    shutil.copyfile(
+        ROOT / "data/final_holdout_v1.jsonl",
+        root / "data/final_holdout_v1.jsonl",
+    )
+    monkeypatch.setattr(tool, "ROOT", root)
+    monkeypatch.setattr(tool, "validate_final_holdout", lambda: None)
+    monkeypatch.chdir(root)
+    return root, tool
+
+
+def test_cli_export_is_private_and_create_once(tmp_path, monkeypatch):
+    import sys
+    root, tool = _mock_cli_workspace(tmp_path, monkeypatch)
+    filename = root / "reviews/reviewer_human_R1_final_holdout.csv"
+    monkeypatch.setattr(sys, "argv", [
+        "review_holdout", "--export", "human_R1",
+    ])
+    tool.main()
+    first = filename.read_bytes()
+    with pytest.raises(FileExistsError, match="overwrite"):
+        tool.main()
+    assert filename.read_bytes() == first
+    assert len(list(csv.DictReader(first.decode().splitlines()))) == 60
+
+
+@pytest.mark.parametrize("output", [
+    "docs/final_benchmark_review_signoff.json",
+    "data/final_holdout_v1.jsonl",
+    "../escape.csv",
+    "reviews/../data/final_holdout_v1.jsonl",
+    "reviews//double.csv",
+    "reviews/./dot.csv",
+    "/tmp/public.csv",
+    "reviews\\escaped.csv",
+])
+def test_cli_export_rejects_public_or_unsafe_output_without_touching_dataset(
+    tmp_path, monkeypatch, output
+):
+    import sys
+    root, tool = _mock_cli_workspace(tmp_path, monkeypatch)
+    data = root / "data/final_holdout_v1.jsonl"
+    before = data.read_bytes()
+    public = root / "docs/final_benchmark_review_signoff.json"
+    public.write_bytes(b"KEEP ORIGINAL MANUAL SIGNOFF")
+    monkeypatch.setattr(sys, "argv", [
+        "review_holdout", "--export", "human_R1", "--output", output,
+    ])
+    with pytest.raises(ValueError, match="private|Unsafe"):
+        tool.main()
+    assert data.read_bytes() == before
+    assert public.read_bytes() == b"KEEP ORIGINAL MANUAL SIGNOFF"
+
+
+def test_cli_reconciliation_is_private_create_once_and_non_destructive(
+    tmp_path, monkeypatch
+):
+    import sys
+    root, tool = _mock_cli_workspace(tmp_path, monkeypatch)
+    cases = read_jsonl(root / "data/final_holdout_v1.jsonl")
+    digest = sha256(root / "data/final_holdout_v1.jsonl")
+    reviewer_paths = []
+    for code in ("human_A", "human_B"):
+        path = root / "reviews" / (code + ".csv")
+        values = make_review_pack(cases, digest, code)
+        for value in values:
+            for field in REVIEW_FIELDS:
+                value[field] = "yes"
+        write_review_csv(path, values)
+        reviewer_paths.append(path)
+    before = {str(p): p.read_bytes() for p in reviewer_paths}
+    monkeypatch.setattr(sys, "argv", [
+        "review_holdout", "--summarize",
+        "reviews/human_A.csv", "reviews/human_B.csv",
+        "--output", "reviews/reconciliation.json",
+    ])
+    tool.main()
+    output = root / "reviews/reconciliation.json"
+    first_report = output.read_bytes()
+    assert json.loads(first_report)["review_complete"] is False
+    assert json.loads(first_report)["status"] == "READY_FOR_MANUAL_ADJUDICATION_AND_SIGNOFF"
+    with pytest.raises(FileExistsError, match="overwrite"):
+        tool.main()
+    assert output.read_bytes() == first_report
+    assert {str(p): p.read_bytes() for p in reviewer_paths} == before
+
+
+def test_cli_reconciliation_cannot_overwrite_public_manual_signoff(
+    tmp_path, monkeypatch
+):
+    import sys
+    root, tool = _mock_cli_workspace(tmp_path, monkeypatch)
+    sentinel = root / "docs/final_benchmark_review_signoff.json"
+    sentinel.write_bytes(b"PRIVATE MANUAL SIGNOFF PRESERVE")
+    monkeypatch.setattr(sys, "argv", [
+        "review_holdout", "--summarize",
+        "reviews/human_A.csv", "reviews/human_B.csv",
+        "--output", "docs/final_benchmark_review_signoff.json",
+    ])
+    with pytest.raises(ValueError, match="private"):
+        tool.main()
+    assert sentinel.read_bytes() == b"PRIVATE MANUAL SIGNOFF PRESERVE"
