@@ -12,7 +12,7 @@ from scripts.reconcile_native_training_evidence import (
 from scripts.verify_training_archive import CURATOR_TRAIN_SHA256, digest
 
 
-def _fixture(tmp_path):
+def _fixture(tmp_path, *, full_geometry=False):
     work = tmp_path / "native40"
     adapter = work / "adapter"
     adapter.mkdir(parents=True)
@@ -24,9 +24,24 @@ def _fixture(tmp_path):
             "dtype": "F32", "shape": [1], "data_offsets": [4, 8],
         },
     }
+    if full_geometry:
+        tensors = {}
+        offset = 0
+        for index in range(144):
+            for side in ("A", "B"):
+                name = f"base_model.model.layers.{index}.lora_{side}.weight"
+                size = 16 * 832 * 4
+                tensors[name] = {
+                    "dtype": "F32", "shape": [16, 832],
+                    "data_offsets": [offset, offset + size],
+                }
+                offset += size
+        assert len(tensors) == 288
+    else:
+        offset = 8
     hdr = json.dumps(tensors).encode("utf-8")
     weights = adapter / "adapter_model.safetensors"
-    weights.write_bytes(struct.pack("<Q", len(hdr)) + hdr + bytes(range(8)))
+    weights.write_bytes(struct.pack("<Q", len(hdr)) + hdr + bytes(offset))
     cfg = adapter / "adapter_config.json"
     cfg.write_text('{"peft_type":"LORA","r":16}', encoding="utf-8")
     info = {
@@ -75,7 +90,7 @@ def _edit_local(directory, transform):
 
 
 def test_completed_native40_consistency_is_still_only_self_reported(tmp_path):
-    directory, archive = _fixture(tmp_path)
+    directory, archive = _fixture(tmp_path, full_geometry=True)
     original_bytes = {
         "local": (directory / "run_info.json").read_bytes(),
         "zip": archive.read_bytes(),
@@ -84,7 +99,7 @@ def test_completed_native40_consistency_is_still_only_self_reported(tmp_path):
     assert report["status"] == "MATCHED_SELF_REPORTED_COMPLETION"
     assert report["local_and_archived_receipts_identical"] is True
     assert report["archive_structural_integrity_checked"] is True
-    assert report["archive_tiny_aya_geometry_matches"] is False
+    assert report["archive_tiny_aya_geometry_matches"] is True
     assert report["owner_review_required"] is False
     assert report["independent_gpu_training_verified"] is False
     assert report["independent_semantic_quality_verified"] is False
@@ -205,6 +220,8 @@ def test_duplicate_keys_in_local_receipt_rejected(tmp_path):
 def test_archive_cannot_self_prove_real_t4_training_with_fake_tensors(tmp_path):
     directory, archive = _fixture(tmp_path)
     report = inspect_native_training_evidence(directory, archive)
+    assert report["status"] == "MATCHED_RECEIPTS_WRONG_ADAPTER_GEOMETRY"
+    assert report["owner_review_required"] is True
     assert report["archive_tiny_aya_geometry_matches"] is False
     assert report["safe_for_unreviewed_published_model_claim"] is False
     assert report["independent_gpu_training_verified"] is False
