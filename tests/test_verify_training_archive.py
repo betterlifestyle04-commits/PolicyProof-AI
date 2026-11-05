@@ -312,6 +312,15 @@ def _mark_native40_receipt(directory, *, revision_confirmed=True):
             "aligntune_trainer_completed": True,
             "final_benchmark_or_challenge_used_for_training": False,
             "independent_gpu_execution_attested": False,
+            "aligntune_train_result_steps": 40,
+            "aligntune_cached_train_dataset_reused": True,
+            "second_data_manager_load_requested": False,
+            "portable_adapter_members": [
+                "adapter/adapter_model.safetensors",
+                "adapter/adapter_config.json",
+                "run_info.json",
+            ],
+            "artifact_publish_method": "validated_temporary_zip_then_atomic_link",
             "loaded_revision_evidence": {
                 "loaded_model_revision_observed": (
                     revision if revision_confirmed else None
@@ -356,6 +365,18 @@ def test_native40_hub_model_sha_alone_is_not_a_verified_loaded_base(tmp_path):
     (lambda info: info.update(final_benchmark_or_challenge_used_for_training=True),
      "approved provenance shape"),
     (lambda info: info.update(independent_gpu_execution_attested=True),
+     "approved provenance shape"),
+    (lambda info: info.update(aligntune_train_result_steps=39),
+     "approved provenance shape"),
+    (lambda info: info.update(aligntune_train_result_steps="40"),
+     "approved provenance shape"),
+    (lambda info: info.update(aligntune_cached_train_dataset_reused=False),
+     "approved provenance shape"),
+    (lambda info: info.update(second_data_manager_load_requested=True),
+     "approved provenance shape"),
+    (lambda info: info.update(portable_adapter_members=["full_model.bin"]),
+     "approved provenance shape"),
+    (lambda info: info.update(artifact_publish_method="unsafe_direct_zip"),
      "approved provenance shape"),
     (lambda info: info["loaded_revision_evidence"].update(
         loaded_model_revision_observed="c"*40,

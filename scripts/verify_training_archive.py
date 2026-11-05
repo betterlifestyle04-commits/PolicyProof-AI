@@ -207,6 +207,17 @@ def inspect_training_directory(directory: Path) -> dict:
             or info.get("training_engine") != "AlignTune TRL wrapper.train()"
             or info.get("final_benchmark_or_challenge_used_for_training") is not False
             or info.get("independent_gpu_execution_attested") is not False
+            or type(info.get("aligntune_train_result_steps")) is not int
+            or info.get("aligntune_train_result_steps") != steps
+            or info.get("aligntune_cached_train_dataset_reused") is not True
+            or info.get("second_data_manager_load_requested") is not False
+            or info.get("portable_adapter_members") != [
+                "adapter/adapter_model.safetensors",
+                "adapter/adapter_config.json",
+                "run_info.json",
+            ]
+            or info.get("artifact_publish_method")
+                != "validated_temporary_zip_then_atomic_link"
         ):
             raise ValueError("Native 40-step trainer receipt lacks an approved provenance shape")
         evidence = info.get("loaded_revision_evidence")

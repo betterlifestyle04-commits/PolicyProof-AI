@@ -49,6 +49,10 @@ On the [public observatory](https://policyproof-ai-observatory.onrender.com), op
 
 [Standalone Colab Stage 11](../notebooks/11_native_aligntune_40step_t4.ipynb) and the [native T4 protocol](NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md) now implement a distinct 40-step **AlignTune wrapper.train()** route with the original pinned 78 training examples. This is **not executed** by CPU CI, has not produced a real saved 40-step AlignTune adapter, and is not yet an eligible Track 1 artifact. The code refuses the stale 10-step max_steps override, FP16/BF16 GradScaler, changed training source, partial optimizer steps, overwritten output and unobserved loaded model revisions in local readiness candidate labeling. The older 40-step direct-PyTorch fallback remains separate and cannot be renamed as native AlignTune.
 
+## Training export correctness gate (November 5)
+
+Native AlignTune candidate archives now require matching reported TRL trainer-state steps **and** AlignTune's returned `TrainOutput.steps`, a matching exact-three-member adapter-only ZIP layout, and explicit atomic archive publication metadata. A private temporary ZIP is validated for member set and CRC before it is linked without replacing any preexisting file; local training status is `packaging` until publication completes. CPU tests simulate disk failures, ZIP corruption and a concurrent writer, and ensure a failed export never becomes a published successful ZIP. These safeguards do not themselves establish that optimizer steps truly executed on a GPU or that the resulting answers are semantically correct.
+
 ## Highest-impact remaining work
 
 1. **Track 1:** Obtain a checkpoint produced by an eligible, demonstrated AlignTune optimizer run (the manual PyTorch 40-step fallback cannot be relabeled AlignTune). Then independently review the frozen 60 cases before any final model scoring.

@@ -50,7 +50,8 @@ class TRLSFTTrainer:
         if self.dataset is None:
             self.setup_data()
             self.dataset = self.train_dataset
-        return self.trainer.train()
+        train_result = self.trainer.train()
+        return {"steps": getattr(train_result, "global_step", 0)}
 ''',
     "trl_config": '''
 class SFTConfig(TrainingArguments):
@@ -79,6 +80,7 @@ def test_synthetic_declared_sdk_contract_has_honest_limits(source_files):
     assert report["quantized_tiny_aya_model_loaded"] is False
     assert report["model_improvement_verified"] is False
     assert report["aligntune_train_dataset_cache_branch_verified"] is True
+    assert report["aligntune_train_returned_step_counter_source_verified"] is True
     assert set(report["packages"]) == set(BASE_SOURCE)
     assert all(len(item["source_sha256"]) == 64
                for item in report["packages"].values())
@@ -95,6 +97,8 @@ def test_synthetic_declared_sdk_contract_has_honest_limits(source_files):
     ("aligntune_trl_train", "if self.dataset is None:", "if self.dataset is not None:", "dataset cache"),
     ("aligntune_trl_train", "self.setup_data()", "self.download_different_data()", "dataset cache"),
     ("aligntune_trl_train", "self.dataset = self.train_dataset", "self.dataset = []", "dataset cache"),
+    ("aligntune_trl_train", '"steps": getattr(train_result, "global_step", 0)',
+     '"steps": 40', "result steps contract"),
     ("trl_config", "max_length:", "old_length:", "max_length"),
 ])
 def test_read_only_sdk_contract_rejects_upstream_drift(

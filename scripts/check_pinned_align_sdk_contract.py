@@ -135,6 +135,30 @@ def _sft_train_reloads_missing_dataset(module: ast.Module) -> bool:
     return False
 
 
+def _sft_train_reports_trl_global_step(module: ast.Module) -> bool:
+    """Pinned real AlignTune train() must return TRL TrainOutput.global_step."""
+    cls = _class(module, "TRLSFTTrainer")
+    methods = [x for x in cls.body if isinstance(x, ast.FunctionDef)
+               and x.name == "train"]
+    if len(methods) != 1:
+        return False
+    for n in ast.walk(methods[0]):
+        if not isinstance(n, ast.Return) or not isinstance(n.value, ast.Dict):
+            continue
+        for key, value in zip(n.value.keys, n.value.values):
+            if (isinstance(key, ast.Constant) and key.value == "steps"
+                and isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id == "getattr"
+                and len(value.args) >= 2
+                and isinstance(value.args[0], ast.Name)
+                and value.args[0].id == "train_result"
+                and isinstance(value.args[1], ast.Constant)
+                and value.args[1].value == "global_step"):
+                return True
+    return False
+
+
 def inspect_sdk_source(paths: dict[str, Path]) -> dict:
     """Inspect actual installed module sources without importing package code."""
     if set(paths) != set(SOURCES):
@@ -170,6 +194,11 @@ def inspect_sdk_source(paths: dict[str, Path]) -> dict:
         raise ValueError(
             "AlignTune TRL dataset cache/reload contract changed; "
             "do not assume preverified training data are reused"
+        )
+    if not _sft_train_reports_trl_global_step(modules["aligntune_trl_train"]):
+        raise ValueError(
+            "AlignTune TRL result steps contract changed; "
+            "cannot verify optimizer count from wrapper result"
         )
 
     # Check BOTH layers. AlignTune can calculate a correct max_steps initially
@@ -209,6 +238,7 @@ def inspect_sdk_source(paths: dict[str, Path]) -> dict:
         "aligntune_factory_kwargs_and_max_steps": True,
         "aligntune_late_training_config_extraction": True,
         "aligntune_train_dataset_cache_branch_verified": True,
+        "aligntune_train_returned_step_counter_source_verified": True,
         "trl_sft_config_class_and_max_length": True,
         "packages": receipts,
         "real_trl_sftconfig_instantiated": False,
