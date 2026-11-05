@@ -30,7 +30,9 @@ def fake_final_reports(tmp_path: Path, monkeypatch):
         for r in rows
     }
     rev, digest_adapter = "a" * 40, "b" * 64
-    gpu = {"gpu": "FAKE_SYNTHETIC_GPU", "torch_version": "NOT_REAL_GPU"}
+    gpu = {"gpu": "FAKE_SYNTHETIC_GPU", "torch_version": "NOT_REAL_GPU",
+           "loaded_model_revision_observed": rev,
+           "loaded_model_revision_verified": True}
     base = make_report(rows, predictions, digest=digest, revision=rev,
                        adapter_sha=None, gpu_details=gpu)
     tuned = make_report(rows, predictions, digest=digest, revision=rev,

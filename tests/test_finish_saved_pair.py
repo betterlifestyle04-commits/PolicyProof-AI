@@ -36,7 +36,9 @@ def fixture_pack(monkeypatch, tmp_path):
         for r in rows
     }
     meta = {"gpu": "FAKE_TEST_GPU_NOT_REAL_INFERENCE",
-            "torch_version": "NOT_A_REAL_TORCH_RUNTIME"}
+            "torch_version": "NOT_A_REAL_TORCH_RUNTIME",
+            "loaded_model_revision_observed": rev,
+            "loaded_model_revision_verified": True}
     def preflight(_root, _adapter):
         return {
             "status": "READY_FOR_EXPLICIT_GPU_EXECUTION",
@@ -45,6 +47,10 @@ def fixture_pack(monkeypatch, tmp_path):
         }
     monkeypatch.setattr(gpu, "build_preflight", preflight)
     monkeypatch.setattr(cpu, "build_preflight", preflight)
+    # Synthetic run: no real adapter exists. Actual SHA-binding behaviour
+    # has separate unit tests with temporary files and no GPU usage.
+    monkeypatch.setattr(gpu, "verify_adapter_still_unchanged",
+                        lambda *_args: None)
     base, tuned, paired = (
         tmp_path / "base.json", tmp_path / "tuned.json", tmp_path / "paired.json"
     )

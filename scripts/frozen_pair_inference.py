@@ -98,6 +98,8 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
     digest = None
     revision = None
     adapter_hash = None
+    adapter_config_hash = None
+    training_receipt_hash = None
     try:
         details = validate_final_holdout(
             source_file=root / "data/final_holdout_sources_v1.json",
@@ -137,6 +139,8 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
         if not isinstance(revision, str) or not REVISION.fullmatch(revision):
             raise ValueError("Full base-model revision missing")
         adapter_hash = info["adapter_sha256"]
+        adapter_config_hash = info["adapter_config_sha256"]
+        training_receipt_hash = sha256(adapter / "run_info.json")
         checks["adapter_integrity"] = {
             "passed": True,
             "details": "PEFT layout and SHA verified; GPU execution remains externally unverified",
@@ -153,6 +157,8 @@ def build_preflight(root: Path = ROOT, adapter_directory: Path | None = None) ->
         "model": MODEL_ID,
         "base_revision": revision,
         "adapter_sha256": adapter_hash,
+        "adapter_config_sha256": adapter_config_hash,
+        "training_receipt_sha256": training_receipt_hash,
         "dataset_sha256": digest,
         "case_count": 60 if checks["frozen_dataset"]["passed"] else None,
         "generation_config": dict(GENERATION),
@@ -203,6 +209,45 @@ def normalize_chat_template_batch(encoded, torch, device):
     return input_ids.to(device), mask.to(device)
 
 
+def verify_loaded_model_revision(model, expected: str) -> str:
+    """Fail closed unless the *loaded* HF model config reports the pinned Git SHA.
+
+    A requested from_pretrained(revision=...) argument or a separate model_info
+    lookup is not evidence of the actually loaded base-model revision.
+    """
+    if not isinstance(expected, str) or not REVISION.fullmatch(expected):
+        raise ValueError("Requested Tiny Aya base-model revision is not a full Git SHA")
+    observed = getattr(getattr(model, "config", None), "_commit_hash", None)
+    if not isinstance(observed, str) or not REVISION.fullmatch(observed):
+        raise RuntimeError("Loaded Tiny Aya model did not expose an observed commit SHA")
+    if observed != expected:
+        raise RuntimeError("Loaded Tiny Aya base-model revision does not match pinned SHA")
+    return observed
+
+
+def verify_adapter_still_unchanged(adapter: Path, receipt: dict) -> None:
+    """Rehash original adapter inputs before/after real GPU use; no file writes."""
+    adapter = Path(adapter)
+    if adapter.is_symlink() or (adapter / "adapter").is_symlink():
+        raise ValueError("Training adapter directory is symlinked")
+    expected = (
+        ("adapter/adapter_model.safetensors", "adapter_sha256"),
+        ("adapter/adapter_config.json", "adapter_config_sha256"),
+        ("run_info.json", "training_receipt_sha256"),
+    )
+    for relative, key in expected:
+        digest = receipt.get(key)
+        if not isinstance(digest, str) or not re.fullmatch(r"[a-f0-9]{64}", digest):
+            raise ValueError("Preflight missing pinned original " + key)
+        path = adapter / relative
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("Training input missing or symlinked: " + relative)
+        if path.stat().st_size > 100_000_000:
+            raise ValueError("Training input too large to rehash safely: " + relative)
+        if sha256(path) != digest:
+            raise ValueError("Training evidence mutated during paired evaluation: " + relative)
+
+
 def _predict_on_gpu(rows: list[dict], revision: str,
                     adapter_directory: Path | None = None) -> tuple[dict[str, str], dict]:
     """Actual GPU-only text generation. No offline simulation or mock backend."""
@@ -220,14 +265,16 @@ def _predict_on_gpu(rows: list[dict], revision: str,
         quantization_config=cfg, device_map={"": 0},
         torch_dtype=torch.float16,
     )
-    if adapter_directory is not None:
-        from peft import PeftModel
-        model = PeftModel.from_pretrained(
-            model, str(adapter_directory), is_trainable=False
-        )
-    model.eval()
     predictions = {}
     try:
+        # Check the loaded object, not only the request passed to HF.
+        observed = verify_loaded_model_revision(model, revision)
+        if adapter_directory is not None:
+            from peft import PeftModel
+            model = PeftModel.from_pretrained(
+                model, str(adapter_directory), is_trainable=False
+            )
+        model.eval()
         for row in rows:
             prompt = make_prompt(row)
             encoded = tokenizer.apply_chat_template(
@@ -262,6 +309,8 @@ def _predict_on_gpu(rows: list[dict], revision: str,
         "torch_version": torch.__version__,
         "transformers_model_backend": "AutoModelForCausalLM",
         "quantization": "bnb_4bit",
+        "loaded_model_revision_observed": observed,
+        "loaded_model_revision_verified": True,
     }
 
 
@@ -337,6 +386,7 @@ def execute_gpu_pair(
     revision = preflight["base_revision"]
     if sha256(root / FINAL_REL) != digest:
         raise ValueError("Frozen evaluation dataset changed after preflight")
+    verify_adapter_still_unchanged(adapter, preflight)
     if resume_base:
         base_report = validate_saved_base(
             base_output, rows, dataset_sha256=digest, revision=revision,
@@ -353,9 +403,13 @@ def execute_gpu_pair(
         # Persist only the COMPLETE original base pass. If tuned loading fails,
         # this costly evidence survives for a separately authorized rerun.
         write_evidence_once(base_output, base_report)
+    # The original adapter must not change while the expensive untuned pass
+    # was running or after a resumed base report was opened.
+    verify_adapter_still_unchanged(adapter, preflight)
     tuned, tuned_gpu = _predict_on_gpu(
         rows, revision, adapter_directory=adapter / "adapter"
     )
+    verify_adapter_still_unchanged(adapter, preflight)
     tuned_report = make_report(
         rows, tuned, digest=digest, revision=revision,
         adapter_sha=preflight["adapter_sha256"], gpu_details=tuned_gpu,
@@ -368,6 +422,7 @@ def execute_gpu_pair(
     write_evidence_once(tuned_output, tuned_report)
     from scripts.auditkit_compare import comparison
     paired = comparison(base_report, tuned_report, rows, digest)
+    verify_adapter_still_unchanged(adapter, preflight)
     paired["generation_config"] = dict(GENERATION)
     paired["gpu_executed_in_this_process"] = True
     paired["base_gpu_executed_in_this_process"] = not resume_base

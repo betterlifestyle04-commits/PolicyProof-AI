@@ -56,6 +56,8 @@ def demo_report(rows=None):
         gpu_details={
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         },
     )
 
@@ -156,6 +158,10 @@ def temporary_runner(monkeypatch, tmp_path):
             "base_revision": REV, "adapter_sha256": "c" * 64,
         }
     monkeypatch.setattr(module, "build_preflight", preflight)
+    # The fake adapter path has no real PEFT tensor evidence. The new
+    # on-disk binding is regression-tested separately with real test bytes.
+    monkeypatch.setattr(module, "verify_adapter_still_unchanged",
+                        lambda *_args: None)
     return rows, data_sha
 
 
@@ -174,6 +180,8 @@ def test_tuned_failure_preserves_complete_base_for_explicit_resume(monkeypatch, 
         return dummy_predictions(), {
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         }
 
     monkeypatch.setattr(module, "_predict_on_gpu", initial_gpu_run)
@@ -197,6 +205,8 @@ def test_tuned_failure_preserves_complete_base_for_explicit_resume(monkeypatch, 
         return dummy_predictions(), {
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         }
 
     monkeypatch.setattr(module, "_predict_on_gpu", resume_gpu_run)
@@ -249,3 +259,57 @@ def test_resume_flag_never_enabled_by_read_only_cli():
     )
     assert completed.returncode != 0
     assert "--resume-base requires --execute" in completed.stderr
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda info: info.pop("loaded_model_revision_observed"),
+    lambda info: info.update(loaded_model_revision_observed="b" * 40),
+    lambda info: info.update(loaded_model_revision_verified=False),
+    lambda info: info.update(loaded_model_revision_verified="true"),
+])
+def test_saved_60_case_report_rejects_requested_only_or_conflicting_revision(
+    tmp_path, mutation,
+):
+    report = demo_report()
+    meta = report["actual_gpu_inference_metadata"]
+    mutation(meta)
+    path = tmp_path / "tampered_commit_evidence.json"
+    write_evidence_once(path, report)
+    with pytest.raises(ValueError, match="matching observed loaded-base commit"):
+        validated(path)
+
+
+def test_gpu_pair_rechecks_adapter_binding_before_and_after_tuned_pass(
+    monkeypatch, tmp_path,
+):
+    rows, digest = temporary_runner(monkeypatch, tmp_path)
+    from scripts import frozen_pair_inference as runner
+    from scripts import auditkit_compare
+    seen = []
+    monkeypatch.setattr(
+        runner, "verify_adapter_still_unchanged",
+        lambda adapter, receipt: seen.append(receipt["adapter_sha256"]),
+    )
+    def simulated_gpu(items, revision, adapter_directory=None):
+        assert revision == REV
+        return dummy_predictions(), {
+            "gpu": "NOT_REAL_T4",
+            "torch_version": "UNIT-TEST_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
+        }
+    monkeypatch.setattr(runner, "_predict_on_gpu", simulated_gpu)
+    monkeypatch.setattr(
+        auditkit_compare, "comparison",
+        lambda *_: {"status": "SYNTHETIC_AUDIT_ONLY"},
+    )
+    base, tuned, paired = (
+        tmp_path / "bound_base.json",
+        tmp_path / "bound_tuned.json",
+        tmp_path / "bound_paired.json",
+    )
+    result = execute_gpu_pair(tmp_path, tmp_path / "adapter", base, tuned, paired)
+    assert len(seen) == 4
+    assert seen == ["c" * 64] * 4
+    assert result["training_performed"] is False
+    assert base.is_file() and tuned.is_file() and paired.is_file()
