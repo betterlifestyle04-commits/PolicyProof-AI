@@ -89,6 +89,11 @@ def next_evidence_actions(checks: dict, mandatory_checks: tuple | list) -> list[
     permission is available.
     """
     mandatory = set(mandatory_checks)
+    mapped = {entry["check"] for entry in _EVIDENCE_ACTIONS}
+    missing = mandatory - mapped
+    if missing:
+        raise ValueError("No evidence-action definition for mandatory gate: "
+                         + ", ".join(sorted(missing)))
     actions = []
     for entry in _EVIDENCE_ACTIONS:
         check = entry["check"]
