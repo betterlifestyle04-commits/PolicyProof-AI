@@ -17,7 +17,7 @@ def example_pairs():
         ("en", "unknown", False, 0, 1, 0, 0, 0, 1, 1, 0),
         ("no", "supported", True, 1, 0, 1, 0, 1, 0, 0, 0),
         ("no", "unknown", False, 0, 1, 0, 0, 0, 0, 1, 1),
-        ("ar", "supported", True, 0, 0, 0, 0, 0, 1, 0, 0),
+        ("ar", "supported", True, 0, 0, 0, 1, 0, 0, 0, 0),
         ("ar", "unknown", False, 1, 1, 0, 0, 1, 1, 0, 0),
     ]
     output = {}
