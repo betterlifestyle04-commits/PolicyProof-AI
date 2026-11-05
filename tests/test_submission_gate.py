@@ -3,8 +3,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+import pytest
+
 from policyproof.core import ROOT
-from scripts.submission_gate import evaluate_readiness
+from scripts.submission_gate import evaluate_readiness, write_new_report
 
 
 def test_current_worktree_not_ready_without_real_checkpoint():
@@ -91,3 +93,57 @@ def test_fake_nonempty_weights_and_completed_metadata_fail_train_gate(tmp_path):
     assert state["checks"]["adapter_artifact_integrity"]["passed"] is False
     assert state["checks"]["trained_adapter"]["passed"] is False
     assert state["ready_for_submission"] is False
+
+
+def test_readiness_report_is_created_exclusively_and_keeps_original(tmp_path):
+    report_path = write_new_report('{"ready_for_submission":false}\\n',
+                                   "artifacts/submission_gate_v2.json", tmp_path)
+    original = report_path.read_bytes()
+    assert report_path == tmp_path / "artifacts/submission_gate_v2.json"
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        write_new_report("different report", "artifacts/submission_gate_v2.json",
+                         tmp_path)
+    assert report_path.read_bytes() == original
+
+
+@pytest.mark.parametrize("unsafe_output", [
+    "README.md",
+    "docs/LEXSI_SUBMISSION_DRAFT.md",
+    "reviews/human_votes.csv",
+    "data/final_holdout_v1.jsonl",
+    "artifacts/../docs/LEXSI_SUBMISSION_DRAFT.md",
+    "artifacts/nested/report.json",
+    "artifacts//report.json",
+    "artifacts/.hidden.json",
+    "artifacts/report.csv",
+    "artifacts\\\\report.json",
+    "/tmp/report.json",
+    "artifacts/report:evil.json",
+    "artifacts/Réport.json",
+])
+def test_readiness_output_cannot_escape_safe_report_directory(tmp_path, unsafe_output):
+    with pytest.raises(ValueError, match="Report output"):
+        write_new_report("no overwrite", unsafe_output, tmp_path)
+    assert not any((tmp_path / "artifacts").glob("*.json")) if (
+        tmp_path / "artifacts"
+    ).exists() else True
+
+
+def test_readiness_report_refuses_existing_symlink_target(tmp_path):
+    folder = tmp_path / "artifacts"
+    folder.mkdir()
+    protected = tmp_path / "protected.json"
+    protected.write_text("KEEP")
+    (folder / "link.json").symlink_to(protected)
+    with pytest.raises(FileExistsError, match="Refusing to overwrite"):
+        write_new_report("overwrite", "artifacts/link.json", tmp_path)
+    assert protected.read_text() == "KEEP"
+
+
+def test_readiness_report_refuses_symlinked_artifacts_directory(tmp_path):
+    elsewhere = tmp_path / "protected_folder"
+    elsewhere.mkdir()
+    (tmp_path / "artifacts").symlink_to(elsewhere, target_is_directory=True)
+    with pytest.raises(ValueError, match="Unsafe report output directory"):
+        write_new_report("overwrite", "artifacts/report.json", tmp_path)
+    assert list(elsewhere.iterdir()) == []
