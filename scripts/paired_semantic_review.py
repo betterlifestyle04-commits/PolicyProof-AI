@@ -129,6 +129,18 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
     assignments = {}
     case_metadata = {}
     packet_rows = []
+    # Balance base/tuned A/B ordering within each language rather than
+    # potentially skewing a small 16-case language subgroup by chance.
+    per_language = {lang: [r for r in rows if r["language"] == lang]
+                    for lang in ("en", "no", "ar")}
+    if any(len(group) != 16 for group in per_language.values()):
+        raise ValueError("Expected exactly 16 cases per development language")
+    slot_plan = {}
+    for group in per_language.values():
+        a_is_tuned = [True] * 8 + [False] * 8
+        secrets.SystemRandom().shuffle(a_is_tuned)
+        for case, swapped in zip(group, a_is_tuned):
+            slot_plan[case["id"]] = swapped
     # Real case IDs contain category/oracle clues such as UNKNOWN and INJECT.
     # Do not put these, or the answerability label, in a reviewer-visible CSV.
     # The secure owner-only key retains the mapping for post-vote analysis.
@@ -137,7 +149,7 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
             blinded_case_id = "CASE-" + secrets.token_hex(8)
             if blinded_case_id not in assignments:
                 break
-        swapped = bool(secrets.randbits(1))
+        swapped = slot_plan[row["id"]]
         assignments[blinded_case_id] = {
             "A": "tuned" if swapped else "base",
             "B": "base" if swapped else "tuned",
@@ -180,6 +192,7 @@ def export_packet(root: Path, base_path: Path, tuned_path: Path,
         "case_metadata": case_metadata,
         "case_ids_masked": True,
         "category_masked": True,
+        "model_slot_order_balanced_by_language": True,
         "human_review_performed": False,
     }
     with key_path.open("x", encoding="utf-8") as handle:
@@ -229,6 +242,7 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
         or key.get("human_review_performed") is not False
         or key.get("case_ids_masked") is not True
         or key.get("category_masked") is not True
+        or key.get("model_slot_order_balanced_by_language") is not True
         or key.get("packet_sha256") != sha256(packet_path)
         or not isinstance(key.get("assignments"), dict)
         or len(key["assignments"]) != 48
@@ -277,6 +291,14 @@ def summarize_reviews(root: Path, packet_name: str, key_name: str,
                 raise ValueError("Reviewer packet leaks gold categories or case IDs")
     if originals_seen != set(frozen_cases):
         raise ValueError("Hidden mapping omits frozen dataset cases")
+    for language in ("en", "no", "ar"):
+        group = [
+            cid for cid, meta in key["case_metadata"].items()
+            if meta["language"] == language
+        ]
+        if (len(group) != 16 or
+            sum(key["assignments"][cid].get("A") == "tuned" for cid in group) != 8):
+            raise ValueError("Model A/B assignment balance differs from sealed plan")
     for case_id, slots in key["assignments"].items():
         if slots != {"A": "base", "B": "tuned"} and slots != {"A": "tuned", "B": "base"}:
             raise ValueError("Invalid or duplicated model identities in key")
