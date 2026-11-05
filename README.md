@@ -1,3 +1,7 @@
+## November 5 — prevent redundant AlignTune training-data reload and bloated artifacts
+
+The 10/40-step native training path now hands the **original prechecked 78-row dataset object** directly to AlignTune's TRL dataset cache. The pinned 0.1.28 trainer would otherwise run `setup_data()` a second time inside `train()`. Its real installed-package behavior is covered by our separate SDK CI gate. The portable ZIP now contains only the safe PEFT adapter weights, adapter config and training receipt—**not** intermediate full checkpoints or local logs. [Technical details](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md). These fixes are not evidence that native GPU training has actually completed.
+
 The native 10/40-step training guard also now explicitly disables *load best model at end* whenever there is no evaluation dataset, closing an incompatibility found in the actual pinned AlignTune source. The final constructed TRL settings must remain `eval_strategy=no` and `load_best_model_at_end=False` before optimizer execution.
 
 ## November 5 — real pinned AlignTune/TRL source contract checks (no GPU)
