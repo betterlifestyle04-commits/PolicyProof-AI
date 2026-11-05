@@ -9,13 +9,15 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
 from policyproof.core import ROOT, sha256
 from scripts.frozen_pair_inference import (
     FINAL_REL, GENERATION, build_preflight, verify_review_signoff,
-    execute_gpu_pair,
+    execute_gpu_pair, verify_loaded_model_revision,
+    verify_adapter_still_unchanged,
 )
 
 
@@ -135,3 +137,78 @@ def test_rejects_duplicate_signoff_keys_even_when_last_value_claims_complete(tmp
     )
     with pytest.raises(ValueError, match="Invalid review signoff JSON"):
         verify_review_signoff(path, "a" * 64)
+
+
+def test_only_actually_observed_pinned_base_revision_is_accepted():
+    revision = "a" * 40
+    observed = SimpleNamespace(config=SimpleNamespace(_commit_hash=revision))
+    assert verify_loaded_model_revision(observed, revision) == revision
+    for bad in (None, "", "b" * 40, "a" * 39, "A" * 40, 123):
+        model = SimpleNamespace(config=SimpleNamespace(_commit_hash=bad))
+        with pytest.raises(RuntimeError, match="observed commit SHA|does not match"):
+            verify_loaded_model_revision(model, revision)
+
+
+def test_requested_revision_alone_is_not_proof_of_loaded_checkpoint():
+    revision = "a" * 40
+    model = SimpleNamespace(config=SimpleNamespace(name_or_path="CohereLabs/tiny-aya-global"))
+    with pytest.raises(RuntimeError, match="observed commit SHA"):
+        verify_loaded_model_revision(model, revision)
+    with pytest.raises(ValueError, match="full Git SHA"):
+        verify_loaded_model_revision(
+            SimpleNamespace(config=SimpleNamespace(_commit_hash=revision)), "main",
+        )
+
+
+def _fake_adapter_source(tmp_path):
+    directory = tmp_path / "adapter"
+    (directory / "adapter").mkdir(parents=True)
+    weights = directory / "adapter" / "adapter_model.safetensors"
+    config = directory / "adapter" / "adapter_config.json"
+    receipt = directory / "run_info.json"
+    # These are NOT genuine safetensors or training receipts: unit-test bytes
+    # solely for preflight-to-runtime *immutability* checking.
+    weights.write_bytes(b"NOT_REAL_LORA_WEIGHTS")
+    config.write_bytes(b'{"test_only":true}')
+    receipt.write_bytes(b'{"status":"SYNTHETIC_ONLY"}')
+    hashes = {
+        "adapter_sha256": sha256(weights),
+        "adapter_config_sha256": sha256(config),
+        "training_receipt_sha256": sha256(receipt),
+    }
+    return directory, hashes, (weights, config, receipt)
+
+
+def test_adapter_bytes_remain_pinned_across_multiple_checks(tmp_path):
+    directory, hashes, files = _fake_adapter_source(tmp_path)
+    verify_adapter_still_unchanged(directory, hashes)
+    verify_adapter_still_unchanged(directory, hashes)
+    assert all(path.is_file() for path in files)
+
+
+@pytest.mark.parametrize("index", [0, 1, 2])
+def test_adversarial_changes_to_weights_config_or_receipt_fail_closed(tmp_path, index):
+    directory, hashes, files = _fake_adapter_source(tmp_path)
+    files[index].write_bytes(files[index].read_bytes() + b"tamper")
+    with pytest.raises(ValueError, match="mutated during paired evaluation"):
+        verify_adapter_still_unchanged(directory, hashes)
+
+
+def test_symlinked_or_missing_adapter_input_is_not_accepted(tmp_path):
+    directory, hashes, files = _fake_adapter_source(tmp_path)
+    target = tmp_path / "original_weights.bin"
+    target.write_bytes(files[0].read_bytes())
+    files[0].unlink()
+    files[0].symlink_to(target)
+    with pytest.raises(ValueError, match="symlinked"):
+        verify_adapter_still_unchanged(directory, hashes)
+    files[0].unlink()
+    with pytest.raises(ValueError, match="missing"):
+        verify_adapter_still_unchanged(directory, hashes)
+
+
+def test_missing_preflight_hash_is_not_silently_guessed(tmp_path):
+    directory, hashes, files = _fake_adapter_source(tmp_path)
+    del hashes["training_receipt_sha256"]
+    with pytest.raises(ValueError, match="missing pinned original"):
+        verify_adapter_still_unchanged(directory, hashes)
