@@ -12,7 +12,8 @@ from scripts.reconcile_native_training_evidence import (
 from scripts.verify_training_archive import CURATOR_TRAIN_SHA256, digest
 
 
-def _fixture(tmp_path, *, full_geometry=False):
+def _fixture(tmp_path, *, full_geometry=False, verified_revision=False,
+             backend="aligntune_wrapper"):
     work = tmp_path / "native40"
     adapter = work / "adapter"
     adapter.mkdir(parents=True)
@@ -73,6 +74,27 @@ def _fixture(tmp_path, *, full_geometry=False):
         "adapter_config_sha256": digest(cfg),
         "seconds": 20.0,
     }
+    if verified_revision:
+        info["loaded_revision_evidence"] = {
+            "loaded_model_revision_observed": "a" * 40,
+            "loaded_model_revision_verified": True,
+        }
+    if backend == "manual_torch_smoke_fallback":
+        info.update({
+            "trainer_backend": backend,
+            "aligntune_trainer_completed": False,
+            "training_engine": "manual PyTorch fallback",
+            "kind": "manual PyTorch smoke run",
+            "optimizer_steps": 10,
+            "optimizer_steps_completed": 10,
+        })
+        for key in (
+            "aligntune_train_result_steps", "requested_optimizer_steps",
+            "aligntune_cached_train_dataset_reused",
+            "second_data_manager_load_requested", "portable_adapter_members",
+            "artifact_publish_method", "loaded_revision_evidence",
+        ):
+            info.pop(key, None)
     (work / "run_info.json").write_text(json.dumps(info))
     archive = tmp_path / "native40.zip"
     with ZipFile(archive, "w") as z:
@@ -90,7 +112,9 @@ def _edit_local(directory, transform):
 
 
 def test_completed_native40_consistency_is_still_only_self_reported(tmp_path):
-    directory, archive = _fixture(tmp_path, full_geometry=True)
+    directory, archive = _fixture(
+        tmp_path, full_geometry=True, verified_revision=True,
+    )
     original_bytes = {
         "local": (directory / "run_info.json").read_bytes(),
         "zip": archive.read_bytes(),
@@ -100,7 +124,10 @@ def test_completed_native40_consistency_is_still_only_self_reported(tmp_path):
     assert report["local_and_archived_receipts_identical"] is True
     assert report["archive_structural_integrity_checked"] is True
     assert report["archive_tiny_aya_geometry_matches"] is True
-    assert report["owner_review_required"] is False
+    assert report["owner_review_required"] is True
+    assert report["archive_declares_aligntune_trainer"] is True
+    assert report["archive_loaded_base_revision_verified"] is True
+    assert report["consistent_track1_artifact_candidate"] is True
     assert report["independent_gpu_training_verified"] is False
     assert report["independent_semantic_quality_verified"] is False
     assert report["safe_for_unreviewed_published_model_claim"] is False
@@ -233,3 +260,44 @@ def test_no_receipts_or_zip_is_a_clear_blocker(tmp_path):
     report = inspect_native_training_evidence(directory)
     assert report["status"] == "NO_LOCAL_OR_ARCHIVED_EVIDENCE"
     assert report["owner_review_required"] is True
+
+
+def test_matching_full_geometry_without_observed_revision_is_not_native_candidate(tmp_path):
+    directory, archive = _fixture(tmp_path, full_geometry=True)
+    report = inspect_native_training_evidence(directory, archive)
+    assert report["local_and_archived_receipts_identical"] is True
+    assert report["archive_tiny_aya_geometry_matches"] is True
+    assert report["archive_declares_aligntune_trainer"] is True
+    assert report["archive_loaded_base_revision_verified"] is False
+    assert report["consistent_track1_artifact_candidate"] is False
+    assert report["status"] == "MATCHED_UNVERIFIED_LOADED_BASE_REVISION"
+    assert report["owner_review_required"] is True
+    assert report["independent_gpu_training_verified"] is False
+
+
+def test_matching_real_size_manual_fallback_never_counts_as_native_aligntune(tmp_path):
+    directory, archive = _fixture(
+        tmp_path, full_geometry=True, backend="manual_torch_smoke_fallback",
+    )
+    report = inspect_native_training_evidence(directory, archive)
+    assert report["local_and_archived_receipts_identical"] is True
+    assert report["archive_tiny_aya_geometry_matches"] is True
+    assert report["archive_declares_aligntune_trainer"] is False
+    assert report["consistent_track1_artifact_candidate"] is False
+    assert report["status"] == "MATCHED_NON_ALIGNTUNE_BACKEND"
+    assert report["owner_review_required"] is True
+
+
+def test_claimed_verified_revision_without_observed_revision_is_rejected(tmp_path):
+    directory, archive = _fixture(tmp_path, full_geometry=True)
+    _edit_local(
+        directory,
+        lambda info: info["loaded_revision_evidence"].update(
+            loaded_model_revision_verified=True,
+        ),
+    )
+    with ZipFile(archive, "w") as z:
+        for member in EXPECTED_MEMBERS:
+            z.write(directory / member, member)
+    with pytest.raises(ValueError, match="verified model revision lacks matching"):
+        inspect_native_training_evidence(directory, archive)
