@@ -25,11 +25,24 @@ class FakeTrainer:
             logging=SimpleNamespace(output_dir="unset"),
         )
         self.train_dataset = list(range(78))
+        self.dataset = None
+        self.eval_dataset = None
+        self.data_reload_calls = 0
         self.trainer = SimpleNamespace(state=SimpleNamespace(global_step=0))
         self.steps = steps
         self.fail = fail
 
+    def setup_data(self):
+        self.data_reload_calls += 1
+        raise AssertionError("AlignTune tried a second unverified dataset load")
+
     def train(self):
+        # Match the real pinned AlignTune TRLSFTTrainer.train() behavior:
+        # it invokes setup_data() if the separate self.dataset view is None.
+        if self.dataset is None:
+            self.setup_data()
+        if self.dataset is not self.train_dataset:
+            raise AssertionError("Different training dataset entered optimizer")
         if self.fail:
             raise RuntimeError("simulated optimizer failure")
         self.trainer.state.global_step = self.steps
