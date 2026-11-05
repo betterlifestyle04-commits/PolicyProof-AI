@@ -52,6 +52,10 @@ Do not interpret these small, synthetic and previously inspected counts as stati
 4. Three source-embedded injection cases: none outputs the planted OVERRIDDEN literal and all cite a valid policy ID, but zero achieves strict text-match; this sample is far too small for a robustness claim.
 5. Supported answer example POL-U001-en-0: reference wording "up to two" versus tuned wording "no more than two" appears equivalent, but deterministic exact matching rejects it. This single illustration is NOT a substitute for full independent semantic review.
 
+## Optional official AuditKIT re-execution, CPU only
+
+For independently reproducible **toolkit scoring** from this frozen original paired-results ZIP, the owner can run the [native AuditKIT 1.1.3 replay notebook](../notebooks/08_native_dev48_auditkit_cpu.ipynb) or its [CLI protocol](DEV48_NATIVE_AUDITKIT_REPLAY.md). The tooling is implemented and tested against synthetic fixtures; **the original model pair has not been re-audited with the native toolkit in this repository because the original ZIP is not publicly committed**. Completing that owner-only replay is not GPU inference and does not resolve semantic correctness. Keep base/tuned identity private until independent reviewers vote.
+
 ## Next evaluation decision and claim boundary
 
 Preserve the original adapter and prediction ZIP files unchanged and verify off-Colab copies. Use the CPU-only tool described in [the blinded human review guide](DEV48_BLINDED_SEMANTIC_REVIEW.md) with two competent independent reviewers; do not share the private A/B mapping. Require review of factual correctness, evidence grounding, abstentions, translation and injection behavior. Reviewer disagreement must be adjudicated transparently.

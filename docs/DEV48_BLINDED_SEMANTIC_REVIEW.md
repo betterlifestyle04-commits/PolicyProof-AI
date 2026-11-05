@@ -10,6 +10,8 @@ The tool reads TWO previously saved, real-declared paired GPU inference reports,
 
 This is a development-only review, not an independent GPU rerun. Self-declared run metadata does not independently prove that CUDA was used.
 
+> **Separate model-scoring task:** The [native AuditKIT CPU replay](DEV48_NATIVE_AUDITKIT_REPLAY.md) uses the *same* pinned ZIP, but produces a **base/tuned-labeled private report**. Do not share that report with reviewers until their blinded judgments are locked. AuditKIT numeric scores are not human judgments.
+
 ## Easiest path: one original ZIP, no manual extraction
 
 **[Open the CPU-only review notebook in Google Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/07_dev48_blind_human_review_cpu.ipynb)**. It clones the public code, asks you to upload the original `policyproof_dev48_paired_gpu_results.zip`, verifies the known original SHA-256, all four ZIP entries, their internal manifest checksums, frozen 48-case dataset, model identity and recomputed response scores. It then generates a **blank 96-response blinded-review CSV** and a **separate private A/B identity key** for download.
