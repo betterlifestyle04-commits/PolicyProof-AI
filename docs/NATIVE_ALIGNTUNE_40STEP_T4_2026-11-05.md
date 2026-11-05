@@ -53,6 +53,20 @@ Training completion and safe archive publication are now separate states. After 
 
 The original on-disk AlignTune checkpoints and logs remain in the Colab working directory. The portable ZIP has exactly three files and uses the existing size/format bounds. All logs and ZIP metadata remain **self-reported** until an actual independent GPU/semantic verification.
 
+## Interrupted Colab evidence reconciliation (November 5, 2026)
+
+Native 10/40-step training now saves an **`in_progress` receipt before its first optimizer step**. A Colab disconnect or `KeyboardInterrupt` therefore leaves evidence of an attempted but **unproven** training run, rather than an absent receipt that might later be confused with a successful run. A normal failure is `failed`; during archive creation the local receipt is `packaging`. A published ZIP followed by a failed local receipt update is **`archive_published_local_receipt_failed`**, not proof that the optimizer itself failed. An additional receipt-write failure can leave the earlier `packaging` record intact; the ZIP is not deleted if already sealed.
+
+To triage **without restarting GPU training**, run the new **Stage 11 Step 7** diagnostic cell, or use:
+
+```bash
+python -m scripts.reconcile_native_training_evidence \
+  --directory artifacts/align_qlora_native40 \
+  --archive /content/policyproof_align_native40.zip
+```
+
+Omit `--archive` only when the ZIP is genuinely absent. The CPU-only checker verifies all archived adapter structure/hashes via the existing safe verifier and compares the original ZIP receipt, local receipt, and adapter content hashes. It never modifies evidence or fabricates a missing training result. A fully matching report is `MATCHED_SELF_REPORTED_COMPLETION` and **still explicitly denies** independent GPU or semantic accuracy proof; `ARCHIVE_VALID_LOCAL_RECEIPT_UNRECONCILED` requires human investigation even when the ZIP is internally sound. `INTERRUPTED_OR_RUNNING_NO_ZIP`, `FAILED_NO_ZIP`, contradictory fields and missing adapter files all block success claims. Preserve the original archive, receipt, and complete Colab logs. **Never rerun the 40-step optimizer simply to make a receipt pass.**
+
 ## Tests and reproducibility without GPU
 
 ```bash

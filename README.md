@@ -1,3 +1,7 @@
+## November 5 — read-only native training crash recovery audit
+
+The native training launcher now writes its `in_progress` receipt **before** calling AlignTune's optimizer. A hard Colab interruption therefore cannot leave a nonexistent receipt that is later mistaken for completion. A final local receipt write failure after successful ZIP publication is recorded separately, not as failed model training. The new [CPU-only read-only reconciliation tool](scripts/reconcile_native_training_evidence.py) and **Stage 11 Step 7** compare original local evidence with safe ZIP content without retraining or mutating files. Even a perfectly matched archive remains only internally consistent self-reported research evidence, not independently attested GPU execution. [Protocol](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md).
+
 ## November 5 — atomic native training artifact release
 
 PolicyProof's native AlignTune path now checks **both** the TRL optimizer state and the independent step count returned by AlignTune, and packages an adapter ZIP in a private temporary file. After exact-three-member and CRC checks it publishes the ZIP atomically without overwriting an existing download, then marks its local receipt completed. Failed publication keeps a `failed` local receipt and does **not** present an incomplete ZIP. This prevents a training-export failure being mistaken for completed model evidence. The native run remains **unexecuted on a real T4** here. [Training evidence details](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md).
