@@ -22,6 +22,12 @@ AlignTune's [SFT guide](https://aligntune.lexsi.ai/user-guide/sft/) documents `c
 
 The package uses `artifacts/align_qlora_native40` internally; the existing 10-step smoke uses `artifacts/align_qlora_smoke`. Both are non-overwriting and refuse stale output/checkpoints or preexisting ZIP files.
 
+## Verified dataset handoff and small adapter archive (November 5)
+
+Reading the **actual AlignTune 0.1.28 TRL SFT trainer** revealed a second dataset cache: after setup, `wrapper.train_dataset` contains the 78 verified training rows but `wrapper.dataset` is still `None`. The real `TRLSFTTrainer.train()` then calls `setup_data()` again if `wrapper.dataset is None`, potentially reloading or reprocessing an already-verified dataset. We now bind the **same Python dataset object** into `wrapper.dataset` immediately before `wrapper.train()`, reject a conflicting existing cache or any evaluation dataset, and verify the object identity again afterward. This blocks the redundant second DataManager load under the pinned implementation. The sixth CI job reads the REAL installed upstream trainer source and fails if its branch changes. These are still local source and runtime-object checks, **not cryptographic proof of what each token contributed to loss**.
+
+AlignTune's own trainer also saves intermediate checkpoint, tokenizer and metadata files into its output directory. Previously our ZIP recursively copied everything under that directory, risking an oversized download or rejected/unsafe archive. The original files **remain in the local Colab output directory**, but the portable release ZIP now contains **exactly** `adapter/adapter_model.safetensors`, `adapter/adapter_config.json`, and `run_info.json`. It rejects symlinks, missing safetensors, unusually large individual files or archives that would exceed the CPU verifier bounds. Never upload intermediate optimizer-state checkpoints or machine-local private logs with the adapter.
+
 ## What the wrapper actually checks
 
 - Calls `scripts.check_align_config.check_train_data()` on the real training file then compares the **exact immutable bytes SHA** before a GPU optimizer is possible.
