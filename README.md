@@ -1,3 +1,7 @@
+## November 5 — no oracle labels in blinded human-review packets
+
+The [development A/B human-review workflow](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md) now exports **v2 masked packets**: opaque random case identifiers and the same neutral `review_case` category for every response. This fixes leakage of `UNKNOWN`/`INJECT` case IDs and unsupported-answer labels to blinded reviewers. The owner-only sealed key stores the true IDs/categories, and model order is balanced 8/8 per language. [One-ZIP CPU review notebook](notebooks/07_dev48_blind_human_review_cpu.ipynb) checks these protections before download. No reviewer judgments are fabricated or collected by the change; human review remains outstanding.
+
 ## November 5 — wrong-product source-citation checks (no GPU)
 
 The [conservative multilingual cited-topic audit](docs/CITED_POLICY_TOPIC_AUDIT_2026-11-05.md) now flags clear cases where a model gives an overdraft-rate answer using a **real but unrelated savings withdrawal fee**: a number can match the cited policy and still concern the wrong product. The public guard demo and private SHA-pinned base-vs-adapter triage expose topic discrepancies without training, new inference or using gold labels for topic classification. **A topic match is not evidence entailment, a flag is not a factual verdict, and neither model quality nor submission status is proved.**
