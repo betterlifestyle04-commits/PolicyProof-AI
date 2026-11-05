@@ -9,6 +9,7 @@ import pytest
 
 from policyproof.core import ROOT, make_gold, read_jsonl, sha256
 from scripts.frozen_pair_inference import make_report
+from scripts.final_pair_diagnostics import diagnostics_from_raw_reports
 from scripts.submission_evidence import (
     _paired_deltas, paired_evaluation_from_sources,
     public_hf_evidence, source_linked_review,
@@ -59,6 +60,9 @@ def fake_final_reports(tmp_path: Path, monkeypatch):
         "baseline_auditkit_fingerprint": "SYNTHETIC-NOT-A-REAL-AUDITKIT-RUN",
         "candidate_auditkit_fingerprint": "SYNTHETIC-NOT-A-REAL-AUDITKIT-RUN",
         "case_matched_deterministic_counts": _paired_deltas(rows, base, tuned),
+        "case_matched_exploratory_diagnostics": diagnostics_from_raw_reports(
+            rows, base, tuned
+        ),
         "base_report_sha256": sha256(baseline_file),
         "tuned_report_sha256": sha256(tuned_file),
     }
@@ -111,6 +115,7 @@ def test_synthetic_correctly_linked_pair_is_just_structural(monkeypatch, tmp_pat
     ("semantics_independently_reviewed", True),
     ("baseline_model_revision", "c" * 40),
     ("case_matched_deterministic_counts", {"correct": {"baseline_count": 60}}),
+    ("case_matched_exploratory_diagnostics", {"status": "FALSIFIED"}),
     ("base_report_sha256", "f" * 64),
     ("candidate_auditkit_fingerprint", None),
 ])
@@ -180,3 +185,28 @@ def test_fake_manifest_bound_receipt_without_adapter_repo_still_fails(
     published, collections, why = public_hf_evidence(tmp_path)
     assert (published, collections) == (False, False)
     assert "Adapter" in why
+
+
+def test_tampering_language_slice_discordance_rejected_even_if_totals_match(monkeypatch, tmp_path):
+    root, rows, base, tuned, pair_file = fake_final_reports(tmp_path, monkeypatch)
+    record = json.loads(pair_file.read_text(encoding="utf-8"))
+    # Aggregate deltas remain untouched, but a fake language-slice claim fails.
+    report = record["case_matched_exploratory_diagnostics"]
+    language = next(iter(report["by_language"]))
+    report["by_language"][language]["metrics"]["strict_exact"]["improved_cases"] += 1
+    pair_file.write_text(json.dumps(record), encoding="utf-8")
+    accepted, reason = paired_evaluation_from_sources(
+        root, [], review_is_valid=True
+    )
+    assert accepted is False
+    assert "diagnostics do not reproduce" in reason
+
+
+def test_missing_paired_uncertainty_receipt_fails_closed(monkeypatch, tmp_path):
+    root, rows, base, tuned, pair_file = fake_final_reports(tmp_path, monkeypatch)
+    record = json.loads(pair_file.read_text(encoding="utf-8"))
+    del record["case_matched_exploratory_diagnostics"]
+    pair_file.write_text(json.dumps(record), encoding="utf-8")
+    accepted, reason = paired_evaluation_from_sources(root, [], review_is_valid=True)
+    assert accepted is False
+    assert "diagnostics do not reproduce" in reason

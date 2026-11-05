@@ -11,6 +11,7 @@ from pathlib import Path
 
 from policyproof.core import read_jsonl, sha256 as file_sha, score
 from scripts.auditkit_replay import check_saved_outputs, make_audit_samples, make_scorers
+from scripts.final_pair_diagnostics import analyze_scored_pairs
 
 
 def validate_pair(base: dict, candidate: dict, rows: list[dict], checksum: str):
@@ -93,12 +94,14 @@ def comparison(base: dict, candidate: dict, rows: list[dict], checksum: str) -> 
         "auditkit_baseline": baseline_run.headline,
         "auditkit_candidate": candidate_run.headline,
         "case_matched_deterministic_counts": deltas,
+        "case_matched_exploratory_diagnostics": analyze_scored_pairs(cases),
         "verified_human_semantic_improvement": False,
         "limitations": [
             "Strict exact-match is sensitive to wording",
             "Citation ID match is not evidence-grounded semantic correctness",
             "Synthetic benchmark has small unsupported/injection subsets",
-            "Separate human review and uncertainty estimates required",
+            "Exploratory paired uncertainty and subgroup comparisons are descriptive only, without correction for multiple comparisons",
+            "Independent human model-answer review and externally verified inference still required",
             "This replays existing predictions; no model inference was performed",
         ],
     }
