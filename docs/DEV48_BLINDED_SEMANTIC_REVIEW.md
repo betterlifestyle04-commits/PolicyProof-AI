@@ -65,6 +65,37 @@ The script validates the original packet digest and ensures no reviewer changed 
 
 If all reviewers agree, the summary provides descriptive paired rates, Wilson intervals and exact small-sample discordance p values, with overall, supported/unsupported and English/Norwegian/Arabic subsets. It still explicitly does NOT attest reviewer identity, reviewer competence, human independence or broader safety. The private mapping and complete reviewed CSVs are confidential and Git-ignored.
 
+## Step 3 — Resolve actual human disagreements without rewriting anyone's review
+
+If the `summarize` command returns `DISAGREEMENTS_REQUIRE_HUMAN_ADJUDICATION`, **do not change the two original CSVs to force consensus**. The new owner-only adjudication tool exports precisely the disputed, already-masked response rows as a new blank packet, hiding the model identity, first-reviewer votes and gold categories. It writes a separate private source-checksum manifest to ensure the first two reviews cannot silently change afterward.
+
+**[Colab Stage 9 — create the blank, masked dispute packet](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/09_dev48_blind_dispute_export_cpu.ipynb)** (CPU only). Upload exactly `dev48_blank.csv`, `dev48_private_mapping.json`, `reviewer_A.csv` and `reviewer_B.csv`, all from the same **v2** packet. The notebook checks both complete reviewer files, then, **only if disputes exist**, provides `dev48_disputes_blank.csv` and `dev48_disputes_private_manifest.json` for download. Share **only the blank CSV** with a genuinely independent, qualified adjudicator. Keep the manifest and A/B key owner-only.
+
+The local equivalent:
+
+```bash
+python -m scripts.adjudicate_dev48_review export \
+  --reviews reviews/reviewer_A.csv reviews/reviewer_B.csv
+```
+
+The third reviewer receives the same seven frozen reviewer-facing columns (random case ID, language, neutral category, question, policy evidence, A/B slot and raw answer) **without prior reviewer votes**. They must provide one distinct reviewer code, score all three original fields with `0` or `1` for every disputed response, preserve the evidence columns, and return `reviews/dev48_adjudicator_completed.csv`. No software step creates or predicts their votes.
+
+**[Colab Stage 10 — verify completed adjudication](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/10_dev48_blind_dispute_resolve_cpu.ipynb)** (CPU only). Upload the original four files above, the blank disputed CSV, the original private manifest and the genuinely filled adjudicator CSV — all **seven files**. It checks the SHA-256 of the original packet, key and two reviewer CSVs against the private manifest; verifies the adjudicator's distinct code, all original frozen evidence and complete disputed coverage; and produces a **private descriptive** owner-only JSON report.
+
+Local equivalent:
+
+```bash
+python -m scripts.adjudicate_dev48_review resolve \
+  --reviews reviews/reviewer_A.csv reviews/reviewer_B.csv \
+  --adjudicator reviews/dev48_adjudicator_completed.csv
+```
+
+**Reconciliation rule:** for each response and each of the three verdict fields, original unanimous votes remain **unchanged**. Only fields on which the first reviewers disagreed are assigned the adjudicator's independently completed third judgment. All original reviewer files and their SHA-256 fingerprints are preserved. Comparative base/tuned metrics and language/answerability subgroups are computed only after this validation. The final report records the exact number of disputed **response rows** and disputed **verdict fields**.
+
+If there were no disputes, use the original `summarize` output; **no third reviewer is needed**. If you already performed a genuine historical v1 review, preserve it separately: v1 IDs and categories were less effectively masked, and the v2 adjudication tool must not be used to retroactively relabel old reviews as blinded.
+
+**Limits:** A distinct pseudonym cannot prove a separate human identity, expertise, independence, or competence. The tool makes no model-quality conclusion, cannot adjudicate itself, and cannot turn a previously inspected synthetic dev48 set into the independently reviewed final 60-case benchmark. Do not disclose the private manifest, key or reconciled model-identified results to third-party reviewers while assessments remain open.
+
 ## Limitations and next work
 
 - The 48 samples were previously inspected and synthetic; they are not a fresh final benchmark.
