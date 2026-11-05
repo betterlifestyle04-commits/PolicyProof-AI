@@ -50,3 +50,7 @@ A model response claiming **"overdraft interest is NOK 25 daily"** while citing 
 Similarly, spelled-out Arabic dual forms, relative paraphrases, calculated equivalents, comparisons, conversions and negations are beyond this basic number matching. Literal mismatches may be legitimate paraphrases. False negatives and false positives are both possible. The algorithm has **no calibrated precision, recall or external test validation**. Do not use it as a financial decision authority, production banking security guarantee or evidence of model generalization.
 
 The next required experiment remains the separate blinded A/B human review of 48 saved development cases, followed by the independently reviewed 60-case candidate final comparison. Never tune on that final set or report 48-case diagnostics as final-blind performance.
+
+## Added separate product-topic relevance triage
+
+The [source-topic mismatch audit](CITED_POLICY_TOPIC_AUDIT_2026-11-05.md) now adds an independent lexical question-versus-cited-policy product check. It catches the known failure type where NOK 25 exists in a savings-withdrawal policy but an output applies that number to overdraft interest. **Neither numeric nor topic matches are proof of factual correctness.** Private paired results can be checked on both saved model variants; preserve reviewer blinding.
