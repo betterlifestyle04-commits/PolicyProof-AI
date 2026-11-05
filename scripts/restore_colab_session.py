@@ -94,22 +94,28 @@ def restore_curated_archive(archive: str | Path, destination: str | Path) -> dic
         "native_training_executed": False,
     }
 
+def validate_requested_revision(revision: str | None) -> str | None:
+    """Reject a malformed revision before importing GPU training packages."""
+    if revision is not None and (
+        not isinstance(revision, str)
+        or not re.fullmatch(r"[a-f0-9]{40}", revision)
+    ):
+        raise ValueError("Require complete pinned 40-hex requested base revision")
+    return revision
+
+
 def restore_model_and_data(curated_dir: str | Path, *,
                            expected_gpu="T4", expected_revision: str | None = None):
     """Load one quantized PEFT model and prepare training data; do not train."""
+    validate_requested_revision(expected_revision)
     import torch
     import bitsandbytes as bnb
     from peft import PeftModel
     from scripts.check_align_config import check_train_data, make_training_wrapper
     from scripts.t4_torch_fallback import preflight_tokenization
 
-    # Validate the requested revision before using the Colab GPU or
-    # downloading multi-GB weights; the loaded revision is checked separately.
-    if expected_revision is not None and (
-        not isinstance(expected_revision, str)
-        or not re.fullmatch(r"[a-f0-9]{40}", expected_revision)
-    ):
-        raise ValueError("Require complete pinned 40-hex requested base revision")
+    # Requested revision checked before heavyweight imports; actual loaded
+    # config._commit_hash inspected separately after the model is initialized.
     curated_dir = Path(curated_dir)
     audit = check_train_data(curated_dir / "sft_alpaca.jsonl")
     if audit["dataset_sha256"] != EXPECTED_SHA:
