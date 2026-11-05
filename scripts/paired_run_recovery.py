@@ -106,6 +106,12 @@ def validate_saved_report(
         or not isinstance(provenance.get("torch_version"), str)
         or not provenance["torch_version"]):
         raise ValueError("Saved base lacks declared GPU provenance")
+    if (provenance.get("loaded_model_revision_verified") is not True
+        or provenance.get("loaded_model_revision_observed") != revision):
+        raise ValueError(
+            "Saved model report lacks a matching observed loaded-base commit; "
+            "requested HF revision alone is insufficient"
+        )
     created = report.get("created_utc")
     if not isinstance(created, str):
         raise ValueError("Saved base has no inference timestamp")
