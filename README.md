@@ -1,3 +1,7 @@
+## November 5 — atomic native training artifact release
+
+PolicyProof's native AlignTune path now checks **both** the TRL optimizer state and the independent step count returned by AlignTune, and packages an adapter ZIP in a private temporary file. After exact-three-member and CRC checks it publishes the ZIP atomically without overwriting an existing download, then marks its local receipt completed. Failed publication keeps a `failed` local receipt and does **not** present an incomplete ZIP. This prevents a training-export failure being mistaken for completed model evidence. The native run remains **unexecuted on a real T4** here. [Training evidence details](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md).
+
 ## November 5 — prevent redundant AlignTune training-data reload and bloated artifacts
 
 The 10/40-step native training path now hands the **original prechecked 78-row dataset object** directly to AlignTune's TRL dataset cache. The pinned 0.1.28 trainer would otherwise run `setup_data()` a second time inside `train()`. Its real installed-package behavior is covered by our separate SDK CI gate. The portable ZIP now contains only the safe PEFT adapter weights, adapter config and training receipt—**not** intermediate full checkpoints or local logs. [Technical details](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md). These fixes are not evidence that native GPU training has actually completed.
