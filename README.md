@@ -1,3 +1,7 @@
+## November 5 — verified, non-destructive Colab training data restoration
+
+The [original AlignTune/T4 notebook](notebooks/03_aligntune_qlora_t4.ipynb) now restores the exact SHA-pinned 78-row CuratorKIT data through private staging and **never overwrites** an existing nonidentical training file. It also checks the requested Tiny Aya model revision against the *loaded* model config when available; missing loaded revision metadata remains explicitly unverified. [Training recovery protection and reproducibility guide](docs/COLAB_CURATOR_RESTORE_SAFETY_2026-11-05.md). **This change is CPU-tested only; no new AlignTune training or semantic model improvement was performed.**
+
 ## November 5 — reproducible native AuditKIT rerun from saved GPU output ZIP
 
 A new [CPU-only Colab notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/08_native_dev48_auditkit_cpu.ipynb) and [strict replay script](scripts/replay_dev48_native_auditkit.py) let the project owner verify the original SHA-pinned 48-case results ZIP, then actually run official **AuditKIT 1.1.3** on the 48 fresh-base and 48 adapted-model *saved* responses. The resulting receipt is private and **is not included as completed empirical evidence until the owner actually runs it**. It cannot prove GPU execution, factual improvement, or blind final performance. See [replay protocol](docs/DEV48_NATIVE_AUDITKIT_REPLAY.md). **Protect the base/tuned report from blinded reviewers.**
