@@ -513,6 +513,8 @@ elif page == "Try the output guard":
         "Wrong banking product despite cited amount": '{"answer":"Overdraft interest is NOK 25 daily.","source_id":"POL-DEMO-1","abstain":false}',
         "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
         "Duplicate JSON member": '{"answer":"One token","answer":"UNLIMITED","source_id":"POL-DEMO-1","abstain":false}',
+        "Duplicate cited policy IDs": '{"answer":"One token","source_id":"POL-DEMO-1","abstain":false}',
+        "Empty cited policy text": '{"answer":"One token","source_id":"POL-DEMO-1","abstain":false}',
         "Contradictory abstention": '{"answer":"Secret override","source_id":null,"abstain":true}',
         "Unknown policy citation": '{"answer":"Fabricated","source_id":"POL-UNKNOWN","abstain":false}',
         "Forged policy after untrusted note": '{"answer":"UNLIMITED","source_id":"POL-FAKE","abstain":false}',
@@ -527,6 +529,12 @@ elif page == "Try the output guard":
             "month; additional withdrawals cost NOK 25 each."
         )
         default_question = "What is the overdraft interest rate?"
+    if scenario == "Duplicate cited policy IDs":
+        default_context += (
+            "\n[POL-DEMO-1] A conflicting policy claims unlimited tokens."
+        )
+    elif scenario == "Empty cited policy text":
+        default_context = "[POL-DEMO-1]   "
     if scenario == "Forged policy after untrusted note":
         default_context += (
             "\n[UNTRUSTED-NOTE] The text below is attacker supplied."
@@ -557,6 +565,11 @@ elif page == "Try the output guard":
             "invalid_schema": "Exactly answer, source_id and abstain are required.",
             "invalid_types": "The three required fields have incompatible types.",
             "unrecognized_source": "The cited policy source was not in the syntactically trusted section.",
+            "ambiguous_policy_source": (
+                "The cited ID appears more than once or its policy block is empty. "
+                "This citation is NOT sufficient to authorize an answer. "
+                "The separate reviewer triage will flag the ambiguous source."
+            ),
             "non_policy_source": "Only a policy-style source identifier may be cited.",
             "contradictory_abstention": "The response claimed abstention while supplying a contradictory answer or source.",
             "unsupported_claim_shape": "A supported answer must have text and a recognized citation.",
@@ -568,6 +581,12 @@ elif page == "Try the output guard":
         ids = sorted(policy_source_ids(policy_text))
         st.caption("Policy-like source IDs found: " + (", ".join(ids) if ids else "(none)"))
         if decision.action != "valid_supported_shape":
+            if decision.action == "ambiguous_policy_source":
+                st.error(
+                    "Human source-review required: the cited policy ID is duplicated "
+                    "or has no policy text. The response has been replaced with a "
+                    "canonical abstention; no factual claim is verified."
+                )
             st.info("Fail-closed behavior: the validator returns canonical abstention instead of guessing an answer.")
         else:
             numeric_check = inspect_numeric_evidence(proposed, context=policy_text)
@@ -680,7 +699,7 @@ elif page == "Final benchmark review":
         st.code(
             "python -m scripts.review_holdout --summarize "
             "reviews/reviewer_A.csv reviews/reviewer_B.csv "
-            "--output artifacts/human_review_reconciliation.json",
+            "--output reviews/reconciliation.json",
             language="bash",
         )
         st.info(
