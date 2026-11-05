@@ -103,6 +103,13 @@ def restore_model_and_data(curated_dir: str | Path, *,
     from scripts.check_align_config import check_train_data, make_training_wrapper
     from scripts.t4_torch_fallback import preflight_tokenization
 
+    # Validate the requested revision before using the Colab GPU or
+    # downloading multi-GB weights; the loaded revision is checked separately.
+    if expected_revision is not None and (
+        not isinstance(expected_revision, str)
+        or not re.fullmatch(r"[a-f0-9]{40}", expected_revision)
+    ):
+        raise ValueError("Require complete pinned 40-hex requested base revision")
     curated_dir = Path(curated_dir)
     audit = check_train_data(curated_dir / "sft_alpaca.jsonl")
     if audit["dataset_sha256"] != EXPECTED_SHA:
@@ -122,10 +129,6 @@ def restore_model_and_data(curated_dir: str | Path, *,
     # Inspect actual loaded config._commit_hash where available; refuse any
     # conflict and mark a missing hash as UNVERIFIED rather than assumed.
     if expected_revision is not None:
-        if not isinstance(expected_revision, str) or not re.fullmatch(
-            r"[a-f0-9]{40}", expected_revision
-        ):
-            raise ValueError("Require complete pinned 40-hex requested base revision")
         from scripts.t4_torch_fallback import check_loaded_revision
         observed_revision = check_loaded_revision(wrapper.model, expected_revision)
     else:
