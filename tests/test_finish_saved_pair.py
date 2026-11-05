@@ -36,7 +36,9 @@ def fixture_pack(monkeypatch, tmp_path):
         for r in rows
     }
     meta = {"gpu": "FAKE_TEST_GPU_NOT_REAL_INFERENCE",
-            "torch_version": "NOT_A_REAL_TORCH_RUNTIME"}
+            "torch_version": "NOT_A_REAL_TORCH_RUNTIME",
+            "loaded_model_revision_observed": rev,
+            "loaded_model_revision_verified": True}
     def preflight(_root, _adapter):
         return {
             "status": "READY_FOR_EXPLICIT_GPU_EXECUTION",
