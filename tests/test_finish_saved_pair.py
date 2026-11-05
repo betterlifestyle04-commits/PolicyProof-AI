@@ -47,6 +47,10 @@ def fixture_pack(monkeypatch, tmp_path):
         }
     monkeypatch.setattr(gpu, "build_preflight", preflight)
     monkeypatch.setattr(cpu, "build_preflight", preflight)
+    # Synthetic run: no real adapter exists. Actual SHA-binding behaviour
+    # has separate unit tests with temporary files and no GPU usage.
+    monkeypatch.setattr(gpu, "verify_adapter_still_unchanged",
+                        lambda *_args: None)
     base, tuned, paired = (
         tmp_path / "base.json", tmp_path / "tuned.json", tmp_path / "paired.json"
     )
