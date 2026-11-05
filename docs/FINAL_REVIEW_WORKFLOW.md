@@ -39,7 +39,7 @@ Review in a spreadsheet editor or CSV tool. Do not change case IDs, question/con
 ```bash
 python -m scripts.review_holdout \
   --summarize reviews/reviewer_A.csv reviews/reviewer_B.csv \
-  --output artifacts/human_review_reconciliation.json
+  --output reviews/reconciliation.json
 ```
 
 This command checks all 60 cases and the exact original content; rejects changed question text, changed source evidence, changed proposed gold, wrong dataset SHA, missing/duplicate case IDs, unknown verdict values, and repeated reviewer codes; then reports:
