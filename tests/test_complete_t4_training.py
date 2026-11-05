@@ -649,6 +649,7 @@ def test_keyboard_interrupt_leaves_preoptimizer_receipt_not_success(fixture):
 def test_postpublish_local_receipt_failure_is_not_mislabeled_as_failed_training(
     fixture, monkeypatch
 ):
+    import zipfile
     original = target._write_receipt_atomic
     calls = []
 
