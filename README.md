@@ -1,3 +1,5 @@
+The native 10/40-step training guard also now explicitly disables *load best model at end* whenever there is no evaluation dataset, closing an incompatibility found in the actual pinned AlignTune source. The final constructed TRL settings must remain `eval_strategy=no` and `load_best_model_at_end=False` before optimizer execution.
+
 ## November 5 — real pinned AlignTune/TRL source contract checks (no GPU)
 
 GitHub CI now installs the **actual AlignTune 0.1.28 and TRL 1.7.1 wheels** in a separate lightweight CPU job and inspects the real SDK configuration-builder, factory, late-argument merge and SFTConfig source. A version/source/API drift fails the new job. The [published-source verification protocol](docs/REAL_ALIGN_SDK_SOURCE_CONTRACT_2026-11-05.md) explains exact SHA receipts and limitations. **This is source compatibility, not a runtime import, SFTConfig construction or executed native training.** The 40-step [T4 notebook](notebooks/11_native_aligntune_40step_t4.ipynb) still requires a real owner-triggered GPU run.
