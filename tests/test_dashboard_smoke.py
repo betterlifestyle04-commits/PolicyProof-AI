@@ -186,3 +186,35 @@ def test_judge_release_ledger_shows_both_tracks_and_unfinished_steps():
                for warning in app.warning)
     assert any("Release gate verification protocol" in item.value
                for item in app.markdown)
+
+
+
+def test_guard_playground_flags_wrong_product_even_when_number_is_cited():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Try the output guard").run()
+    example = next(x for x in app.selectbox if x.label == "Try an example")
+    assert "Wrong banking product despite cited amount" in example.options
+    example.set_value("Wrong banking product despite cited amount").run()
+    assert any("Fictional user question" in x.label for x in app.text_input)
+    question = next(x for x in app.text_input if "Fictional user question" in x.label)
+    assert "overdraft" in question.value
+    validate = next(x for x in app.button if x.label == "Validate response")
+    validate.click().run()
+    assert not app.exception, str(app.exception)
+    assert any("Source-topic mismatch requires HUMAN review" in x.value
+               for x in app.error)
+    assert not any("Numeric evidence review needed" in x.value
+                   for x in app.error)
+
+
+def test_saved_topic_relevance_is_present_and_not_mislabeled_factual_accuracy():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Output guard experiment").run()
+    assert not app.exception, str(app.exception)
+    assert any(x.label == "Cited-topic mismatch review flags" for x in app.metric)
+    assert any("A matching fee number may refer to the wrong product" in x.value
+               for x in app.warning)
+    assert any("reference answers and gold source IDs are not used" in x.value
+               for x in app.caption)
