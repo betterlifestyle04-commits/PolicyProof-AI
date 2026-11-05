@@ -31,13 +31,19 @@ def restore_curated_archive(archive: str | Path, destination: str | Path) -> dic
     """
     from scripts.verify_curator_archive import check_zip
     from scripts.check_align_config import check_train_data
+    from policyproof.core import sha256 as file_sha256
 
     archive, destination = Path(archive), Path(destination)
     if not archive.is_file() or archive.is_symlink():
         raise ValueError("CuratorKIT ZIP missing or symlinked")
     if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
         raise ValueError("Curated destination is not a safe directory")
+    # Hash before and after the structural ZIP check. The uploaded file
+    # cannot be silently swapped between validation and private extraction.
+    pinned_source_zip_sha256 = file_sha256(archive)
     result = check_zip(archive)
+    if file_sha256(archive) != pinned_source_zip_sha256:
+        raise ValueError("CuratorKIT ZIP changed during integrity preflight")
     if result["row_count"] != 78 or result["status"] != "pass":
         raise ValueError("Not the verified 78-example CuratorKIT export")
 
@@ -53,6 +59,11 @@ def restore_curated_archive(archive: str | Path, destination: str | Path) -> dic
                     raise ValueError("Unexpected archive member path")
                 with z.open(name) as source, (staged / name).open("xb") as output:
                     shutil.copyfileobj(source, output, length=1024 * 1024)
+        # Any mutation to the source ZIP since validation makes the
+        # source provenance ambiguous. Abort while all staged files are still
+        # outside the training directory.
+        if file_sha256(archive) != pinned_source_zip_sha256:
+            raise ValueError("CuratorKIT ZIP changed during private staging")
         checked = check_train_data(staged / "sft_alpaca.jsonl")
         if checked["dataset_sha256"] != EXPECTED_SHA:
             raise ValueError("Training data differs from original audited 78-row export")
@@ -90,6 +101,8 @@ def restore_curated_archive(archive: str | Path, destination: str | Path) -> dic
     return {
         **checked,
         "restore_verified_before_writes": True,
+        "source_zip_sha256": pinned_source_zip_sha256,
+        "source_zip_unchanged_during_staging": True,
         "existing_files_overwritten": False,
         "native_training_executed": False,
     }
