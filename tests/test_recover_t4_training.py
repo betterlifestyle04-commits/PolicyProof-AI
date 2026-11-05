@@ -32,12 +32,12 @@ class Wrapper:
 
 def test_combined_recovery_casts_only_lora_and_disables_amp(monkeypatch):
     wrapper = Wrapper()
-    def fake_no_amp(t):
+    def fake_no_amp(t, *, target_steps=10):
         t.config.model.precision = "fp32"
         t.config.train.fp16 = False
         t.config.train.bf16 = False
         t.model.zero_grad(set_to_none=True)
-        return {"trl_config_fp16": False, "trl_config_bf16": False, "trl_max_steps": 10}
+        return {"trl_config_fp16": False, "trl_config_bf16": False, "trl_max_steps": target_steps}
     monkeypatch.setattr("scripts.recover_t4_training.prepare_t4_no_scaler", fake_no_amp)
     report = recover_t4(wrapper)
     assert report["status"] == "ready_for_controlled_train_attempt"
@@ -55,3 +55,51 @@ def test_combined_recovery_refuses_partial_optimizer_progress(monkeypatch):
     with pytest.raises(ValueError, match="Completed optimizer steps"):
         recover_t4(wrapper)
     assert wrapper.model.lora_0.dtype == torch.bfloat16
+
+
+
+def test_combined_native_40step_recovery_uses_40_instead_of_smoke(monkeypatch):
+    wrapper = Wrapper()
+    def fake_no_amp(t, *, target_steps=10):
+        assert target_steps == 40
+        t.config.model.precision = "fp32"
+        t.config.train.fp16 = False
+        t.config.train.bf16 = False
+        t.model.zero_grad(set_to_none=True)
+        return {"trl_config_fp16": False, "trl_config_bf16": False,
+                "trl_max_steps": target_steps}
+    monkeypatch.setattr(
+        "scripts.recover_t4_training.prepare_t4_no_scaler", fake_no_amp
+    )
+    receipt = recover_t4(wrapper, target_steps=40)
+    assert receipt["max_steps"] == 40
+    assert receipt["native_aligntune_steps_requested"] == 40
+    assert receipt["training_performed"] is False
+    assert receipt["optimizer_steps_completed"] == 0
+    assert all(p.dtype == torch.float32 for p in wrapper.model.parameters()
+               if p.requires_grad)
+
+
+def test_recovery_refuses_unapproved_optimizer_steps_before_adapter_recast():
+    wrapper = Wrapper()
+    for steps in (0, 39, 41, True, "40", -1):
+        with pytest.raises(ValueError, match="10 or 40"):
+            recover_t4(wrapper, target_steps=steps)
+    assert wrapper.model.lora_0.dtype == torch.bfloat16
+
+
+def test_recovery_detects_wrong_budget_from_trl_config(monkeypatch):
+    wrapper = Wrapper()
+    def stale_trl(_wrapper, *, target_steps=10):
+        assert target_steps == 40
+        _wrapper.config.model.precision = "fp32"
+        _wrapper.config.train.fp16 = False
+        _wrapper.config.train.bf16 = False
+        _wrapper.model.zero_grad(set_to_none=True)
+        return {"trl_config_fp16": False, "trl_config_bf16": False,
+                "trl_max_steps": 10}
+    monkeypatch.setattr(
+        "scripts.recover_t4_training.prepare_t4_no_scaler", stale_trl
+    )
+    with pytest.raises(RuntimeError, match="recovery verification failed"):
+        recover_t4(wrapper, target_steps=40)
