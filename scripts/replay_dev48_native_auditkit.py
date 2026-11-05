@@ -12,6 +12,7 @@ reviewers until their individual judgments are locked.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -77,6 +78,16 @@ def validated_dev48_source(root: Path, bundle: Path,
             data_sha=dataset_sha, adapter_sha=tuned_json["adapter_sha256"],
             zip_sha=tuned_json["adapter_source_zip_sha256"],
         )
+    meta = dict(meta)
+    meta["original_base_report_member_sha256"] = hashlib.sha256(
+        members["dev48_base.json"]
+    ).hexdigest()
+    meta["original_tuned_report_member_sha256"] = hashlib.sha256(
+        members["dev48_tuned.json"]
+    ).hexdigest()
+    meta["original_paired_report_member_sha256"] = hashlib.sha256(
+        members["dev48_paired_auditkit.json"]
+    ).hexdigest()
     counts = _matched_counts(rows, base, tuned)
     if archived.get("case_matched_deterministic_counts") != counts:
         raise ValueError("Archived paired counts conflict with recomputed raw outputs")
@@ -119,15 +130,9 @@ def replay(root: Path, bundle: Path, expected_sha256: str,
         "split": "already_inspected_synthetic_development_only",
         "pinned_source_bundle_sha256": meta["source_zip_sha256"],
         "pinned_dataset_sha256": meta["dataset_sha256"],
-        "base_report_sha256": __import__("hashlib").sha256(
-            json.dumps(base, ensure_ascii=False).encode("utf-8")
-        ).hexdigest(),  # normalized object, not original ZIP member bytes
-        "original_base_report_member_sha256": __import__("hashlib").sha256(
-            __import__("zipfile").ZipFile(bundle).read("dev48_base.json")
-        ).hexdigest(),
-        "original_tuned_report_member_sha256": __import__("hashlib").sha256(
-            __import__("zipfile").ZipFile(bundle).read("dev48_tuned.json")
-        ).hexdigest(),
+        "original_base_report_member_sha256": meta["original_base_report_member_sha256"],
+        "original_tuned_report_member_sha256": meta["original_tuned_report_member_sha256"],
+        "original_paired_report_member_sha256": meta["original_paired_report_member_sha256"],
         "model_revision_reported": base["model_revision"],
         "adapter_sha256_reported": tuned["adapter_sha256"],
         "auditkit_version_replayed": version,
