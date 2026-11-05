@@ -763,6 +763,79 @@ elif page == "Judge verification":
             for key, check in receipt["checks"].items()
         ], width="stretch", hide_index=True,
     )
+    st.markdown("#### Final 60-case paired uncertainty — verified source records only")
+    if track1_gate["checks"]["paired_finetuned_evaluation"]["passed"]:
+        # This panel is deliberately invisible until the source validator has
+        # recomputed the original 120 responses, counts and every subgroup.
+        from scripts.verify_hf_collections import _read_json
+        try:
+            source_pair = _read_json(
+                ARTIFACTS / "paired_auditkit.json", limit=2_000_000,
+            )
+            exploratory = source_pair["case_matched_exploratory_diagnostics"]
+            if exploratory["status"] != "DESCRIPTIVE_ONLY_NOT_MODEL_QUALITY_PROOF":
+                raise ValueError("Final statistics are not labeled descriptive")
+            st.warning(
+                "Exploratory exact-string diagnostics, NOT independently verified "
+                "semantic improvement. A p-value, citation ID or small subgroup "
+                "cannot establish safety or statistical superiority."
+            )
+            st.dataframe(
+                [
+                    {
+                        "Metric": name.replace("_", " ").title(),
+                        "Cases": values["denominator"],
+                        "Base": values["baseline_count"],
+                        "Tuned": values["candidate_count"],
+                        "Improved": values["improved_cases"],
+                        "Regressed": values["regressed_cases"],
+                        "Discordant": values["discordant_cases"],
+                        "Exact exploratory p": values[
+                            "exploratory_exact_mcnemar_two_sided_p"
+                        ],
+                    }
+                    for name, values in exploratory["by_metric"].items()
+                ],
+                width="stretch", hide_index=True,
+            )
+            st.markdown("**Matched strict exact scores by language**")
+            st.dataframe(
+                [
+                    {
+                        "Language": lang,
+                        "Cases": info["cases"],
+                        "Base": info["metrics"]["strict_exact"]["baseline_count"],
+                        "Tuned": info["metrics"]["strict_exact"]["candidate_count"],
+                        "Gains": info["metrics"]["strict_exact"]["improved_cases"],
+                        "Regressions": info["metrics"]["strict_exact"]["regressed_cases"],
+                        "Exact exploratory p": info["metrics"]["strict_exact"][
+                            "exploratory_exact_mcnemar_two_sided_p"
+                        ],
+                    }
+                    for lang, info in exploratory["by_language"].items()
+                ],
+                width="stretch", hide_index=True,
+            )
+            st.caption(
+                "Small language/category subsets and multiple unadjusted exploratory "
+                "comparisons limit interpretation; original GPU and human competence "
+                "remain externally unverified."
+            )
+        except (ValueError, OSError, KeyError, TypeError):
+            st.error(
+                "Verified final report could not be read consistently; "
+                "no statistical claims can be displayed."
+            )
+    else:
+        st.info(
+            "Final 60-case paired results are not yet source-validated. "
+            "The earlier 48-case development comparison is NOT a final evaluation; "
+            "no model superiority statistics are shown."
+        )
+    st.markdown(
+        "[Paired statistical limitations and subgroup protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FINAL60_EXPLORATORY_DIAGNOSTICS.md)"
+    )
     st.markdown("#### Next evidence actions — dependencies and proof")
     st.caption(
         "Generated from the current local checks. 'Actionable locally' only means "
