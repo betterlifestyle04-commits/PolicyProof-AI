@@ -1,3 +1,7 @@
+## November 5 — cite an actual, unique policy block (not merely a header)
+
+The deterministic [output guard](scripts/inference_guard.py) now requires **exactly one nonempty policy text block** for every cited `POL-...` ID, before the first untrusted-note boundary. A duplicated or empty policy header causes canonical abstention with a distinct `ambiguous_policy_source` diagnostic. The [numeric evidence](scripts/numeric_evidence_audit.py) and [multilingual topic-relevance](scripts/source_topic_audit.py) audits share the same source parser and send ambiguous citations to **human review**, not automatic factual approval. Two interactive judge-demo examples exercise both paths. This fixes disagreement between safety layers; it does **not** establish document authenticity, source entailment, native AlignTune training or model semantic accuracy. [Reproduction and limitations](docs/CITATION_SOURCE_BOUNDARY_2026-11-05.md).
+
 ## November 5 — immutable 60-case human-review files
 
 Final candidate gold-label review packet exports and reconciliation are now **private, create-once and non-overwriting**. The [60-case review guide](docs/FINAL_REVIEW_WORKFLOW.md) explains how to preserve genuine reviewer CSVs and their hashes. The CLI refuses paths outside `reviews/`, symlinked inputs, malformed CSV records and duplicate reviewer paths. **No review was performed or signoff granted by this software change.**
