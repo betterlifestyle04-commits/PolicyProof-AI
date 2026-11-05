@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import json
+import re
 
 from policyproof.core import ROOT, sha256
 from scripts.verify_evidence import verify_baseline
@@ -143,6 +144,44 @@ def evaluate_readiness(root=ROOT):
     }
 
 
+
+# Submission reports are *outputs*, not permissions to rewrite frozen data,
+# review votes, source manifests, or previously captured run evidence.
+_REPORT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,126}\.json$")
+
+
+def write_new_report(text: str, output: str, root=ROOT) -> Path:
+    """Create a new direct artifacts/*.json report; never overwrite a file.
+
+    The exclusive file mode protects even if a target appears after the
+    existence check. The directory and path checks keep this CLI from
+    clobbering research evidence, reviewer CSVs, or release manifests.
+    """
+    if (not isinstance(output, str) or len(output) > 150
+        or "\\" in output or ":" in output
+        or any(ord(char) < 32 for char in output)):
+        raise ValueError("Report output must be a fresh artifacts/<name>.json")
+    parts = output.split("/")
+    if (len(parts) != 2 or parts[0] != "artifacts"
+        or not _REPORT_NAME.fullmatch(parts[1])):
+        raise ValueError("Report output must be a fresh direct artifacts/<name>.json")
+    root = Path(root).resolve()
+    folder = root / "artifacts"
+    if folder.is_symlink() or (folder.exists() and not folder.is_dir()):
+        raise ValueError("Unsafe report output directory")
+    folder.mkdir(exist_ok=True)
+    if folder.is_symlink():
+        raise ValueError("Unsafe report output directory")
+    path = folder / parts[1]
+    if path.is_symlink() or path.exists():
+        raise FileExistsError("Refusing to overwrite an existing gate report")
+    # 'x' is an O_EXCL create, so a concurrent process cannot replace a
+    # pre-existing report, including an existing symlink.
+    with path.open("x", encoding="utf-8") as handle:
+        handle.write(text)
+    return path
+
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--strict",action="store_true")
@@ -151,9 +190,7 @@ def main():
     report=evaluate_readiness()
     text=json.dumps(report,ensure_ascii=False,indent=2)+"\n"
     if opts.output:
-        path=Path(opts.output)
-        path.parent.mkdir(exist_ok=True,parents=True)
-        path.write_text(text,encoding="utf-8")
+        write_new_report(text, opts.output)
     print(text)
     if opts.strict and not report["ready_for_submission"]:
         raise SystemExit(2)
