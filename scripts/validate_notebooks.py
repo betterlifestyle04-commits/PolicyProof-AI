@@ -60,6 +60,18 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(f"{path} cell {i}: invalid Python syntax: {exc}") from exc
     if code_cells < 3:
         raise ValueError(f"{path}: insufficient executable example cells")
+    if path.name == "02_curatorkit_training_data.ipynb":
+        source = "\n".join(
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        )
+        if ("check_train_data(" not in source
+            or "checked_train[\"dataset_sha256\"] != EXPECTED_SHA" not in source
+            or "check_zip(archive)" not in source):
+            raise ValueError(
+                f"{path}: training ZIP export lacks pinned input and archive validation"
+            )
     if path.name == "03_aligntune_qlora_t4.ipynb":
         # Prevent a regression to the previous direct write_bytes extraction
         # that could overwrite source data BEFORE its exact SHA was checked.
