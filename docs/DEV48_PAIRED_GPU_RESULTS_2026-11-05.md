@@ -58,7 +58,7 @@ For independently reproducible **toolkit scoring** from this frozen original pai
 
 ## Next evaluation decision and claim boundary
 
-Preserve the original adapter and prediction ZIP files unchanged and verify off-Colab copies. Use the CPU-only tool described in [the blinded human review guide](DEV48_BLINDED_SEMANTIC_REVIEW.md) with two competent independent reviewers; do not share the private A/B mapping. Require review of factual correctness, evidence grounding, abstentions, translation and injection behavior. Reviewer disagreement must be adjudicated transparently.
+Preserve the original adapter and prediction ZIP files unchanged and verify off-Colab copies. Use the masked v2 CPU-only tool described in [the blinded human review guide](DEV48_BLINDED_SEMANTIC_REVIEW.md) with two competent independent reviewers; do not share the private A/B mapping. Require review of factual correctness, evidence grounding, abstentions, translation and injection behavior. Reviewer disagreement must be adjudicated transparently.
 
 Only after this review should prompt/guard changes or a new training checkpoint be considered. Any intervention selected using these inspected 48 development cases needs evaluation on a distinct frozen dataset. The separately prepared 60-case candidate final set still requires independent qualified source-label review before paired final inference. This public final candidate must NOT be called a secret blind benchmark.
 
