@@ -164,8 +164,34 @@ def test_unexpected_archive_member_is_not_copied(tmp_path, monkeypatch):
     assert not (dest / "private-key.txt").exists()
 
 
-def test_bad_revision_is_rejected_before_attempting_gpu_restore(tmp_path):
-    # Fail-closed revision guard is an explicit non-GPU input requirement.
-    import inspect
+def test_requested_model_revision_check_is_pure_and_strict():
+    from scripts.restore_colab_session import validate_requested_revision
+    assert validate_requested_revision(None) is None
+    assert validate_requested_revision("a" * 40) == "a" * 40
+    for bad in ("a" * 39, "a" * 41, "abc123", "G" * 40, True, 42):
+        with pytest.raises(ValueError, match="complete pinned 40-hex"):
+            validate_requested_revision(bad)
+
+
+def test_bad_revision_aborts_before_heavy_gpu_imports(tmp_path):
     from scripts.restore_colab_session import restore_model_and_data
-    assert "expected_revision" in inspect.signature(restore_model_and_data).parameters
+    with pytest.raises(ValueError, match="complete pinned 40-hex"):
+        restore_model_and_data(tmp_path / "missing", expected_revision="not-a-SHA")
+
+
+def test_requested_base_revision_is_distinct_from_loaded_model_provenance():
+    from types import SimpleNamespace
+    from scripts.t4_torch_fallback import check_loaded_revision
+
+    class Model:
+        def __init__(self, revision=None):
+            self.config = SimpleNamespace(_commit_hash=revision)
+
+    valid = "a" * 40
+    assert check_loaded_revision(Model(valid), valid)["loaded_model_revision_verified"] is True
+    missing = check_loaded_revision(Model(None), valid)
+    assert missing["hub_revision_claim"] == valid
+    assert missing["loaded_model_revision_verified"] is False
+    assert missing["loaded_model_revision_observed"] is None
+    with pytest.raises(RuntimeError, match="differs"):
+        check_loaded_revision(Model("b" * 40), valid)
