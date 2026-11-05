@@ -296,3 +296,87 @@ def test_conflicting_observed_loaded_revision_is_rejected(tmp_path):
     }))
     with pytest.raises(ValueError, match="conflicts with declared base"):
         inspect_training_directory(folder)
+
+
+
+def _mark_native40_receipt(directory, *, revision_confirmed=True):
+    def update(info):
+        revision = info["model_revision"]
+        info.update({
+            "status": "completed",
+            "kind": "40-step native AlignTune QLoRA trial",
+            "requested_optimizer_steps": 40,
+            "optimizer_steps": 40,
+            "training_engine": "AlignTune TRL wrapper.train()",
+            "trainer_backend": "aligntune_wrapper",
+            "aligntune_trainer_completed": True,
+            "final_benchmark_or_challenge_used_for_training": False,
+            "independent_gpu_execution_attested": False,
+            "loaded_revision_evidence": {
+                "loaded_model_revision_observed": (
+                    revision if revision_confirmed else None
+                ),
+                "loaded_model_revision_verified": revision_confirmed,
+            },
+        })
+    _edit_info(directory, update)
+
+
+def test_native40_receipt_stays_cpu_integrity_evidence_not_independent_gpu_proof(
+    tmp_path,
+):
+    directory = _fixture(tmp_path)
+    _mark_native40_receipt(directory)
+    receipt = inspect_training_directory(directory)
+    assert receipt["optimizer_steps_self_reported"] == 40
+    assert receipt["backend"] == "aligntune_wrapper"
+    assert receipt["native_aligntune_40step_receipt_checked"] is True
+    assert receipt["base_revision_pinned"] is True
+    assert receipt["base_revision_loaded_evidence_verified"] is True
+    # This fixture's two tiny tensors are not genuine Tiny Aya 288-tensor LoRA.
+    assert receipt["track1_submission_evidence_candidate"] is False
+    assert receipt["training_independently_verified"] is False
+    assert receipt["model_improvement_verified"] is False
+
+
+def test_native40_hub_model_sha_alone_is_not_a_verified_loaded_base(tmp_path):
+    directory = _fixture(tmp_path)
+    _mark_native40_receipt(directory, revision_confirmed=False)
+    audit = inspect_training_directory(directory)
+    assert audit["native_aligntune_40step_receipt_checked"] is True
+    assert audit["base_revision_pinned"] is False
+    assert audit["base_revision_loaded_evidence_verified"] is False
+    assert audit["track1_submission_evidence_candidate"] is False
+
+
+@pytest.mark.parametrize("mutation,message", [
+    (lambda info: info.pop("kind"), "approved provenance shape"),
+    (lambda info: info.update(requested_optimizer_steps=10), "approved provenance shape"),
+    (lambda info: info.update(training_engine="direct PyTorch"), "approved provenance shape"),
+    (lambda info: info.update(final_benchmark_or_challenge_used_for_training=True),
+     "approved provenance shape"),
+    (lambda info: info.update(independent_gpu_execution_attested=True),
+     "approved provenance shape"),
+    (lambda info: info["loaded_revision_evidence"].update(
+        loaded_model_revision_observed="c"*40,
+    ), "conflicts with declared base"),
+    (lambda info: info["loaded_revision_evidence"].update(
+        loaded_model_revision_verified=True,
+        loaded_model_revision_observed=None,
+    ), "lacks matching observed SHA"),
+])
+def test_native40_does_not_accept_forged_trainer_or_revision_claims(
+    tmp_path, mutation, message,
+):
+    directory = _fixture(tmp_path)
+    _mark_native40_receipt(directory)
+    _edit_info(directory, mutation)
+    with pytest.raises(ValueError, match=message):
+        inspect_training_directory(directory)
+
+
+def test_native40_cannot_inherit_a_10step_smoke_label(tmp_path):
+    directory = _fixture(tmp_path)
+    _edit_info(directory, lambda info: info.update(optimizer_steps=40))
+    with pytest.raises(ValueError, match="approved provenance shape"):
+        inspect_training_directory(directory)

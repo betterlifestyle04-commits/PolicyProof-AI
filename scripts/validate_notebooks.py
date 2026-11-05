@@ -38,10 +38,10 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(f"{path} cell {i}: output execution counter committed")
         if cell.get("outputs"):
             raise ValueError(f"{path} cell {i}: cell outputs committed")
-        if re.search(r"(?m)^\s*RUN_(?:TRAINING|TORCH_FALLBACK|EXTENDED_TRAINING|DEV48_GPU_EVAL|CPU_AUDIT_RECOVERY)\s*=\s*True\b", source):
+        if re.search(r"(?m)^\s*RUN_(?:TRAINING|NATIVE_TRAINING|TORCH_FALLBACK|EXTENDED_TRAINING|DEV48_GPU_EVAL|CPU_AUDIT_RECOVERY)\s*=\s*True\b", source):
             raise ValueError(f"{path} cell {i}: automatic training is enabled")
         for flag in re.findall(
-            r"(?m)^\s*(RUN_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD|RUN_EXTENDED_TRAINING|RUN_DEV48_GPU_EVAL|RUN_CPU_AUDIT_RECOVERY)\s*=\s*False\b",
+            r"(?m)^\s*(RUN_TRAINING|RUN_NATIVE_TRAINING|RUN_TORCH_FALLBACK|RUN_MODEL_LOAD|RUN_EXTENDED_TRAINING|RUN_DEV48_GPU_EVAL|RUN_CPU_AUDIT_RECOVERY)\s*=\s*False\b",
             source,
         ):
             opt_in_flags.add(flag)
@@ -85,6 +85,22 @@ def validate_notebook(path: Path) -> dict:
             or "(CURATED/name).write_bytes" in notebook_code):
             raise ValueError(
                 f"{path}: unsafe curator extraction or missing loaded revision check"
+            )
+    if path.name == "11_native_aligntune_40step_t4.ipynb":
+        notebook_code = "\n".join(
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        )
+        if ("RUN_NATIVE_TRAINING" not in opt_in_flags
+            or "restore_interactive(ROOT)" not in notebook_code
+            or 'EXPECTED_SHA' not in notebook_code
+            or "optimizer_steps=40" not in notebook_code
+            or "loaded_revision_evidence=loaded_revision" not in notebook_code
+            or "cpu_receipt = inspect_training_archive(output_zip)" not in notebook_code):
+            raise ValueError(
+                f"{path}: native 40-step run must default OFF and verify "
+                "curated training, loaded revision and saved artifact"
             )
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):

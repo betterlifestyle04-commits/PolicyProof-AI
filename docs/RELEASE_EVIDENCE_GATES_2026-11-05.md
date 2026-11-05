@@ -45,6 +45,10 @@ Add --strict to a particular readiness command to receive a nonzero exit code wh
 
 On the [public observatory](https://policyproof-ai-observatory.onrender.com), open **Judge verification → Release decision ledger** to see the exact conditions that pass or block each track. The downloadable JSON report is a snapshot of local structural checks only, not external verification.
 
+## New official native 40-step training pathway (November 5)
+
+[Standalone Colab Stage 11](../notebooks/11_native_aligntune_40step_t4.ipynb) and the [native T4 protocol](NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md) now implement a distinct 40-step **AlignTune wrapper.train()** route with the original pinned 78 training examples. This is **not executed** by CPU CI, has not produced a real saved 40-step AlignTune adapter, and is not yet an eligible Track 1 artifact. The code refuses the stale 10-step max_steps override, FP16/BF16 GradScaler, changed training source, partial optimizer steps, overwritten output and unobserved loaded model revisions in local readiness candidate labeling. The older 40-step direct-PyTorch fallback remains separate and cannot be renamed as native AlignTune.
+
 ## Highest-impact remaining work
 
 1. **Track 1:** Obtain a checkpoint produced by an eligible, demonstrated AlignTune optimizer run (the manual PyTorch 40-step fallback cannot be relabeled AlignTune). Then independently review the frozen 60 cases before any final model scoring.
