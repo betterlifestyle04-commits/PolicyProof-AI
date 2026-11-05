@@ -1,3 +1,7 @@
+## November 5 — reproducible native AuditKIT rerun from saved GPU output ZIP
+
+A new [CPU-only Colab notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/08_native_dev48_auditkit_cpu.ipynb) and [strict replay script](scripts/replay_dev48_native_auditkit.py) let the project owner verify the original SHA-pinned 48-case results ZIP, then actually run official **AuditKIT 1.1.3** on the 48 fresh-base and 48 adapted-model *saved* responses. The resulting receipt is private and **is not included as completed empirical evidence until the owner actually runs it**. It cannot prove GPU execution, factual improvement, or blind final performance. See [replay protocol](docs/DEV48_NATIVE_AUDITKIT_REPLAY.md). **Protect the base/tuned report from blinded reviewers.**
+
 ## November 5 — strict release evidence gates (Track 1 and Track 2a)
 
 The [source-linked submission gate](docs/RELEASE_EVIDENCE_GATES_2026-11-05.md) now rejects fake human-review toggles, stand-alone paired-AuditKIT status JSON, and self-attested Hugging Face publication flags. The **Judge verification** page shows live local decision ledgers for both tracks. The original 48-case paired results remain synthetic development evidence; trained model semantic improvement, final reviewed 60-case evaluation, publication, and submission are **not verified**. Neither successful CI nor a working dashboard substitutes for those prerequisites.
