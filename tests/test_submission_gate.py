@@ -191,3 +191,74 @@ def test_public_demo_rejects_existing_symlinked_gate_snapshot(tmp_path):
     with pytest.raises(ValueError, match="bounded regular file"):
         verify_existing_gate_report(path, {"status": "NOT_READY"})
     assert elsewhere.read_text() == '{"status":"NOT_READY"}'
+
+
+def _fake_baseline_audit_source(root, monkeypatch):
+    """Only source-reader tests: no model inference or actual AuditKIT proof."""
+    import json
+    from policyproof.core import sha256
+    from scripts import submission_gate as gate
+    baseline = root / "artifacts/real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json"
+    baseline.parent.mkdir(parents=True)
+    baseline.write_text('{"model_revision":"' + "a" * 40 + '"}')
+    dataset = root / "data/unseen_policy_test.jsonl"
+    dataset.parent.mkdir()
+    dataset.write_text("synthetic parser unit-test data")
+    monkeypatch.setattr(gate, "verify_baseline", lambda *_: {"sample_count": 48})
+    audit = root / "artifacts/auditkit_actual_baseline_replay.json"
+    record = {
+        "status": "complete",
+        "sample_count": 48,
+        "dataset_sha256": sha256(dataset),
+        "model": "CohereLabs/tiny-aya-global",
+        "model_revision": "a" * 40,
+        "source": "previously_saved_real_model_predictions",
+        "is_post_training_evaluation": False,
+        "model_inference_executed": False,
+        "model_accuracy_semantically_verified": False,
+        "human_review_completed": False,
+        "auditkit_version": "UNIT-TEST-ONLY",
+        "auditkit_fingerprint": "SYNTHETIC-NOT-REAL",
+    }
+    audit.write_text(json.dumps(record))
+    return audit, record
+
+
+def test_release_gate_does_not_trust_duplicate_audit_status(tmp_path, monkeypatch):
+    import json
+    audit, record = _fake_baseline_audit_source(tmp_path, monkeypatch)
+    assert evaluate_readiness(tmp_path)["checks"]["baseline_auditkit"]["passed"] is True
+    audit.write_text(
+        json.dumps(record).replace(
+            '"status": "complete"',
+            '"status":"complete","status":"interrupted"',
+            1,
+        )
+    )
+    result = evaluate_readiness(tmp_path)
+    assert result["checks"]["saved_baseline"]["passed"] is True
+    assert result["checks"]["baseline_auditkit"]["passed"] is False
+    assert result["ready_for_submission"] is False
+
+
+def test_release_gate_does_not_trust_symlinked_audit_receipt(tmp_path, monkeypatch):
+    audit, _ = _fake_baseline_audit_source(tmp_path, monkeypatch)
+    original = tmp_path / "outside.json"
+    original.write_bytes(audit.read_bytes())
+    audit.unlink()
+    audit.symlink_to(original)
+    report = evaluate_readiness(tmp_path)
+    assert report["checks"]["saved_baseline"]["passed"] is True
+    assert report["checks"]["baseline_auditkit"]["passed"] is False
+    assert original.is_file()
+
+
+def test_release_gate_does_not_trust_nonfinite_audit_receipt(tmp_path, monkeypatch):
+    import json
+    audit, record = _fake_baseline_audit_source(tmp_path, monkeypatch)
+    audit.write_text(
+        json.dumps(record).replace('"status": "complete"',
+                                   '"status":"complete","bogus":Infinity', 1)
+    )
+    result = evaluate_readiness(tmp_path)
+    assert result["checks"]["baseline_auditkit"]["passed"] is False
