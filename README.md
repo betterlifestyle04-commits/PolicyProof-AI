@@ -1,3 +1,7 @@
+## November 5 — strict release evidence gates (Track 1 and Track 2a)
+
+The [source-linked submission gate](docs/RELEASE_EVIDENCE_GATES_2026-11-05.md) now rejects fake human-review toggles, stand-alone paired-AuditKIT status JSON, and self-attested Hugging Face publication flags. The **Judge verification** page shows live local decision ledgers for both tracks. The original 48-case paired results remain synthetic development evidence; trained model semantic improvement, final reviewed 60-case evaluation, publication, and submission are **not verified**. Neither successful CI nor a working dashboard substitutes for those prerequisites.
+
 # PolicyProof AI — Lexsi Labs Hackathon 2026
 
 > **Latest research status (November 5, 2026):** A user-supplied 40-optimizer-step LoRA checkpoint ZIP passed structural and SHA-256 checks. A fresh same-requested-revision 48-case base-vs-adapter saved GPU comparison passed independent internal score/hash recomputation. JSON compliance improved 14/48 → 48/48 and correct source IDs improved 1/39 → 39/39; **answer-level semantic correctness is unverified**, supported-answer exact-string matches remain 0/39, and serious unsupported financial-policy answers remain. Original CUDA execution and loaded training-time model revision were not independently rerun/verified. The 60-case candidate final evaluation still lacks independent human gold review; Hugging Face publication and official submission are not verified. **Do not present this as a production-ready banking system or verified real-world safety.**
