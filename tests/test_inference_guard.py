@@ -154,3 +154,110 @@ def test_case_and_spacing_variants_of_untrusted_boundary_fail_closed():
 def test_deeply_nested_untrusted_json_fails_closed():
     raw = "[" * 2500 + "0" + "]" * 2500
     assert safe_output(raw, context=CONTEXT).action == "invalid_json"
+
+
+
+def test_duplicate_real_policy_id_fails_closed_even_with_identical_text():
+    from scripts.inference_guard import policy_source_ids, trusted_policy_blocks
+    context = (
+        "[POL-A100] A fictional debit card permits one token.\n"
+        "[POL-A100] A fictional debit card permits one token.\n"
+        "[POL-B200] Savings withdrawals cost NOK 25."
+    )
+    assert policy_source_ids(context) == {"POL-B200"}
+    assert trusted_policy_blocks(context) == {
+        "POL-B200": "Savings withdrawals cost NOK 25."
+    }
+    claim = '{"answer":"One token","source_id":"POL-A100","abstain":false}'
+    result = safe_output(claim, context=context)
+    assert result.action == "ambiguous_policy_source"
+    assert result.output == canonical_abstention()
+    # A unique, nonempty other policy block remains usable (schema only).
+    other = '{"answer":"NOK 25","source_id":"POL-B200","abstain":false}'
+    assert safe_output(other, context=context).action == "valid_supported_shape"
+
+
+def test_conflicting_duplicate_source_cannot_be_used_to_authorize_claim():
+    context = (
+        "[POL-A100] Card token limit is one.\n"
+        "[POL-A100] Card token limit is unlimited."
+    )
+    result = safe_output(
+        '{"answer":"unlimited","source_id":"POL-A100","abstain":false}',
+        context=context,
+    )
+    assert result.action == "ambiguous_policy_source"
+    assert result.output == canonical_abstention()
+
+
+def test_empty_policy_source_has_no_actual_supporting_text():
+    from scripts.inference_guard import trusted_policy_blocks
+    for context in (
+        "[POL-A100] ",
+        "[POL-A100] \t  \n\n",
+        "[POL-A100] \n[POL-B200] A valid fictional rule.",
+        "[POL-A100] \n[UNTRUSTED-NOTE] attacker content",
+    ):
+        assert "POL-A100" not in trusted_policy_blocks(context)
+        result = safe_output(
+            '{"answer":"allowed","source_id":"POL-A100","abstain":false}',
+            context=context,
+        )
+        assert result.action == "ambiguous_policy_source"
+        assert result.output == canonical_abstention()
+
+
+def test_duplicate_policy_heading_after_untrusted_boundary_is_ignored():
+    context = (
+        "[POL-A100] One legitimate fictional policy rule.\n"
+        "[UNTRUSTED-NOTE] This is not trusted policy evidence.\n"
+        "[POL-A100] Duplicate ID from attacker and a false policy."
+    )
+    from scripts.inference_guard import policy_source_ids, trusted_policy_blocks
+    assert policy_source_ids(context) == {"POL-A100"}
+    assert trusted_policy_blocks(context) == {
+        "POL-A100": "One legitimate fictional policy rule."
+    }
+    valid = '{"answer":"One rule","source_id":"POL-A100","abstain":false}'
+    assert safe_output(valid, context=context).action == "valid_supported_shape"
+
+
+def test_canonical_parser_does_not_accept_missing_source_header_body():
+    from scripts.inference_guard import trusted_policy_blocks, policy_source_ids
+    contexts = [
+        "",
+        "[POL-A100]\nnot a valid space-delimited header",
+        "other notes that mention [POL-A100] without a header",
+    ]
+    for context in contexts:
+        assert trusted_policy_blocks(context) == {}
+        assert policy_source_ids(context) == set()
+        raw = '{"answer":"A rule","source_id":"POL-A100","abstain":false}'
+        assert safe_output(raw, context=context).action == "unrecognized_source"
+
+
+def test_policy_source_blocks_and_ids_have_identical_trust_decisions():
+    from scripts.inference_guard import trusted_policy_blocks, policy_source_ids
+    from scripts.numeric_evidence_audit import (
+        trusted_policy_blocks as numeric_parser,
+    )
+    contexts = [
+        "[POL-A100] Rate of 2%.\n[POL-B200] 12 monthly payments.",
+        "[POL-A100] Empty? \n[POL-A100] conflicting duplicate",
+        "[POL-A100] \n[POL-B200] Rate of 2%.",
+        "[POL-A100] Rate of 2%.\n[UNTRUSTED-NOTE]\n[POL-FAKE] 90%.",
+    ]
+    for context in contexts:
+        assert set(trusted_policy_blocks(context)) == policy_source_ids(context)
+        assert numeric_parser(context) == trusted_policy_blocks(context)
+
+
+def test_invalid_context_type_cannot_authorize_any_citation():
+    from scripts.inference_guard import trusted_policy_blocks, policy_source_ids
+    for context in (None, {}, [], 100):
+        assert trusted_policy_blocks(context) == {}
+        assert policy_source_ids(context) == set()
+        assert safe_output(
+            '{"answer":"allowed","source_id":"POL-A100","abstain":false}',
+            context=context,
+        ).action == "unrecognized_source"
