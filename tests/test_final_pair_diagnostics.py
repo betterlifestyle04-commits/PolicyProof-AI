@@ -14,7 +14,7 @@ def example_pairs():
     # 3 supported and 3 unsupported fictional cases across en/no/ar.
     rows = [
         ("en", "supported", True, 0, 1, 0, 0, 0, 0, 0, 0),
-        ("en", "unknown", False, 0, 1, 0, 0, 0, 0, 1, 0),
+        ("en", "unknown", False, 0, 1, 0, 0, 0, 1, 1, 0),
         ("no", "supported", True, 1, 0, 1, 0, 1, 0, 0, 0),
         ("no", "unknown", False, 0, 1, 0, 0, 0, 0, 1, 1),
         ("ar", "supported", True, 0, 0, 0, 0, 0, 1, 0, 0),
@@ -135,7 +135,6 @@ def test_malformed_or_swapped_scores_fail_closed(mutation):
 
 
 def test_real_data_missing_raw_prediction_or_duplicate_id_refused_without_gpu():
-    sample = example_pairs()
     # This exercise deliberately avoids producing any plausible real outputs.
     rows = [
         {"id": "CASE-A", "language": "en", "category": "supported"},
