@@ -33,6 +33,10 @@ The package uses `artifacts/align_qlora_native40` internally; the existing 10-st
 - Any training exception leaves a `run_info.json` marked **failed** rather than a completed adapter ZIP. Do not suppress failure output or auto-claim training.
 - The archive verifier checks shape, hashes and 288-tensor/3,833,856-element geometry, but it **never** claims independent GPU execution or model improvement. For native 40-step artifacts, a remote Hub model revision by itself no longer qualifies as a pinned *loaded* model; an observed matching loaded model config commit is required for the local candidate flag.
 
+## Real pinned upstream source compatibility check
+
+The [new sixth CI job](REAL_ALIGN_SDK_SOURCE_CONTRACT_2026-11-05.md) installs the exact **AlignTune 0.1.28 and TRL 1.7.1 published distributions** without ML dependencies and examines their original factory/SFTConfig/config-extractor AST. This strengthens the mocked late-configuration tests and fails if the pinned upstream contract drifts. **No real SFTConfig is instantiated in this job, and no actual T4 optimizer step has been run.**
+
 ## Tests and reproducibility without GPU
 
 ```bash
