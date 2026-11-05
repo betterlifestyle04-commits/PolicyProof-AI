@@ -77,6 +77,7 @@ def test_reject_duplicate_case(tmp_path, fixture_data):
     with path.open(encoding="utf-8", newline="") as handle:
         records = list(csv.DictReader(handle))
     records[1]["case_id"] = records[0]["case_id"]
+    path.unlink()  # Deliberate test-fixture mutation, not a real evidence write.
     write_review_csv(path, records)
     with pytest.raises(ValueError, match="duplicate"):
         read_and_validate_review(path, *fixture_data)
@@ -86,6 +87,7 @@ def test_reject_missing_cases(tmp_path, fixture_data):
     path = _write(tmp_path, fixture_data, "reviewer_A")
     with path.open(encoding="utf-8", newline="") as handle:
         records = list(csv.DictReader(handle))
+    path.unlink()  # Deliberate test-fixture mutation, not a real evidence write.
     write_review_csv(path, records[:-1])
     with pytest.raises(ValueError, match="all 60"):
         read_and_validate_review(path, *fixture_data)
