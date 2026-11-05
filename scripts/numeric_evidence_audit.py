@@ -88,11 +88,16 @@ def inspect_numeric_evidence(raw: str, *, context: str) -> dict:
     decision = safe_output(raw, context=context)
     if decision.action != "valid_supported_shape":
         ambiguous = decision.action == "ambiguous_policy_source"
+        # The conservative guard already checked schema, types and unique JSON
+        # keys before returning this action. Preserve the original *claimed*
+        # source and numbers for human triage, never as an approved citation.
+        claim = json.loads(raw) if ambiguous else {}
         return {
             "status": ("source_boundary_ambiguous" if ambiguous
                        else "no_supported_answer_to_check"),
             "guard_action": decision.action,
-            "source_id": None, "answer_literals": [],
+            "source_id": claim.get("source_id"),
+            "answer_literals": sorted(number_literals(claim.get("answer", ""))),
             "source_literals": [], "unmatched_literals": [],
             "human_review_required": ambiguous,
             "factual_support_verified": False,
