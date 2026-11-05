@@ -26,6 +26,20 @@ The updated `scripts/verify_curator_archive.py` checks the archive before any me
 
 The integrity checker streams member SHA-256 computation, preserving existing per-entry hash verification. ZIP archive declarations alone are **not** trusted to prove original authorship or accurate semantics. An attacker able to re-sign all archive members can still forge internally consistent *synthetic* metadata; the independently pinned original training-file SHA in the Colab restore workflow is a separate requirement.
 
+## Cross-export integrity: same instruction and answer in both formats
+
+CuratorKIT emits the same single-turn supervised fine-tuning examples in two formats: Alpaca (`instruction`, `input`, `output`) and ShareGPT (`conversations` with `human` and `gpt` turns). Previously the ZIP validator checked row counts and basic conversation structure, but **did not verify corresponding instructions or answers matched**.
+
+The new `check_dual_export_consistency` verifies a one-to-one mapping of both formats:
+
+- All original human prompt bytes match; row order can differ, but no prompt can be absent, duplicated or substituted.
+- Each assistant JSON target matches the corresponding Alpaca target as a parsed object; formatting, key order and inconsequential whitespace may differ.
+- Roles must be exactly `human` then `gpt`. Extra system prompts or hidden conversation turns are forbidden in this originally single-turn frozen dataset.
+- Nonempty Alpaca `input` fields require a separate dataset/provenance review, because the approved PolicyProof training profile uses only the instruction field.
+- Internal ZIP checksums are **not sufficient**: a malicious or accidentally inconsistent export can be re-packed and re-signed yet still contain different training targets.
+
+The GitHub CI now also runs **real CuratorKIT 0.1.22** on the original 78 training rows and cross-checks the actual Alpaca and ShareGPT outputs, independently of the synthetic adversarial unit tests. This verifies software exporter compatibility, **not** semantic correctness or independent model training. See [CuratorKIT export formats](https://curatorkit.lexsi.ai/latest/guides/exporters/) for the documented ShareGPT structure.
+
 ## Extraction and source-swap defense
 
 The updated `restore_curated_archive` computes the submitted ZIP's SHA-256 before checking the archive, after validation, and again after staging. Any source modification between validation and extraction aborts before destination writes. It then verifies the exact original 78-row training dataset digest, stages allowlisted files outside the target directory, and refuses to overwrite existing conflicting files.
