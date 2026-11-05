@@ -78,8 +78,13 @@ TOPIC_RULES = {
         r"مستفيد\s+دولي",
     ),
 }
-_COMPILED = {key: re.compile(pattern, re.IGNORECASE | re.UNICODE)
-             for key, pattern in TOPIC_RULES.items()}
+# Rule expressions are deliberately stored as one-item tuples so that
+# adjacent raw string fragments can be visually grouped per product concept.
+# Compile the contained expression, never the tuple container itself.
+_COMPILED = {
+    key: re.compile(parts[0], re.IGNORECASE | re.UNICODE)
+    for key, parts in TOPIC_RULES.items()
+}
 
 
 def detected_topics(text: str) -> list[str]:
