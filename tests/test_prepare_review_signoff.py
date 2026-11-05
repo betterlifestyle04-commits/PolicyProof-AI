@@ -64,6 +64,7 @@ def test_negative_vote_prevents_even_private_unsigned_draft(tmp_path):
     with csv_file.open(encoding="utf-8",newline="") as handle:
         rows=list(csv.DictReader(handle))
     rows[0]["question_unambiguous_yes_no"]="no"
+    csv_file.unlink()  # Construct an intentionally modified test fixture.
     write_review_csv(csv_file,rows)
     with pytest.raises(ValueError,match="not ready for a manual draft"):
         prepare_draft(
