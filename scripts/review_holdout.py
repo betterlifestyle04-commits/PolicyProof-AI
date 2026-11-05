@@ -289,7 +289,7 @@ def main() -> None:
         if (not isinstance(source, str) or not source.startswith("reviews/")
             or len(source.split("/")) != 2
             or source.split("/")[1] in ("", ".", "..")
-            or "\" in source or ":" in source or chr(0) in source):
+            or "\\" in source or ":" in source or chr(0) in source):
             raise ValueError("Reviewer inputs must be direct private reviews/*.csv paths")
     # Resolve relative inputs under the canonical repository root, never the
     # process CWD; prevents accidental use of unrelated local files.
