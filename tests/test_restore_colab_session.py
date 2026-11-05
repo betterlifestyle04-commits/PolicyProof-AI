@@ -195,3 +195,32 @@ def test_requested_base_revision_is_distinct_from_loaded_model_provenance():
     assert missing["loaded_model_revision_observed"] is None
     with pytest.raises(RuntimeError, match="differs"):
         check_loaded_revision(Model("b" * 40), valid)
+
+
+
+def test_archive_swap_during_preflight_never_writes_training_files(tmp_path, monkeypatch):
+    """Even a ZIP with re-signed internal checksums cannot change mid-restore."""
+    archive, _training = _real_byte_accurate_curator_fixture(tmp_path, monkeypatch)
+    import scripts.verify_curator_archive as validator
+
+    def mutate_after_validation(location):
+        # Simulate an attacker swapping the ZIP after the validator reports pass.
+        with ZipFile(location, "a") as z:
+            z.writestr("extra-source-after-verify.txt", b"different source")
+        return {"status": "pass", "row_count": 78}
+
+    monkeypatch.setattr(validator, "check_zip", mutate_after_validation)
+    target = tmp_path / "must-remain-empty"
+    with pytest.raises(ValueError, match="ZIP changed during integrity preflight"):
+        restore_curated_archive(archive, target)
+    assert not target.exists()
+
+
+def test_completed_restore_records_original_source_zip_digest(tmp_path, monkeypatch):
+    import hashlib
+    archive, _training = _real_byte_accurate_curator_fixture(tmp_path, monkeypatch)
+    original_digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+    result = restore_curated_archive(archive, tmp_path / "clean")
+    assert result["source_zip_sha256"] == original_digest
+    assert result["source_zip_unchanged_during_staging"] is True
+    assert result["existing_files_overwritten"] is False
