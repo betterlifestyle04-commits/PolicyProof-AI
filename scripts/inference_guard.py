@@ -51,24 +51,46 @@ def _reject_nonfinite(value: str):
     raise ValueError(f"Non-standard JSON constant: {value}")
 
 
-def policy_source_ids(context: str) -> set[str]:
-    """Only policy IDs *before* the first [UNTRUSTED-NOTE] boundary.
+_POLICY_HEADER = re.compile(r"(?m)^\[(POL-[A-Za-z0-9-]+)\][ \t]+")
 
-    The benchmark appends attacker-controlled text after that marker. A
-    forged new line like `[POL-A999]` inside the note must never be promoted
-    to a trusted source. Use horizontal whitespace after the closing bracket
-    so a following line cannot accidentally satisfy the ID delimiter.
 
-    IMPORTANT: This is a benchmark-specific, syntactic trust boundary,
-    NOT a cryptographic provenance guarantee. Real applications must fetch
-    trusted policy IDs from an authenticated data store, not user text.
+def _policy_inventory(context: str) -> tuple[dict[str, str], set[str]]:
+    """One trusted policy block per ID; duplicates/empty blocks are ambiguous.
+
+    Input remains fictional benchmark text; only authenticated source stores
+    can establish provenance in a real application. Do not accept policy
+    headers following the first [UNTRUSTED-NOTE] boundary.
     """
-    if not isinstance(context, str):
-        return set()
-    # Recognize harmless capitalization/spacing variants conservatively. An
-    # attacker-controlled note must not be able to mint a new policy ID.
-    trusted_section = _UNTRUSTED_MARKER.split(context, maxsplit=1)[0]
-    return set(re.findall(r"(?m)^\[(POL-[A-Za-z0-9-]+)\][ \t]+", trusted_section))
+    if not isinstance(context, str) or len(context) > MAX_CONTEXT_CHARS:
+        return {}, set()
+    trusted = _UNTRUSTED_MARKER.split(context, maxsplit=1)[0]
+    headers = list(_POLICY_HEADER.finditer(trusted))
+    blocks: dict[str, str] = {}
+    seen: set[str] = set()
+    ambiguous: set[str] = set()
+    for i, match in enumerate(headers):
+        source_id = match.group(1)
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(trusted)
+        body = trusted[match.end():end].strip()
+        if source_id in seen or not body:
+            ambiguous.add(source_id)
+        else:
+            blocks[source_id] = body
+        seen.add(source_id)
+    return {sid: text for sid, text in blocks.items() if sid not in ambiguous}, ambiguous
+
+
+def trusted_policy_blocks(context: str) -> dict[str, str]:
+    """Canonical guard/audit source parser; empty or duplicate IDs excluded."""
+    return _policy_inventory(context)[0]
+
+
+def policy_source_ids(context: str) -> set[str]:
+    """Source IDs accepted only when a nonempty, uniquely identified block exists.
+
+    A syntactic fixture check; not independent authentication of source text.
+    """
+    return set(trusted_policy_blocks(context))
 
 
 def safe_output(raw: str, *, context: str) -> GuardDecision:
@@ -108,7 +130,10 @@ def safe_output(raw: str, *, context: str) -> GuardDecision:
         return GuardDecision(canonical_abstention(), "unsupported_claim_shape")
     if not re.fullmatch(r"POL-[A-Za-z0-9-]+", source):
         return GuardDecision(canonical_abstention(), "non_policy_source")
-    if source not in policy_source_ids(context):
+    blocks, ambiguous = _policy_inventory(context)
+    if source in ambiguous:
+        return GuardDecision(canonical_abstention(), "ambiguous_policy_source")
+    if source not in blocks:
         return GuardDecision(canonical_abstention(), "unrecognized_source")
 
     # Preserve verbatim answer: no claims about semantic evidence support.
@@ -166,7 +191,7 @@ def evaluate_saved_guard(baseline: dict, rows: list[dict], dataset_sha: str) -> 
         "decision_counts": dict(sorted(actions.items())),
         "guarded_predictions": transformed,
         "guard_limitations": [
-            "Guard only validates output schema, source-ID syntax, and abstention consistency",
+            "Guard validates output schema, abstention consistency and unique nonempty source-ID blocks; not semantic support",
             "It cannot prove that any remaining answer is factually supported by the cited text",
             "Fail-closed abstentions may reduce answer coverage; the trade-off must be shown",
             "Development dataset has been inspected; this is NOT a blind final benchmark",
