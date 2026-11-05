@@ -172,3 +172,17 @@ def test_output_guard_results_include_honest_numeric_triage():
     assert not app.exception, str(app.exception)
     assert any("Cases needing numeric evidence review" in item.label for item in app.metric)
     assert any("No model inference was rerun" in item.value for item in app.caption)
+
+
+
+def test_judge_release_ledger_shows_both_tracks_and_unfinished_steps():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Judge verification").run()
+    assert not app.exception, str(app.exception)
+    assert any("Track 1 checks passing" == m.label for m in app.metric)
+    assert any("Track 2a checks passing" == m.label for m in app.metric)
+    assert any("Neither track has passed its full local submission gate" in warning.value
+               for warning in app.warning)
+    assert any("Release gate verification protocol" in item.value
+               for item in app.markdown)
