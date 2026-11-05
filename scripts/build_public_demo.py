@@ -9,6 +9,24 @@ import subprocess
 import sys
 
 from policyproof.core import ROOT
+from scripts.verify_training_archive import _parse_json
+from scripts.submission_gate import evaluate_readiness
+
+
+def verify_existing_gate_report(path: Path, expected: dict) -> dict:
+    """Reuse an existing immutable gate snapshot only if it is still current.
+
+    This never rewrites, deletes, or silently accepts a stale gate report.
+    """
+    path = Path(path)
+    if (path.is_symlink() or not path.is_file()
+        or not 0 < path.stat().st_size <= 1_000_000):
+        raise ValueError("Existing gate report must be a bounded regular file")
+    actual = _parse_json(path.read_bytes(), "existing gate report")
+    if actual != expected:
+        raise ValueError("Existing gate report differs from current source evidence; "
+                         "preserve it and create a new report filename")
+    return actual
 
 
 def execute_module(module: str, *args: str) -> None:
@@ -35,9 +53,18 @@ def main():
                    "--dataset", cases, "--output", "artifacts/dev48_numeric_risk_audit.json")
     execute_module("scripts.source_topic_audit", "--report", original,
                    "--dataset", cases, "--output", "artifacts/dev48_topic_relevance_audit.json")
-    execute_module("scripts.submission_gate", "--output", "artifacts/submission_gate.json")
+    gate_path = ROOT / "artifacts/submission_gate.json"
+    if gate_path.exists() or gate_path.is_symlink():
+        # CI has already captured this evidence earlier in the same run.
+        # Re-check the entire deterministic readiness result, not just a
+        # claimed "ready" bit, and never overwrite the original snapshot.
+        state = verify_existing_gate_report(gate_path, evaluate_readiness(ROOT))
+    else:
+        execute_module("scripts.submission_gate", "--output", "artifacts/submission_gate.json")
+        state = verify_existing_gate_report(
+            gate_path, evaluate_readiness(ROOT)
+        )
     # Must be NOT_READY until legitimate fine-tune, paired results & HF evidence exist.
-    state=json.loads((ROOT/"artifacts/submission_gate.json").read_text(encoding="utf-8"))
     if state.get("ready_for_submission") or state.get("status") != "NOT_READY":
         raise RuntimeError("Demo release unexpectedly claims complete submission")
     print("PUBLIC CPU DEMO READY: baseline, AuditKIT, guard, numeric/topic triage, NOT_READY receipt verified")
