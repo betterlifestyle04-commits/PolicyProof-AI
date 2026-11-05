@@ -228,6 +228,8 @@ def verify_loaded_model_revision(model, expected: str) -> str:
 def verify_adapter_still_unchanged(adapter: Path, receipt: dict) -> None:
     """Rehash original adapter inputs before/after real GPU use; no file writes."""
     adapter = Path(adapter)
+    if adapter.is_symlink() or (adapter / "adapter").is_symlink():
+        raise ValueError("Training adapter directory is symlinked")
     expected = (
         ("adapter/adapter_model.safetensors", "adapter_sha256"),
         ("adapter/adapter_config.json", "adapter_config_sha256"),
