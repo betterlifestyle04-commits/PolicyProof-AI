@@ -206,6 +206,15 @@ def test_reviewer_packet_hides_oracle_category_and_source_case_identity(tmp_path
     assert private["schema"].endswith("_v2")
     assert private["case_ids_masked"] is True
     assert private["category_masked"] is True
+    assert private["model_slot_order_balanced_by_language"] is True
+    for language in ("en", "no", "ar"):
+        case_ids = [
+            cid for cid, meta in private["case_metadata"].items()
+            if meta["language"] == language
+        ]
+        assert len(case_ids) == 16
+        assert sum(private["assignments"][cid]["A"] == "tuned"
+                   for cid in case_ids) == 8
     assert {row["category"] for row in packet} == {"review_case"}
     aliases = {row["case_id"] for row in packet}
     assert len(aliases) == 48
@@ -260,6 +269,10 @@ def test_human_consensus_restores_gold_groups_only_after_private_key_lookup(tmp_
     ),
     (
         lambda key: key.update(case_ids_masked=False),
+        "Private mapping key does not match",
+    ),
+    (
+        lambda key: key.update(model_slot_order_balanced_by_language=False),
         "Private mapping key does not match",
     ),
     (
