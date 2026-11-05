@@ -28,10 +28,16 @@ The package uses `artifacts/align_qlora_native40` internally; the existing 10-st
 - Verifies an approved QLoRA base with no existing optimizer steps and the exact original LoRA parameter count.
 - Synchronizes both `config.train.max_steps` and AlignTune's later-applied `config.train.extra_params["max_steps"]` to **40**. This closes the accidental 10-step fallback to default `max_steps=10` when a caller requests 40.
 - Repairs only trainable LoRA adapters to FP32, retains the frozen base quantized at 4-bit and forbids FP16/BF16 automatic mixed precision/GradScaler on the T4. Asserts the final built TRL `SFTConfig` has the exact budget, no AMP and the intended distinct output directory.
+- Because the 78-row experiment has **no evaluation dataset**, explicitly synchronizes 'load_best_model_at_end=False' and 'eval_strategy=no'. A best-model checkpoint requires real eval measurements; the code now aborts if AlignTune re-enables an incompatible best-checkpoint setting.
+
 - Calls `AlignTune wrapper.train()` **once** and checks the actual resulting `wrapper.trainer.state.global_step` equals 40. The public CPU tests replace this with a fake; they do **not** show real GPU execution.
 - Calls `wrapper.save_model()`, expects PEFT adapter weights and config, hashes them, records pinned training SHA, Git commit, package versions, output GPU identity and session-reported native backend, and packages a create-once ZIP.
 - Any training exception leaves a `run_info.json` marked **failed** rather than a completed adapter ZIP. Do not suppress failure output or auto-claim training.
 - The archive verifier checks shape, hashes and 288-tensor/3,833,856-element geometry, but it **never** claims independent GPU execution or model improvement. For native 40-step artifacts, a remote Hub model revision by itself no longer qualifies as a pinned *loaded* model; an observed matching loaded model config commit is required for the local candidate flag.
+
+## Real pinned upstream source compatibility check
+
+The [new sixth CI job](REAL_ALIGN_SDK_SOURCE_CONTRACT_2026-11-05.md) installs the exact **AlignTune 0.1.28 and TRL 1.7.1 published distributions** without ML dependencies and examines their original factory/SFTConfig/config-extractor AST. This strengthens the mocked late-configuration tests and fails if the pinned upstream contract drifts. **No real SFTConfig is instantiated in this job, and no actual T4 optimizer step has been run.**
 
 ## Tests and reproducibility without GPU
 

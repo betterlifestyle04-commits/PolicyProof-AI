@@ -289,3 +289,42 @@ jobs:
         run: python -m pip install 'huggingface_hub>=1.16,<2'
       - name: Check real SDK signatures and collection item schema (NO NETWORK CALLS)
         run: python -m scripts.check_hf_sdk_contract
+
+
+  align-sdk-contract:
+    name: Real pinned AlignTune and TRL package source contract (CPU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install actual pinned AlignTune and TRL distributions without GPU/ML dependencies
+        run: python -m pip install --no-deps 'aligntune==0.1.28' 'trl==1.7.1'
+      - name: Verify installed SDK factory, late config and SFTConfig source contracts (NO GPU)
+        run: |
+          mkdir -p artifacts
+          python -m scripts.check_pinned_align_sdk_contract \
+            > artifacts/real_aligntune_trl_source_contract.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("artifacts/real_aligntune_trl_source_contract.json").read_text())
+          assert d["status"] == "PINNED_REAL_SDK_SOURCE_CONTRACT_MATCHED"
+          assert d["installed_versions"] == {"aligntune":"0.1.28", "trl":"1.7.1"}
+          assert d["real_trl_sftconfig_instantiated"] is False
+          assert d["align_trainer_optimizer_steps_executed"] == 0
+          assert d["quantized_tiny_aya_model_loaded"] is False
+          assert d["model_improvement_verified"] is False
+          print(json.dumps(d,indent=2))
+          PY
+      - name: Retain public pinned SDK source fingerprints and limitation flags
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-real-pinned-align-trl-sdk-contract-cpu
+          path: artifacts/real_aligntune_trl_source_contract.json
+          retention-days: 30
+          if-no-files-found: error

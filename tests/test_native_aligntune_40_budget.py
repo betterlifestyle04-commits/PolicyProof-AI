@@ -65,6 +65,8 @@ def _simulate_wrapper(monkeypatch, tmp_path, *, max_steps=10, late_steps=10):
             "bf16": config.train.bf16,
             "max_steps": config.train.max_steps,
             "output_dir": output_dir,
+            "eval_strategy": "no" if eval_dataset is None else "steps",
+            "load_best_model_at_end": config.train.load_best_model_at_end,
         }
         merged.update(config.train.extra_params)
         returned = types.SimpleNamespace(
@@ -88,11 +90,13 @@ def _simulate_wrapper(monkeypatch, tmp_path, *, max_steps=10, late_steps=10):
                 fp16=True,
                 bf16=False,
                 max_steps=max_steps,
+                load_best_model_at_end=True,
                 extra_params={
                     "fp16": True,
                     "bf16": False,
                     "precision": "fp16",
                     "max_steps": late_steps,
+                    "load_best_model_at_end": True,
                 },
             ),
             logging=types.SimpleNamespace(output_dir=str(tmp_path / "native40")),
@@ -121,6 +125,12 @@ def test_real_trl_config_precedence_is_synced_to_40_without_any_train(monkeypatc
     assert wrapper.config.train.max_steps == 40
     assert wrapper.config.train.extra_params["max_steps"] == 40
     assert wrapper.config.model.precision == "fp32"
+    assert wrapper.config.train.load_best_model_at_end is False
+    assert wrapper.config.train.extra_params["load_best_model_at_end"] is False
+    assert config_seen[0].load_best_model_at_end is False
+    assert config_seen[0].eval_strategy == "no"
+    assert receipt["trl_load_best_model_at_end"] is False
+    assert receipt["trl_eval_strategy"] == "no"
 
 
 def test_original_ten_step_smoke_remains_compatible(monkeypatch, tmp_path):
@@ -173,3 +183,39 @@ def test_trl_builder_must_really_resolve_the_requested_policy(
     }[tamper]
     with pytest.raises(RuntimeError, match=match):
         prepare_t4_no_scaler(wrapper, target_steps=40)
+
+
+
+@pytest.mark.parametrize("tamper", ["best_model", "eval_steps"])
+def test_no_eval_training_never_enables_best_checkpoint_without_eval(
+    monkeypatch, tmp_path, tamper,
+):
+    wrapper, seen = _simulate_wrapper(monkeypatch, tmp_path)
+    from aligntune.core.sft import training_args_builder as builder
+    original = builder.build_sft_config
+
+    def broken_builder(**kwargs):
+        result = original(**kwargs)
+        if tamper == "best_model":
+            result.load_best_model_at_end = True
+        else:
+            result.eval_strategy = "steps"
+        return result
+
+    builder.build_sft_config = broken_builder
+    with pytest.raises(RuntimeError, match="no-eval SFTConfig must disable"):
+        prepare_t4_no_scaler(wrapper, target_steps=40)
+    assert seen
+    assert wrapper.config.train.load_best_model_at_end is False
+    assert wrapper.config.train.extra_params["load_best_model_at_end"] is False
+
+
+def test_10step_default_recovery_also_disables_unavailable_eval_best_model(
+    monkeypatch, tmp_path,
+):
+    wrapper, seen = _simulate_wrapper(monkeypatch, tmp_path)
+    receipt = prepare_t4_no_scaler(wrapper)
+    assert receipt["trl_max_steps"] == 10
+    assert receipt["trl_eval_strategy"] == "no"
+    assert receipt["trl_load_best_model_at_end"] is False
+    assert seen[0].load_best_model_at_end is False

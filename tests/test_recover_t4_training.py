@@ -37,7 +37,10 @@ def test_combined_recovery_casts_only_lora_and_disables_amp(monkeypatch):
         t.config.train.fp16 = False
         t.config.train.bf16 = False
         t.model.zero_grad(set_to_none=True)
-        return {"trl_config_fp16": False, "trl_config_bf16": False, "trl_max_steps": target_steps}
+        return {"trl_config_fp16": False, "trl_config_bf16": False, "trl_max_steps": target_steps,
+                "eval_dataset_present": False,
+                "trl_eval_strategy": "no",
+                "trl_load_best_model_at_end": False}
     monkeypatch.setattr("scripts.recover_t4_training.prepare_t4_no_scaler", fake_no_amp)
     report = recover_t4(wrapper)
     assert report["status"] == "ready_for_controlled_train_attempt"
@@ -67,13 +70,18 @@ def test_combined_native_40step_recovery_uses_40_instead_of_smoke(monkeypatch):
         t.config.train.bf16 = False
         t.model.zero_grad(set_to_none=True)
         return {"trl_config_fp16": False, "trl_config_bf16": False,
-                "trl_max_steps": target_steps}
+                "trl_max_steps": target_steps,
+                "eval_dataset_present": False,
+                "trl_eval_strategy": "no",
+                "trl_load_best_model_at_end": False}
     monkeypatch.setattr(
         "scripts.recover_t4_training.prepare_t4_no_scaler", fake_no_amp
     )
     receipt = recover_t4(wrapper, target_steps=40)
     assert receipt["max_steps"] == 40
     assert receipt["native_aligntune_steps_requested"] == 40
+    assert receipt["trl_eval_strategy"] == "no"
+    assert receipt["trl_load_best_model_at_end"] is False
     assert receipt["training_performed"] is False
     assert receipt["optimizer_steps_completed"] == 0
     assert all(p.dtype == torch.float32 for p in wrapper.model.parameters()
@@ -97,7 +105,10 @@ def test_recovery_detects_wrong_budget_from_trl_config(monkeypatch):
         _wrapper.config.train.bf16 = False
         _wrapper.model.zero_grad(set_to_none=True)
         return {"trl_config_fp16": False, "trl_config_bf16": False,
-                "trl_max_steps": 10}
+                "trl_max_steps": 10,
+                "eval_dataset_present": False,
+                "trl_eval_strategy": "no",
+                "trl_load_best_model_at_end": False}
     monkeypatch.setattr(
         "scripts.recover_t4_training.prepare_t4_no_scaler", stale_trl
     )

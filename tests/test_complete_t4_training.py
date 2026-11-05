@@ -54,6 +54,8 @@ def fixture(monkeypatch, tmp_path):
     })
     monkeypatch.setattr(target, "recover_t4", lambda _x, *, target_steps=10: {
         "trl_amp_fp16": False, "trl_amp_bf16": False, "max_steps": target_steps,
+        "eval_dataset_present": False, "trl_eval_strategy": "no",
+        "trl_load_best_model_at_end": False,
     })
     monkeypatch.setattr(target, "check_train_data", lambda _path: {
         "dataset_sha256": target.EXPECTED_SHA,
@@ -261,3 +263,31 @@ def test_native40_training_exception_keeps_failure_receipt_without_archive(fixtu
     assert record["status"] == "failed"
     assert record["optimizer_steps_observed"] == 0
     assert not (fixture / "failed.zip").exists()
+
+
+
+def test_native_training_refuses_invalid_no_eval_best_model_policy(fixture, monkeypatch):
+    for problem in ("best_model", "wrong_strategy", "fake_eval"):
+        original = {
+            "trl_amp_fp16": False, "trl_amp_bf16": False, "max_steps": 40,
+            "eval_dataset_present": False, "trl_eval_strategy": "no",
+            "trl_load_best_model_at_end": False,
+        }
+        if problem == "best_model":
+            original["trl_load_best_model_at_end"] = True
+        elif problem == "wrong_strategy":
+            original["trl_eval_strategy"] = "steps"
+        else:
+            original["eval_dataset_present"] = True
+        monkeypatch.setattr(target, "recover_t4",
+                            lambda _w, *, target_steps=40, data=original: data)
+        with pytest.raises(RuntimeError, match="unexpected evaluation|load_best_model"):
+            target.recover_train_save(
+                FakeTrainer(steps=40),
+                project_dir=fixture,
+                optimizer_steps=40,
+                model_revision="a"*40,
+                archive_path=fixture/(problem + ".zip"),
+            )
+        assert not (fixture/(problem + ".zip")).exists()
+    # The no-eval config gate runs before wrapper.train() or adapter export.
