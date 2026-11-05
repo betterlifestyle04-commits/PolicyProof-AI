@@ -10,6 +10,19 @@ The tool reads TWO previously saved, real-declared paired GPU inference reports,
 
 This is a development-only review, not an independent GPU rerun. Self-declared run metadata does not independently prove that CUDA was used.
 
+## Easiest path: one original ZIP, no manual extraction
+
+**[Open the CPU-only review notebook in Google Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/07_dev48_blind_human_review_cpu.ipynb)**. It clones the public code, asks you to upload the original `policyproof_dev48_paired_gpu_results.zip`, verifies the known original SHA-256, all four ZIP entries, their internal manifest checksums, frozen 48-case dataset, model identity and recomputed response scores. It then generates a **blank 96-response blinded-review CSV** and a **separate private A/B identity key** for download.
+
+There is **no GPU usage or model training**. Save both resulting files, but share only the blank CSV with independent reviewers. Do not share or publish the private JSON mapping. The notebook itself does not review a single answer or establish semantic accuracy.
+
+For command-line users, the equivalent single command (after `python -m scripts.prepare`) is:
+
+    python -m scripts.export_review_from_bundle \
+      --bundle /path/to/policyproof_dev48_paired_gpu_results.zip
+
+The command defaults to the *original externally audited* paired ZIP SHA-256 `e98b06482985a9c2f5dfa62100dccda7421830de8292bae013250ccf4ca1099c`. For a **different** legitimate ZIP, independently confirm its hash before supplying `--expected-sha256`; do not bypass hash verification simply to get a command to pass. To check the archive without writing files, append `--verify-only`. The source ZIP is read-only and never copied into public Git files. This path uses the same private blank packet and key filenames as the manual extraction path described below, so use **either** path, not both.
+
 ## Prerequisites
 
 1. From a local clone of this repository, run the no-GPU command: python -m scripts.prepare
