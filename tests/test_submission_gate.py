@@ -124,9 +124,7 @@ def test_readiness_report_is_created_exclusively_and_keeps_original(tmp_path):
 def test_readiness_output_cannot_escape_safe_report_directory(tmp_path, unsafe_output):
     with pytest.raises(ValueError, match="Report output"):
         write_new_report("no overwrite", unsafe_output, tmp_path)
-    assert not any((tmp_path / "artifacts").glob("*.json")) if (
-        tmp_path / "artifacts"
-    ).exists() else True
+    assert not (tmp_path / "artifacts").exists()
 
 
 def test_readiness_report_refuses_existing_symlink_target(tmp_path):
