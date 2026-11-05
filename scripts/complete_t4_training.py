@@ -100,8 +100,14 @@ def recover_train_save(wrapper, *, project_dir="/content/PolicyProof-AI",
     recovery = recover_t4(wrapper, target_steps=optimizer_steps)
     if not (recovery["trl_amp_fp16"] is False
             and recovery["trl_amp_bf16"] is False
-            and recovery["max_steps"] == optimizer_steps):
-        raise RuntimeError("TRL still has AMP or wrong step budget — aborting")
+            and recovery["max_steps"] == optimizer_steps
+            and recovery["eval_dataset_present"] is False
+            and recovery["trl_eval_strategy"] == "no"
+            and recovery["trl_load_best_model_at_end"] is False):
+        raise RuntimeError(
+            "TRL has AMP, wrong step budget, unexpected evaluation, or "
+            "load_best_model_at_end enabled — aborting before training"
+        )
 
     metadata = {
         "status": "in_progress",
