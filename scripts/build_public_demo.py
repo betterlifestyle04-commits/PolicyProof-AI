@@ -31,12 +31,14 @@ def main():
     execute_module("scripts.paired_guard_uncertainty", "--baseline", original,
                    "--dataset", cases,
                    "--output", "artifacts/paired_guard_uncertainty.json")
+    execute_module("scripts.numeric_evidence_audit", "--report", original,
+                   "--dataset", cases, "--output", "artifacts/dev48_numeric_risk_audit.json")
     execute_module("scripts.submission_gate", "--output", "artifacts/submission_gate.json")
     # Must be NOT_READY until legitimate fine-tune, paired results & HF evidence exist.
     state=json.loads((ROOT/"artifacts/submission_gate.json").read_text(encoding="utf-8"))
     if state.get("ready_for_submission") or state.get("status") != "NOT_READY":
         raise RuntimeError("Demo release unexpectedly claims complete submission")
-    print("PUBLIC CPU DEMO READY: baseline, AuditKIT, guard, NOT_READY receipt verified")
+    print("PUBLIC CPU DEMO READY: baseline, AuditKIT, guard, numeric triage, NOT_READY receipt verified")
 
 
 if __name__ == "__main__":
