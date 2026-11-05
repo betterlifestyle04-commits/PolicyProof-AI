@@ -115,6 +115,74 @@ def _sha_member(z: ZipFile, filename: str) -> str:
 
 
 
+def check_dual_export_consistency(alpaca: list[dict], share: list[dict]) -> dict:
+    """Verify the two real CuratorKIT SFT exports encode identical training pairs.
+
+    The original training-only PolicyProof dataset consists of single-turn,
+    empty-input synthetic examples. Do not silently accept conversational or
+    system-prompt variants that were never approved for this pinned dataset.
+    Compare parsed JSON answer objects to tolerate safe whitespace/key ordering;
+    preserve the exact human instruction text and case identity.
+    """
+    if len(alpaca) != len(share) or not alpaca:
+        raise ValueError("Alpaca / ShareGPT export counts missing or mismatched")
+    expected: dict[str, dict] = {}
+    for index, row in enumerate(alpaca):
+        if (not isinstance(row, dict)
+            or set(row) != {"instruction", "input", "output"}
+            or not all(isinstance(value, str) for value in row.values())):
+            raise ValueError(f"Malformed Alpaca export row {index}")
+        if row["input"]:
+            raise ValueError(
+                "Nonempty Alpaca input is not part of the original frozen "
+                "single-turn PolicyProof training format; re-audit separately"
+            )
+        prompt = row["instruction"]
+        if not prompt or prompt in expected:
+            raise ValueError("Duplicate or empty Alpaca human instruction")
+        reply = _strict_json(row["output"], "Alpaca target")
+        if not isinstance(reply, dict):
+            raise ValueError("Alpaca reference answer must be a JSON object")
+        expected[prompt] = reply
+
+    seen: set[str] = set()
+    for index, row in enumerate(share):
+        if not isinstance(row, dict) or set(row) != {"conversations"}:
+            raise ValueError(f"Malformed ShareGPT export row {index}")
+        turns = row["conversations"]
+        if not isinstance(turns, list) or len(turns) != 2:
+            raise ValueError(
+                f"ShareGPT row {index} must be exactly one human/assistant pair"
+            )
+        human, assistant = turns
+        if (not isinstance(human, dict) or not isinstance(assistant, dict)
+            or set(human) != {"from", "value"}
+            or set(assistant) != {"from", "value"}
+            or human["from"] != "human" or assistant["from"] != "gpt"
+            or not isinstance(human["value"], str)
+            or not isinstance(assistant["value"], str)):
+            raise ValueError(f"ShareGPT row {index}: invalid roles or turn schema")
+        prompt = human["value"]
+        if prompt not in expected or prompt in seen:
+            raise ValueError(
+                f"ShareGPT row {index}: missing, duplicated or changed instruction"
+            )
+        seen.add(prompt)
+        candidate = _strict_json(assistant["value"], "ShareGPT assistant")
+        if not isinstance(candidate, dict) or candidate != expected[prompt]:
+            raise ValueError(
+                f"ShareGPT row {index}: assistant target disagrees with Alpaca"
+            )
+    if seen != set(expected):
+        raise ValueError("ShareGPT omitted one or more original Alpaca examples")
+    return {
+        "all_sft_pairs_match": True,
+        "paired_examples": len(expected),
+        "compare_mode": "exact human prompt; parsed JSON response equality",
+        "training_semantics_independently_verified": False,
+    }
+
+
 def check_zip(path: str | Path) -> dict:
     path = Path(path)
     if (not path.is_file() or path.is_symlink()
@@ -155,8 +223,7 @@ def check_zip(path: str | Path) -> dict:
             for line in z.read("sft_sharegpt.jsonl").decode("utf-8").splitlines()
             if line.strip()
         ]
-        if len(alpaca) != len(share) or not alpaca:
-            raise ValueError("Alpaca / ShareGPT export counts missing or mismatched")
+        dual_export = check_dual_export_consistency(alpaca, share)
         exported = manifest.get("stage_counts", {}).get("AlpacaExporter", {}).get("exported_count")
         if exported != len(alpaca):
             raise ValueError("Manifest exported count differs from actual rows")
@@ -199,6 +266,7 @@ def check_zip(path: str | Path) -> dict:
         return {
             "status": "pass",
             "bounded_zip_inventory": archive,
+            "dual_export_consistency": dual_export,
             "duplicate_json_keys_rejected": True,
             "zip_special_entries_rejected": True,
             "training_performed": False,
