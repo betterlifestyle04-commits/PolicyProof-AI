@@ -31,6 +31,18 @@ Both commands run without a GPU, a Hugging Face token, model downloads, new infe
 
 In the public **Output guard experiment**, a separate section displays the saved-model numeric-risk count and flagged case IDs. In **Try the output guard**, select "Invented numeric fee (needs review)", then click **Validate response**. The structural guard will accept the valid JSON and known citation, but the numeric evidence diagnostic flags the invented NOK 100 amount because it is missing from the cited source. This demonstrates why syntax success must not be misrepresented as semantic safety.
 
+## Optional: private base-versus-trained numerical triage from the original paired ZIP
+
+The public dashboard contains **only the saved original baseline** because the 40-step adapter's raw GPU output archive has not been committed to GitHub. To audit **both** models from your original paired-result ZIP (without publishing it), use:
+
+    python -m scripts.prepare
+    python -m scripts.pair_numeric_triage \
+      --bundle /path/to/policyproof_dev48_paired_gpu_results.zip
+
+This requires the audited source ZIP checksum (pinned by default), verifies the four-member archive and independently recomputes all 48 raw response score rows for both model reports before writing any private triage. The output is **reviews/dev48_numeric_triage_owner_only.json**, a Git-ignored and exclusive-create file. It contains the two sets of numeric review flags, case-level deltas and explicit limitations. Neither original ZIP nor adapted model is modified. No GPU work occurs.
+
+**Critical blinding safeguard:** Keep this owner-only report confidential until two independent reviewers have completed their 96-row A/B semantic judgments. Showing base/tuned names or relative flag counts during review would compromise model blinding. This report is only a triage aid and cannot substitute for full independent review.
+
 ## Where the heuristic cannot help
 
 A model response claiming **"overdraft interest is NOK 25 daily"** while citing POL-U003 will probably pass this numeric *literal* match, because the source does mention NOK 25—in a completely different sense: savings withdrawal fees. That result is intentionally still labeled **semantics unverified**, never **correct**. Unit and subject entailment require actual independent human judgment or a separately validated semantic system.
