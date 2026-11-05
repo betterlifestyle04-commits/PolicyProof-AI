@@ -53,6 +53,10 @@ On the [public observatory](https://policyproof-ai-observatory.onrender.com), op
 
 Native AlignTune candidate archives now require matching reported TRL trainer-state steps **and** AlignTune's returned `TrainOutput.steps`, a matching exact-three-member adapter-only ZIP layout, and explicit atomic archive publication metadata. A private temporary ZIP is validated for member set and CRC before it is linked without replacing any preexisting file; local training status is `packaging` until publication completes. CPU tests simulate disk failures, ZIP corruption and a concurrent writer, and ensure a failed export never becomes a published successful ZIP. These safeguards do not themselves establish that optimizer steps truly executed on a GPU or that the resulting answers are semantically correct.
 
+## CPU-only native training interruption gate (November 5)
+
+A new read-only `scripts.reconcile_native_training_evidence` audit distinguishes interrupted Colab sessions, failed or incomplete packaging, fully consistent local and archived receipts, and ZIP publication followed by failed local receipt synchronization. It compares real ZIP safetensors/hashes and the original local adapter, never changes artifacts, and refuses to equate a self-reported local receipt or published ZIP with independently proven T4 optimizer execution. The Stage 11 notebook includes a diagnostic cell that runs without invoking any training. Owner review is mandatory for any discrepancy.
+
 ## Highest-impact remaining work
 
 1. **Track 1:** Obtain a checkpoint produced by an eligible, demonstrated AlignTune optimizer run (the manual PyTorch 40-step fallback cannot be relabeled AlignTune). Then independently review the frozen 60 cases before any final model scoring.
