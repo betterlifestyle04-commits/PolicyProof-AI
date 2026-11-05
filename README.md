@@ -1,3 +1,7 @@
+## November 5 — CuratorKIT ZIP security and early training-data validation
+
+The training-data [CuratorKIT export notebook](notebooks/02_curatorkit_training_data.ipynb) now validates the exact pinned 78-row original export and scans the ZIP **before download**. The shared [archive verifier](scripts/verify_curator_archive.py) limits total decompressed size, member count, compression bombs, symlinks, path anomalies, and ambiguous signed JSON. The [Colab T4 restorer](scripts/restore_colab_session.py) additionally pins the source ZIP checksum **across validation and private staging** so an archive swapped mid-import cannot silently populate training files. [Full safeguard and reproduction guide](docs/CURATORKIT_ZIP_SAFETY_2026-11-05.md). CPU security tests verify these controls; **no new real AlignTune training, independent human semantic review, or final model evaluation occurred.**
+
 ## November 5 — verified, non-destructive Colab training data restoration
 
 The [original AlignTune/T4 notebook](notebooks/03_aligntune_qlora_t4.ipynb) now restores the exact SHA-pinned 78-row CuratorKIT data through private staging and **never overwrites** an existing nonidentical training file. It also checks the requested Tiny Aya model revision against the *loaded* model config when available; missing loaded revision metadata remains explicitly unverified. [Training recovery protection and reproducibility guide](docs/COLAB_CURATOR_RESTORE_SAFETY_2026-11-05.md). **This change is CPU-tested only; no new AlignTune training or semantic model improvement was performed.**
