@@ -97,7 +97,7 @@ def validate_notebook(path: Path) -> dict:
             or 'EXPECTED_SHA' not in notebook_code
             or "optimizer_steps=40" not in notebook_code
             or "loaded_revision_evidence=loaded_revision" not in notebook_code
-            or "inspect_training_archive(" not in notebook_code):
+            or "cpu_receipt = inspect_training_archive(output_zip)" not in notebook_code):
             raise ValueError(
                 f"{path}: native 40-step run must default OFF and verify "
                 "curated training, loaded revision and saved artifact"
