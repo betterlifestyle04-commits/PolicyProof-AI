@@ -190,3 +190,129 @@ def test_fewer_unsafe_events_counts_as_improvement_not_regression(tmp_path):
     assert adverse["beneficial_direction"] == "lower"
     assert adverse["base_yes"] == 1 and adverse["tuned_yes"] == 0
     assert adverse["improved"] == 1 and adverse["regressed"] == 0
+
+
+
+def test_reviewer_packet_hides_oracle_category_and_source_case_identity(tmp_path):
+    """Previous packet leaked UNKNOWN/INJECT in IDs and true answerability category."""
+    import re
+    root, _, _, result = export(tmp_path)
+    packet = read_packet(root)
+    raw_csv = (root / "reviews/dev48_blank.csv").read_text(encoding="utf-8")
+    private = json.loads((root / "reviews/dev48_private_mapping.json").read_text())
+    assert result["model_labels_in_packet"] is False
+    assert result["gold_categories_in_packet"] is False
+    assert result["source_case_ids_in_packet"] is False
+    assert private["schema"].endswith("_v2")
+    assert private["case_ids_masked"] is True
+    assert private["category_masked"] is True
+    assert {row["category"] for row in packet} == {"review_case"}
+    aliases = {row["case_id"] for row in packet}
+    assert len(aliases) == 48
+    assert all(re.fullmatch(r"CASE-[0-9a-f]{16}", alias) for alias in aliases)
+    assert aliases == set(private["case_metadata"])
+    original_ids = {meta["original_case_id"] for meta in private["case_metadata"].values()}
+    assert len(original_ids) == 48
+    assert any("UNKNOWN" in original_id for original_id in original_ids)
+    assert any("INJECT" in original_id for original_id in original_ids)
+    assert not any(original_id in raw_csv for original_id in original_ids)
+    assert "unseen_unanswerable" not in raw_csv
+    assert "context_injection" not in raw_csv
+    assert "unseen_supported" not in raw_csv
+    assert all(
+        private["case_metadata"][row["case_id"]]["language"] == row["language"]
+        for row in packet
+    )
+    assert private["human_review_performed"] is False
+
+
+def test_human_consensus_restores_gold_groups_only_after_private_key_lookup(tmp_path):
+    root, _, _, _ = export(tmp_path)
+    write_reviewer(root, "first.csv", "real_reviewer_1")
+    write_reviewer(root, "second.csv", "real_reviewer_2")
+    summary = summarize_reviews(
+        root, "reviews/dev48_blank.csv", "reviews/dev48_private_mapping.json",
+        ["reviews/first.csv", "reviews/second.csv"],
+    )
+    assert summary["reviewer_visible_case_ids_masked"] is True
+    assert summary["reviewer_visible_category_masked"] is True
+    assert summary["metrics"]["unsupported_only"]["semantic_correct"]["n"] == 9
+    assert summary["metrics"]["answerable_including_injection"]["semantic_correct"]["n"] == 39
+    assert summary["metrics"]["by_language"]["ar"]["semantic_correct"]["n"] == 16
+    assert summary["reviewer_identities_or_competence_verified"] is False
+
+
+@pytest.mark.parametrize("change,pattern", [
+    (
+        lambda key: key["case_metadata"].__setitem__(
+            next(iter(key["case_metadata"])),
+            {"original_case_id": "INJECT-FORGED", "language": "en",
+             "category": "context_injection"}),
+        "Hidden case metadata differs",
+    ),
+    (
+        lambda key: key["case_metadata"][next(iter(key["case_metadata"]))].update(
+            category="unseen_unanswerable"
+            if key["case_metadata"][next(iter(key["case_metadata"]))]["category"]
+               != "unseen_unanswerable"
+            else "unseen_supported"),
+        "Hidden case metadata differs",
+    ),
+    (
+        lambda key: key.update(case_ids_masked=False),
+        "Private mapping key does not match",
+    ),
+    (
+        lambda key: key["case_metadata"].pop(next(iter(key["case_metadata"]))),
+        "Private mapping key does not match",
+    ),
+])
+def test_private_blind_mapping_tampering_fails_closed(tmp_path, change, pattern):
+    root, _, _, _ = export(tmp_path)
+    write_reviewer(root, "a.csv", "real_reviewer_1")
+    write_reviewer(root, "b.csv", "real_reviewer_2")
+    path = root / "reviews/dev48_private_mapping.json"
+    private = json.loads(path.read_text())
+    change(private)
+    path.write_text(json.dumps(private))
+    with pytest.raises(ValueError, match=pattern):
+        summarize_reviews(
+            root, "reviews/dev48_blank.csv",
+            "reviews/dev48_private_mapping.json",
+            ["reviews/a.csv", "reviews/b.csv"],
+        )
+
+
+def test_reviewer_visible_category_must_remain_neutral(tmp_path):
+    root, _, _, _ = export(tmp_path)
+    rows = read_packet(root)
+    rows[0]["category"] = "unseen_unanswerable"
+    path = root / "reviews/dev48_blank.csv"
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    write_reviewer(root, "first.csv", "human_a")
+    write_reviewer(root, "second.csv", "human_b")
+    with pytest.raises(ValueError, match="Private mapping key does not match"):
+        summarize_reviews(
+            root, "reviews/dev48_blank.csv",
+            "reviews/dev48_private_mapping.json",
+            ["reviews/first.csv", "reviews/second.csv"],
+        )
+
+
+def test_unmasked_legacy_schema_cannot_be_presented_as_new_blind_packet(tmp_path):
+    root, _, _, _ = export(tmp_path)
+    write_reviewer(root, "first.csv", "human_a")
+    write_reviewer(root, "second.csv", "human_b")
+    path = root / "reviews/dev48_private_mapping.json"
+    private = json.loads(path.read_text())
+    private["schema"] = "policyproof_dev48_blinded_semantic_review_v1"
+    path.write_text(json.dumps(private))
+    with pytest.raises(ValueError, match="Private mapping key does not match"):
+        summarize_reviews(
+            root, "reviews/dev48_blank.csv",
+            "reviews/dev48_private_mapping.json",
+            ["reviews/first.csv", "reviews/second.csv"],
+        )
