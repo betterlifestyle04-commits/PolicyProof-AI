@@ -56,6 +56,8 @@ def demo_report(rows=None):
         gpu_details={
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         },
     )
 
@@ -156,6 +158,10 @@ def temporary_runner(monkeypatch, tmp_path):
             "base_revision": REV, "adapter_sha256": "c" * 64,
         }
     monkeypatch.setattr(module, "build_preflight", preflight)
+    # The fake adapter path has no real PEFT tensor evidence. The new
+    # on-disk binding is regression-tested separately with real test bytes.
+    monkeypatch.setattr(module, "verify_adapter_still_unchanged",
+                        lambda *_args: None)
     return rows, data_sha
 
 
@@ -174,6 +180,8 @@ def test_tuned_failure_preserves_complete_base_for_explicit_resume(monkeypatch, 
         return dummy_predictions(), {
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         }
 
     monkeypatch.setattr(module, "_predict_on_gpu", initial_gpu_run)
@@ -197,6 +205,8 @@ def test_tuned_failure_preserves_complete_base_for_explicit_resume(monkeypatch, 
         return dummy_predictions(), {
             "gpu": "TEST_FIXTURE_NOT_A_REAL_GPU",
             "torch_version": "FAKE_FIXTURE_ONLY",
+            "loaded_model_revision_observed": REV,
+            "loaded_model_revision_verified": True,
         }
 
     monkeypatch.setattr(module, "_predict_on_gpu", resume_gpu_run)
