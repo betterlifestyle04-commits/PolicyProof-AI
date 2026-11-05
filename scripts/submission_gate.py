@@ -35,8 +35,25 @@ def evaluate_readiness(root=ROOT):
     if audit.exists():
         try:
             receipt=json.loads(audit.read_text(encoding="utf-8"))
-            valid_audit=(receipt.get("status")=="complete" and receipt.get("sample_count")==48
-                         and receipt.get("model_inference_executed") is False)
+            baseline_metadata=json.loads(baseline.read_text(encoding="utf-8")) if valid_baseline else {}
+            valid_audit=(
+                receipt.get("status")=="complete"
+                and type(receipt.get("sample_count")) is int
+                and receipt["sample_count"]==48
+                and valid_baseline
+                and receipt.get("dataset_sha256")==sha256(evalset)
+                and receipt.get("model")=="CohereLabs/tiny-aya-global"
+                and receipt.get("model_revision")==baseline_metadata.get("model_revision")
+                and receipt.get("source")=="previously_saved_real_model_predictions"
+                and receipt.get("is_post_training_evaluation") is False
+                and receipt.get("model_inference_executed") is False
+                and receipt.get("model_accuracy_semantically_verified") is False
+                and receipt.get("human_review_completed") is False
+                and isinstance(receipt.get("auditkit_version"),str)
+                and bool(receipt["auditkit_version"])
+                and isinstance(receipt.get("auditkit_fingerprint"),str)
+                and bool(receipt["auditkit_fingerprint"])
+            )
         except (ValueError,OSError):
             pass
     checks["baseline_auditkit"]={"passed":valid_audit,"details":"Recorded baseline replay through AuditKIT; no training"}
