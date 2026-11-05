@@ -622,3 +622,86 @@ def test_receipt_atomic_write_failure_does_not_create_partial_file(
             ".policyproof-receipt-*.partial"
         )
     )
+
+
+
+def test_keyboard_interrupt_leaves_preoptimizer_receipt_not_success(fixture):
+    class InterruptedByColab(FakeTrainer):
+        def train(self):
+            assert self.trainer.state.global_step == 0
+            raise KeyboardInterrupt("simulated Colab runtime stopped")
+
+    output = fixture / "no_zip_keyboard_interrupt.zip"
+    with pytest.raises(KeyboardInterrupt, match="Colab runtime"):
+        target.recover_train_save(
+            InterruptedByColab(steps=40), project_dir=fixture,
+            model_revision="a" * 40, optimizer_steps=40, archive_path=output,
+        )
+    receipt = json.loads(
+        (fixture / "artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert receipt["status"] == "in_progress"
+    assert receipt["requested_optimizer_steps"] == 40
+    assert receipt["claims_improved_safety"] is False
+    assert not output.exists()
+
+
+def test_postpublish_local_receipt_failure_is_not_mislabeled_as_failed_training(
+    fixture, monkeypatch
+):
+    original = target._write_receipt_atomic
+    calls = []
+
+    def fails_completed_only(path, metadata):
+        calls.append(metadata["status"])
+        if metadata["status"] == "completed":
+            raise OSError("simulated final receipt sync failure")
+        return original(path, metadata)
+
+    monkeypatch.setattr(target, "_write_receipt_atomic", fails_completed_only)
+    output = fixture / "archive_exists_local_receipt_bad.zip"
+    with pytest.raises(OSError, match="simulated final receipt sync failure"):
+        target.recover_train_save(
+            FakeTrainer(steps=40), project_dir=fixture,
+            model_revision="a" * 40, optimizer_steps=40, archive_path=output,
+        )
+    assert calls == [
+        "in_progress", "packaging", "completed",
+        "archive_published_local_receipt_failed",
+    ]
+    assert output.is_file()  # Preserve the *already published* complete ZIP.
+    receipt = json.loads(
+        (fixture / "artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert receipt["status"] == "archive_published_local_receipt_failed"
+    assert receipt["optimizer_steps_observed"] == 40
+    with zipfile.ZipFile(output) as z:
+        assert z.testzip() is None
+        assert json.loads(z.read("run_info.json"))["status"] == "completed"
+
+
+def test_postpublish_double_receipt_write_error_preserves_packaging_evidence(
+    fixture, monkeypatch
+):
+    original = target._write_receipt_atomic
+
+    def cannot_finalize(path, metadata):
+        if metadata["status"] in {
+            "completed", "archive_published_local_receipt_failed",
+        }:
+            raise OSError("simulated permanent local receipt write failure")
+        return original(path, metadata)
+
+    monkeypatch.setattr(target, "_write_receipt_atomic", cannot_finalize)
+    output = fixture / "archive_still_exists.zip"
+    with pytest.raises(OSError, match="permanent local receipt write failure"):
+        target.recover_train_save(
+            FakeTrainer(steps=40), project_dir=fixture,
+            model_revision="a"*40, optimizer_steps=40, archive_path=output,
+        )
+    assert output.is_file()
+    local = json.loads(
+        (fixture / "artifacts/align_qlora_native40/run_info.json").read_text()
+    )
+    assert local["status"] == "packaging"
+    assert local["requested_optimizer_steps"] == 40
