@@ -32,7 +32,10 @@ def recover_t4(wrapper, *, target_steps: int = 10) -> dict:
         or after["training_bf16"]
         or after["existing_optimizer_steps"] != 0
         or no_amp["trl_config_fp16"] or no_amp["trl_config_bf16"]
-        or no_amp["trl_max_steps"] != target_steps):
+        or no_amp["trl_max_steps"] != target_steps
+        or no_amp["eval_dataset_present"] is not False
+        or no_amp["trl_eval_strategy"] != "no"
+        or no_amp["trl_load_best_model_at_end"] is not False):
         raise RuntimeError("Training recovery verification failed; do not retry")
     return {
         "status": "ready_for_controlled_train_attempt",
@@ -47,6 +50,9 @@ def recover_t4(wrapper, *, target_steps: int = 10) -> dict:
         "trl_amp_bf16": no_amp["trl_config_bf16"],
         "max_steps": no_amp["trl_max_steps"],
         "native_aligntune_steps_requested": target_steps,
+        "eval_dataset_present": no_amp["eval_dataset_present"],
+        "trl_eval_strategy": no_amp["trl_eval_strategy"],
+        "trl_load_best_model_at_end": no_amp["trl_load_best_model_at_end"],
         "precision_before": before["precision"],
         "precision_after": after["precision"],
         "warning": "This is a configuration fix only; actual optimizer execution is not guaranteed.",
