@@ -25,6 +25,7 @@ SOURCES = {
     "aligntune_factory": ("aligntune", "aligntune/core/backend_factory.py"),
     "aligntune_extractor": ("aligntune", "aligntune/utils/config_extractor.py"),
     "aligntune_config": ("aligntune", "aligntune/core/sft/config.py"),
+    "aligntune_trl_train": ("aligntune", "aligntune/backends/trl/sft/sft_generation.py"),
     "trl_config": ("trl", "trl/trainer/sft_config.py"),
 }
 
@@ -81,6 +82,59 @@ def _has_assignment_target(tree: ast.AST, name: str) -> bool:
     )
 
 
+def _sft_train_reloads_missing_dataset(module: ast.Module) -> bool:
+    """Verify exact upstream TRLSFTTrainer.train() second-load semantics.
+
+    A separate self.dataset cache, not self.train_dataset, controls whether
+    AlignTune runs DataManager.load_dataset a second time inside .train().
+    We deliberately prepopulate that cache with the exact earlier validated
+    training-only object, so this branch must remain recognizable upstream.
+    """
+    cls = _class(module, "TRLSFTTrainer")
+    methods = [n for n in cls.body if isinstance(n, ast.FunctionDef)
+               and n.name == "train"]
+    if len(methods) != 1:
+        return False
+    for branch in (n for n in ast.walk(methods[0]) if isinstance(n, ast.If)):
+        test = branch.test
+        if not (
+            isinstance(test, ast.Compare)
+            and isinstance(test.left, ast.Attribute)
+            and isinstance(test.left.value, ast.Name)
+            and test.left.value.id == "self"
+            and test.left.attr == "dataset"
+            and len(test.ops) == 1 and isinstance(test.ops[0], ast.Is)
+            and len(test.comparators) == 1
+            and isinstance(test.comparators[0], ast.Constant)
+            and test.comparators[0].value is None
+        ):
+            continue
+        call_reload = any(
+            isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == "self"
+            and n.func.attr == "setup_data"
+            for stmt in branch.body for n in ast.walk(stmt)
+        )
+        assigns_cache = any(
+            isinstance(stmt, ast.Assign)
+            and any(isinstance(target, ast.Attribute)
+                    and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"
+                    and target.attr == "dataset"
+                    for target in stmt.targets)
+            and isinstance(stmt.value, ast.Attribute)
+            and isinstance(stmt.value.value, ast.Name)
+            and stmt.value.value.id == "self"
+            and stmt.value.attr == "train_dataset"
+            for stmt in branch.body
+        )
+        if call_reload and assigns_cache:
+            return True
+    return False
+
+
 def inspect_sdk_source(paths: dict[str, Path]) -> dict:
     """Inspect actual installed module sources without importing package code."""
     if set(paths) != set(SOURCES):
@@ -112,6 +166,11 @@ def inspect_sdk_source(paths: dict[str, Path]) -> dict:
               and x.name == "extract_extra_and_missing_params"]
     _class(modules["aligntune_config"], "PrecisionType")
     trl_sft = _class(modules["trl_config"], "SFTConfig")
+    if not _sft_train_reloads_missing_dataset(modules["aligntune_trl_train"]):
+        raise ValueError(
+            "AlignTune TRL dataset cache/reload contract changed; "
+            "do not assume preverified training data are reused"
+        )
 
     # Check BOTH layers. AlignTune can calculate a correct max_steps initially
     # but then overwrite it while copying train.extra_params to real TRL.
@@ -149,6 +208,7 @@ def inspect_sdk_source(paths: dict[str, Path]) -> dict:
         "check_kind": "AST_SOURCE_ONLY_NO_GPU_NO_SDK_RUNTIME_IMPORT",
         "aligntune_factory_kwargs_and_max_steps": True,
         "aligntune_late_training_config_extraction": True,
+        "aligntune_train_dataset_cache_branch_verified": True,
         "trl_sft_config_class_and_max_length": True,
         "packages": receipts,
         "real_trl_sftconfig_instantiated": False,
