@@ -60,6 +60,20 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(f"{path} cell {i}: invalid Python syntax: {exc}") from exc
     if code_cells < 3:
         raise ValueError(f"{path}: insufficient executable example cells")
+    if path.name == "03_aligntune_qlora_t4.ipynb":
+        # Prevent a regression to the previous direct write_bytes extraction
+        # that could overwrite source data BEFORE its exact SHA was checked.
+        notebook_code = "\n".join(
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        )
+        if ("restore_curated_archive(" not in notebook_code
+            or "check_loaded_revision(" not in notebook_code
+            or "(CURATED/name).write_bytes" in notebook_code):
+            raise ValueError(
+                f"{path}: unsafe curator extraction or missing loaded revision check"
+            )
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
