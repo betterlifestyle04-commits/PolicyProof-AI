@@ -4,6 +4,8 @@
 
 **[November 5 paired GPU development results](docs/DEV48_PAIRED_GPU_RESULTS_2026-11-05.md)** · **[Private, model-blind human review instructions](docs/DEV48_BLINDED_SEMANTIC_REVIEW.md)** · **[Review implementation](scripts/paired_semantic_review.py)**
 
+**Fastest next action, CPU only:** [Open Colab review-packet notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/07_dev48_blind_human_review_cpu.ipynb), upload the original audited `policyproof_dev48_paired_gpu_results.zip`, and save the blank A/B reviewer CSV **plus** its private mapping key. The SHA-pinned [ZIP verifier and exporter](scripts/export_review_from_bundle.py) checks archive and raw output integrity without rerunning Tiny Aya. Real reviewers must still independently judge correctness and evidence; no notebook or test automatically approves the model.
+
 **Historical note:** Some older milestones and GPU-quota troubleshooting sections below describe the November 3 development state; the November 5 evidence summary above supersedes those historical statements where they conflict.
 
 
