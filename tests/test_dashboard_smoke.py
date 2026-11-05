@@ -218,3 +218,29 @@ def test_saved_topic_relevance_is_present_and_not_mislabeled_factual_accuracy():
                for x in app.warning)
     assert any("reference answers and gold source IDs are not used" in x.value
                for x in app.caption)
+
+
+
+@pytest.mark.parametrize("scenario", ["Duplicate cited policy IDs", "Empty cited policy text"])
+def test_guard_playground_rejects_ambiguous_cited_policy(scenario):
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Try the output guard").run()
+    examples = next(x for x in app.selectbox if x.label == "Try an example")
+    assert scenario in examples.options
+    examples.set_value(scenario).run()
+    next(x for x in app.button if x.label == "Validate response").click().run()
+    assert not app.exception, str(app.exception)
+    assert any("Human source-review required" in x.value for x in app.error)
+    assert any("canonical abstention" in x.value for x in app.info)
+    assert any("Ambiguous Policy Source" in x.value for x in app.markdown)
+
+
+def test_review_dashboard_points_to_private_reconciliation_file():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Final benchmark review").run()
+    assert not app.exception, str(app.exception)
+    values = [x.value for x in app.code]
+    assert any("reviews/reconciliation.json" in x for x in values)
+    assert not any("artifacts/human_review_reconciliation.json" in x for x in values)
