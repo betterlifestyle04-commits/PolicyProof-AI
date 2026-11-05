@@ -17,6 +17,7 @@ from scripts.export_review_from_bundle import (
     ORIGINAL_DEV48_ZIP_SHA256, verify_bundle,
 )
 from scripts.numeric_evidence_audit import audit_saved_predictions
+from scripts.source_topic_audit import audit_saved_source_topics
 from scripts.paired_semantic_review import _private_path
 
 
@@ -47,9 +48,13 @@ def make_pair_numeric_triage(root: Path, bundle: Path, trusted_zip_sha: str,
         )
         base_audit = audit_saved_predictions(base, cases, dataset_sha)
         tuned_audit = audit_saved_predictions(tuned, cases, dataset_sha)
+        base_topics = audit_saved_source_topics(base, cases, dataset_sha)
+        tuned_topics = audit_saved_source_topics(tuned, cases, dataset_sha)
 
     base_flags = {entry["id"] for entry in base_audit["flagged_cases"]}
     tuned_flags = {entry["id"] for entry in tuned_audit["flagged_cases"]}
+    base_topic_flags = {entry["id"] for entry in base_topics["flagged_cases"]}
+    tuned_topic_flags = {entry["id"] for entry in tuned_topics["flagged_cases"]}
     result = {
         "status": "PRIVATE_DEV48_PAIRED_NUMERIC_REVIEW_TRIAGE_ONLY",
         "research_scope": "already_inspected_synthetic_development_not_final",
@@ -60,6 +65,10 @@ def make_pair_numeric_triage(root: Path, bundle: Path, trusted_zip_sha: str,
         "samples_per_model": len(cases),
         "base": base_audit,
         "tuned": tuned_audit,
+        "base_question_source_topic_audit": base_topics,
+        "tuned_question_source_topic_audit": tuned_topics,
+        "topic_newly_flagged_case_ids": sorted(tuned_topic_flags - base_topic_flags),
+        "topic_no_longer_flagged_case_ids": sorted(base_topic_flags - tuned_topic_flags),
         "newly_flagged_case_ids": sorted(tuned_flags - base_flags),
         "no_longer_flagged_case_ids": sorted(base_flags - tuned_flags),
         "model_training_performed": False,
@@ -69,7 +78,9 @@ def make_pair_numeric_triage(root: Path, bundle: Path, trusted_zip_sha: str,
         "reviewer_blinding_required": True,
         "do_not_share_with_reviewers": True,
         "limitations": [
-            "Numeric flags are syntactic review signals, not independent factual judgments",
+            "Numeric and topic flags are syntactic review signals, not independent factual judgments",
+            "A topic match does NOT establish answer accuracy or evidence entailment",
+            "A flagged topic mismatch requires human investigation, not automatic rejection",
             "A financial amount can be literally present but assigned to the wrong product, time or condition",
             "Differences in alert counts do not prove improvements or regressions",
             "Do not reveal model labels or this report to reviewers until their independent blind votes are locked",
@@ -88,6 +99,12 @@ def make_pair_numeric_triage(root: Path, bundle: Path, trusted_zip_sha: str,
         "samples_per_model": len(cases),
         "base_number_review_flags": base_audit["numeric_review_flags"],
         "tuned_number_review_flags": tuned_audit["numeric_review_flags"],
+        "base_topic_mismatch_review_flags":
+            base_topics["topic_mismatch_or_ambiguous_source_review_flags"],
+        "tuned_topic_mismatch_review_flags":
+            tuned_topics["topic_mismatch_or_ambiguous_source_review_flags"],
+        "newly_topic_flagged": len(tuned_topic_flags - base_topic_flags),
+        "no_longer_topic_flagged": len(base_topic_flags - tuned_topic_flags),
         "newly_flagged": len(tuned_flags - base_flags),
         "no_longer_flagged": len(base_flags - tuned_flags),
         "human_semantic_review_performed": False,
