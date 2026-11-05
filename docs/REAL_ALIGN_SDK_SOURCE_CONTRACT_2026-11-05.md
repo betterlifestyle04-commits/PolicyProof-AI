@@ -25,6 +25,14 @@ Run from the repository root in a fresh Python 3.11 environment:
 
 The sixth CI job uploads the JSON receipt as 'policyproof-real-pinned-align-trl-sdk-contract-cpu'.
 
+## Additional actual-source bug prevented: best-model checkpoint without evaluation
+
+The pinned AlignTune TrainingConfig has a default 'load_best_model_at_end=True'. Its real SFT builder deliberately chooses 'eval_strategy=no' when an evaluation dataset is absent, then runs late configuration extraction. This can leave a request to load a best evaluation checkpoint when *no evaluation is running*. The **PolicyProof original 78-row training-only experiment has no evaluation dataset**.
+
+The revised training guard now sets **both** 'config.train.load_best_model_at_end=False' and 'config.train.extra_params["load_best_model_at_end"]=False' whenever there is no evaluation dataset. It then inspects the resulting TRL SFTConfig and refuses any remaining best-model flag or evaluation strategy different from 'no' before training. The outer recovery receipt and the final 10/40-step trainer entrypoint also enforce these constraints. CPU regression tests intentionally re-enable the flag to prove the guard fails closed.
+
+This is a configuration consistency fix based on **real source inspection** and mock execution. It is not a completed real TRL runtime or GPU training test.
+
 ## Crucial limits
 
 The wheels are installed without their heavyweight ML dependencies. We do **not** import either package, instantiate the real TRL SFTConfig, load Tiny Aya weights, run CUDA kernels, execute AlignTune optimizer steps, or infer any model improvements. Those are distinct validations. The actual runtime and GPU checks can only be evidenced by a real, fresh Stage 11 T4 session with saved adapter, raw logs, and an independently checked model revision.
