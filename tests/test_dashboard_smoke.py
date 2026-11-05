@@ -149,3 +149,26 @@ def test_paired_model_evidence_page_rejects_semantic_overclaim():
     assert any("Expected source ID" == m.label for m in app.metric)
     assert any("exact supported-answer text metric is 0/39" in i.value for i in app.info)
     assert any("blinded multilingual reviewer protocol" in m.value for m in app.markdown)
+
+
+
+def test_guard_playground_flags_numeric_claim_not_in_cited_policy():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Try the output guard").run()
+    example = next(item for item in app.selectbox if item.label == "Try an example")
+    example.set_value("Invented numeric fee (needs review)").run()
+    validate = next(item for item in app.button if item.label == "Validate response")
+    validate.click().run()
+    assert not app.exception, str(app.exception)
+    assert any("Numeric evidence review needed" in item.value for item in app.error)
+    assert any("risk flag, not a human factual verdict" in item.value for item in app.error)
+
+
+def test_output_guard_results_include_honest_numeric_triage():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Output guard experiment").run()
+    assert not app.exception, str(app.exception)
+    assert any("Cases needing numeric evidence review" in item.label for item in app.metric)
+    assert any("No model inference was rerun" in item.value for item in app.caption)
