@@ -251,6 +251,36 @@ elif page == "Safety benchmark":
         "--acknowledge-gated-model-license, an authorized CUDA runtime and "
         "gated-model permission. It never fine-tunes the base model."
     )
+    with st.expander("Recover an interrupted 72-case GPU run without losing saved responses"):
+        st.caption(
+            "Optional operator-only workflow. A write-once journal stores each "
+            "case immediately, but a partial journal is NEVER a completed model "
+            "evaluation or independently authenticated GPU receipt."
+        )
+        st.code(
+            "python -m scripts.challenge72_gpu_inference "
+            "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
+            "--revision FULL_REAL_40_HEX_MODEL_SHA "
+            "--output artifacts/track2a_72_unchanged_base_predictions.json "
+            "--checkpoint-dir artifacts/challenge72_gpu_progress "
+            "--execute --confirm-gpu-run --acknowledge-gated-model-license",
+            language="bash",
+        )
+        st.markdown("**Only after an interrupted run, with the original checkpoint:**")
+        st.code(
+            "python -m scripts.challenge72_gpu_inference "
+            "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
+            "--revision FULL_REAL_40_HEX_MODEL_SHA "
+            "--output artifacts/track2a_72_unchanged_base_predictions.json "
+            "--checkpoint-dir artifacts/challenge72_gpu_progress --resume "
+            "--execute --confirm-gpu-run --acknowledge-gated-model-license",
+            language="bash",
+        )
+        st.caption(
+            "Keep the original checkpoint privately on durable storage and "
+            "preserve GPU console logs. Resume refuses changed case IDs, dataset "
+            "bytes, requested model SHA or pre-existing final output."
+        )
     st.markdown("**After preserving all 72 original model responses:**")
     st.code(
         "python -m scripts.score_track2a_72 "
