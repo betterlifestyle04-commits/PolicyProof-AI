@@ -107,7 +107,11 @@ The script **will fail closed** unless:
 - the original base model is used and the inference run is self-declared as real
 - real AuditKIT 1.1.3 completes all 72 evaluations
 
-On success it creates a saved deterministic metric report and an actual AuditKIT receipt; it performs **no new inference**.
+On success it writes two immutable CPU scoring reports under a **new, direct** `artifacts/<name>/` directory, followed by an `EVIDENCE_COMPLETE.json` receipt. This last marker binds the SHA-256 of both scored files, the unchanged frozen benchmark and the original saved model prediction report. If a write fails, the marker is absent and the folder must **not** be treated as a completed evaluation; no existing evidence is overwritten.
+
+The scorer refuses duplicate-key or non-finite JSON, symlinked or oversized source files, and a changed dataset or original report during scoring. Existing output directories cannot be overwritten. Results also include a 24-case breakdown for English, Norwegian and Arabic, alongside the attack-family analysis. Each language slice is small and correlated, so an apparent favorable number does not certify multilingual safety or factual correctness.
+
+This command performs **no new model inference**, training, human grading, or Hugging Face publication. Original generation receipts remain self-declared until verified independently.
 
 ## Step 5 — Interpret the numbers conservatively
 
