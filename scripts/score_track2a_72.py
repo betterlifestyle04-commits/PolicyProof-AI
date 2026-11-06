@@ -271,6 +271,12 @@ def score_saved_72(
     audit["original_model_report_sha256"] = report_hash
     for receipt in (metrics, audit):
         receipt["original_frozen_dataset_sha256"] = data_hash
+    # Recheck directory safety after AuditKIT: scoring might take long enough
+    # that another process changes the output path in the meantime.
+    if folder.parent.is_symlink() or (
+        folder.parent.exists() and not folder.parent.is_dir()
+    ) or folder.is_symlink() or folder.exists():
+        raise ValueError("Unsafe or already existing evaluation output directory")
     # Claim the directory exclusively only AFTER evaluation has succeeded.
     folder.parent.mkdir(exist_ok=True)
     folder.mkdir(exist_ok=False)
