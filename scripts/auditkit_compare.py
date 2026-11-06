@@ -9,9 +9,13 @@ import argparse
 import json
 from pathlib import Path
 
-from policyproof.core import read_jsonl, sha256 as file_sha, score
+from policyproof.core import ROOT, read_jsonl, sha256 as file_sha, score
 from scripts.auditkit_replay import check_saved_outputs, make_audit_samples, make_scorers
 from scripts.final_pair_diagnostics import analyze_scored_pairs
+from scripts.paired_run_recovery import validate_saved_base, validate_saved_tuned
+from scripts.frozen_pair_inference import GENERATION, MODEL_ID
+from scripts.verify_evidence import read_evidence_json
+from scripts.submission_gate import write_new_report
 
 
 def validate_pair(base: dict, candidate: dict, rows: list[dict], checksum: str):
@@ -107,26 +111,86 @@ def comparison(base: dict, candidate: dict, rows: list[dict], checksum: str) -> 
     }
 
 
+def compare_saved_files(
+    baseline: Path, candidate: Path, dataset: Path, output: str, *,
+    root: Path = ROOT,
+) -> dict:
+    """Read-only source comparison; write ONE new bounded report.
+
+    Input reports may be absolute paths (e.g. preserved from a GPU session),
+    but outputs are always direct artifacts/<new-name>.json in the chosen root.
+    This function cannot update reviewer votes, a benchmark, model weights,
+    original inference reports, or existing paired audit receipts.
+    """
+    root = Path(root).resolve()
+    b_path, c_path, data = (
+        Path(x) if Path(x).is_absolute() else root / x
+        for x in (baseline, candidate, dataset)
+    )
+    if b_path.resolve() == c_path.resolve():
+        raise ValueError("Paired comparison requires distinct source reports")
+    if (data.is_symlink() or not data.is_file()
+        or not 0 < data.stat().st_size <= 3_000_000):
+        raise ValueError("Frozen comparison dataset missing, symlinked or oversized")
+    # Duplicate fields, NaN and Infinity are not unambiguous saved evidence.
+    base = read_evidence_json(b_path, limit=2_000_000)
+    cand = read_evidence_json(c_path, limit=2_000_000)
+    digest = file_sha(data)
+    b_hash, c_hash = file_sha(b_path), file_sha(c_path)
+    rows = read_jsonl(data)
+
+    # The 60-case final split must meet the stricter complete original-output
+    # validator (observed loaded SHA, matching raw scores, 60 distinct IDs).
+    # This direct CLI does not independently authenticate a GPU, review or a
+    # trainer and never bypasses the separate Track 1 release gate.
+    if (base.get("split") == "final_candidate_holdout_v1"
+        or cand.get("split") == "final_candidate_holdout_v1"):
+        if (len(rows) != 60 or len({r["id"] for r in rows}) != 60
+            or base.get("split") != "final_candidate_holdout_v1"
+            or cand.get("split") != "final_candidate_holdout_v1"):
+            raise ValueError("Final paired CLI requires exact 60-case source coverage")
+        revision, adapter_sha = base.get("model_revision"), cand.get("adapter_sha256")
+        base = validate_saved_base(
+            b_path, rows, dataset_sha256=digest, revision=revision,
+            generation_config=GENERATION, model_id=MODEL_ID,
+        )
+        cand = validate_saved_tuned(
+            c_path, rows, dataset_sha256=digest, revision=revision,
+            generation_config=GENERATION, model_id=MODEL_ID,
+            adapter_sha256=adapter_sha,
+        )
+
+    result = comparison(base, cand, rows, digest)
+    # Do not let a concurrent change to the source reports or benchmark
+    # publish a comparison based on a mixed/unstable version.
+    if (file_sha(data) != digest or file_sha(b_path) != b_hash
+        or file_sha(c_path) != c_hash):
+        raise ValueError("Original source evidence changed during AuditKIT comparison")
+    # This creates only a previously absent report; the shared submission
+    # writer restricts filenames to direct artifacts/*.json, never overwrites,
+    # and uses exclusive O_EXCL semantics against competing processes.
+    write_new_report(
+        json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+        output, root=root,
+    )
+    return result
+
+
 def main():
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(
+        description="CPU-only comparison of source reports; creates one NEW artifacts/*.json"
+    )
     p.add_argument("--baseline", required=True)
     p.add_argument("--candidate", required=True)
     p.add_argument("--dataset", default="data/final_holdout_v1.jsonl")
     p.add_argument("--output", default="artifacts/paired_auditkit.json")
     args = p.parse_args()
-    b_path, c_path = Path(args.baseline), Path(args.candidate)
-    data = Path(args.dataset)
-    base = json.loads(b_path.read_text(encoding="utf-8"))
-    cand = json.loads(c_path.read_text(encoding="utf-8"))
-    result = comparison(base, cand, read_jsonl(data), file_sha(data))
-    dest = Path(args.output)
-    if dest.resolve() in {b_path.resolve(), c_path.resolve()}:
-        raise ValueError("Refusing to overwrite original model predictions")
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n",
-                    encoding="utf-8")
+    result = compare_saved_files(
+        Path(args.baseline), Path(args.candidate),
+        Path(args.dataset), args.output,
+    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
-    print("Saved:", dest)
+    print("Saved:", args.output)
 
 
 if __name__ == "__main__":
