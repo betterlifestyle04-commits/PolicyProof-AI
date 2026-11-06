@@ -249,7 +249,8 @@ def verify_adapter_still_unchanged(adapter: Path, receipt: dict) -> None:
 
 
 def _predict_on_gpu(rows: list[dict], revision: str,
-                    adapter_directory: Path | None = None) -> tuple[dict[str, str], dict]:
+                    adapter_directory: Path | None = None, *,
+                    progress_callback=None) -> tuple[dict[str, str], dict]:
     """Actual GPU-only text generation. No offline simulation or mock backend."""
     import torch
     from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
@@ -300,6 +301,18 @@ def _predict_on_gpu(rows: list[dict], revision: str,
             if not isinstance(raw, str) or len(raw) > 10000:
                 raise RuntimeError("Invalid generated response length")
             predictions[row["id"]] = raw
+            # Optional Track 2a interruption recovery: save each original raw
+            # output immediately without unloading/reloading the model. The
+            # callback must be write-once and fail closed on any disk error.
+            if progress_callback is not None:
+                progress_callback(row, raw, {
+                    "loaded_model_revision_observed": observed,
+                    "loaded_model_revision_verified": True,
+                    "gpu": torch.cuda.get_device_name(0),
+                    "torch_version": torch.__version__,
+                    "transformers_model_backend": "AutoModelForCausalLM",
+                    "quantization": "bnb_4bit",
+                })
     finally:
         del model
         gc.collect()
