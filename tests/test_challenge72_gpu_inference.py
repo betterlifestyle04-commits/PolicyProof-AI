@@ -1,9 +1,7 @@
 """Synthetic CPU-only tests. Fake GPU responses below are NOT model output."""
 from __future__ import annotations
 
-import copy
 import json
-from pathlib import Path
 import subprocess
 import sys
 
@@ -21,7 +19,7 @@ REVISION = "a" * 40
 
 def frozen_fixture(tmp_path):
     dataset = tmp_path / "data" / "challenge_v1.jsonl"
-    dataset.parent.mkdir()
+    dataset.parent.mkdir(parents=True)
     rows = build_challenge()
     dataset.write_text(
         "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
