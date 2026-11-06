@@ -269,6 +269,46 @@ elif page == "Safety benchmark":
         "[Guarded 72-case GPU execution and scoring protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_72_EVALUATION_PROTOCOL.md)"
     )
+    st.markdown("**Independent local verification after scoring**")
+    st.code(
+        "python -m scripts.verify_track2a_72_receipts --strict "
+        "--evaluation-dir artifacts/actual_72_case_evaluation "
+        "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
+        "--model-report artifacts/track2a_72_unchanged_base_predictions.json",
+        language="bash",
+    )
+    st.caption(
+        "The completion marker alone proves nothing. The read-only verifier "
+        "recomputes all scores and replays genuine CPU AuditKIT against the "
+        "original saved 72 responses. It never authenticates GPU execution "
+        "or establishes human-reviewed semantic safety."
+    )
+    completed72 = ARTIFACTS / "actual_72_case_evaluation/EVIDENCE_COMPLETE.json"
+    if completed72.is_file() or completed72.is_symlink():
+        try:
+            from scripts.verify_track2a_72_receipts import verify_completed_72
+            verified72 = verify_completed_72(
+                "artifacts/actual_72_case_evaluation",
+                "artifacts/track2a_challenge_unscored/challenge_v1.jsonl",
+                "artifacts/track2a_72_unchanged_base_predictions.json",
+                root=ROOT,
+            )
+            st.success(
+                "Saved 72-case CPU evaluation reproduces locally from complete "
+                "original responses, all subgroup scores, and AuditKIT. "
+                "Original model GPU execution remains externally unverified."
+            )
+            st.json(verified72)
+        except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
+            st.error(
+                "72-case saved evaluation evidence could not be verified: "
+                + str(exc)[:160]
+            )
+    else:
+        st.info(
+            "No complete, locally verifiable 72-case model evaluation is present "
+            "in this public deployment. The 72-case benchmark remains unscored."
+        )
     from collections import Counter
     from policyproof.core import sha256
     from scripts.auditkit_replay import check_saved_outputs
