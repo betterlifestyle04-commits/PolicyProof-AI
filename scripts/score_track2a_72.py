@@ -8,7 +8,7 @@ independent verification of original compute. Semantic grading is absent.
 """
 from __future__ import annotations
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from importlib.metadata import version
 from pathlib import Path
 import argparse
@@ -41,10 +41,35 @@ def validate_model_report(report:dict, rows:list[dict], dataset_digest:str)->dic
         raise ValueError("Pin the full 40-character base-model commit SHA")
     if report.get("dataset_sha256") != dataset_digest:
         raise ValueError("Model responses do not match the exact frozen challenge dataset")
-    if not isinstance(report.get("generation_config"),dict) or not report["generation_config"]:
-        raise ValueError("Generation configuration must be recorded")
-    if not isinstance(report.get("created_utc"),str) or "T" not in report["created_utc"]:
+    cfg = report.get("generation_config")
+    if (not isinstance(cfg, dict)
+        or cfg.get("do_sample") is not False
+        or type(cfg.get("max_new_tokens")) is not int
+        or not 1 <= cfg["max_new_tokens"] <= 512
+        or cfg.get("num_beams", 1) != 1):
+        raise ValueError("Record deterministic, bounded base-model generation settings")
+    created = report.get("created_utc")
+    if not isinstance(created, str):
         raise ValueError("Real inference must record created_utc provenance")
+    try:
+        parsed = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        if parsed.utcoffset() is None or parsed.utcoffset().total_seconds() != 0:
+            raise ValueError("Timestamp must be UTC")
+    except ValueError as exc:
+        raise ValueError("Real inference must record valid UTC timestamp") from exc
+    # This binds claimed GPU metadata to the same *observed* loaded-model
+    # commit. Still self-recorded, not independent accelerator attestation.
+    observed = report.get("actual_gpu_inference_metadata")
+    if (not isinstance(observed, dict)
+        or observed.get("loaded_model_revision_verified") is not True
+        or observed.get("loaded_model_revision_observed") != report["model_revision"]
+        or not isinstance(observed.get("gpu"), str) or not observed["gpu"]
+        or not isinstance(observed.get("torch_version"), str)
+        or not observed["torch_version"]):
+        raise ValueError(
+            "Saved 72-case report must declare a matching observed loaded-model "
+            "commit and original GPU runtime metadata"
+        )
     predictions=report.get("predictions")
     if not isinstance(predictions,list) or len(predictions)!=72:
         raise ValueError("Expected exactly 72 saved actual model responses")

@@ -23,7 +23,37 @@ This writes \`challenge_v1.jsonl\`, exactly 72 rows. It does not call an LLM.
 
 **Expected frozen SHA-256:** \`cdd5cf4e54caa6c79ce1f0cd5bd0f05344f0dc22039a2ad56a3c1c0ee2d32cd1\`. The evaluator refuses any changed bytes. Keep this file read-only. Do not train on this challenge set.
 
-## Step 2 — Obtain actual model responses elsewhere
+## Step 2 — Use the guarded unchanged-base Tiny Aya GPU runner
+
+The repository now contains a reproducible execution script at `scripts/challenge72_gpu_inference.py`. This is **prepared code only**: we have not executed the 72-case inference on CUDA, and its existence or passing CI does not create original model outputs. Use a GPU runtime where your Hugging Face account legitimately has gated Tiny Aya access, and where you have reviewed the applicable license and compute costs.
+
+Start in the checked-out repository with Python, the matching challenge file, and your *actual* full 40-character Git commit SHA for the authorized model weights (never guess a revision):
+
+```bash
+python -m scripts.challenge72_gpu_inference \
+  --dataset artifacts/challenge72_for_inference/challenge_v1.jsonl \
+  --revision FULL_REAL_40_HEX_MODEL_SHA
+```
+
+**Default is CPU-only.** It checks the exact frozen 72-case SHA, all six language/category distributions, pinned requested revision and a new safe output path. `READY_FOR_EXPLICIT_GPU_EXECUTION` means only that local prerequisites are structurally present—not that your GPU, permissions, token, download or runtime will work.
+
+Only when you decide to incur actual model inference, execute:
+
+```bash
+python -m scripts.challenge72_gpu_inference \
+  --dataset artifacts/challenge72_for_inference/challenge_v1.jsonl \
+  --revision FULL_REAL_40_HEX_MODEL_SHA \
+  --output artifacts/track2a_72_unchanged_base_predictions.json \
+  --execute --confirm-gpu-run --acknowledge-gated-model-license
+```
+
+The code reuses the guarded unchanged-base 4-bit Transformers loader from the final-60 pipeline. It **checks the commit SHA observed on the loaded model object before generating**; a requested revision alone is not enough. It generates all 72 prompts without fine-tuning and with deterministic decoding (`do_sample=False`, `num_beams=1`, `max_new_tokens=160`). It checks that the original challenge has not changed, validates the complete 72-output report and writes it exactly once under `artifacts/`. If any precondition, GPU call, source hash or output check fails, no completed report is claimed. Repeated runs cannot overwrite saved predictions.
+
+The complete inference file is a locally recorded GPU result, **not independently authenticated GPU provenance or human semantic accuracy**. Preserve the full private CUDA console logs, runtime versions, model SHA, source commit, original report and failure trace if any. Never upload tokens or gated weights.
+
+**Alternative external runner:** a report produced by another authorized runtime is acceptable for scoring only if it supplies all real raw predictions, the exact dataset SHA, UTC timestamp, deterministic generation configuration, and actual reported loaded-model commit/GPU metadata. The scorer checks internal consistency but cannot authenticate an external claim.
+
+## Previous manual report schema (for inspection only)
 
 A GPU inference run is needed to generate 72 raw outputs with **CohereLabs/tiny-aya-global**. This has not been executed on the new challenge here. When a permitted GPU becomes available, generate each prompt with \`policyproof.core.make_prompt(row)\` and save the raw model response string for every row. Pin the full 40-hex-character Hugging Face base-model revision before inference. Use deterministic settings and record \`generation_config\`, \`created_utc\` and exact dataset hash. Do not regenerate or modify gold labels after seeing model outputs.
 
@@ -40,13 +70,20 @@ Save the following actual inference report as JSON. The example shows only the s
   "created_utc": "REPLACE_WITH_REAL_UTC_TIMESTAMP",
   "generation_config": {
     "do_sample": false,
-    "max_new_tokens": 128
+    "num_beams": 1,
+    "max_new_tokens": 160
+  },
+  "actual_gpu_inference_metadata": {
+    "gpu": "REPLACE_WITH_REAL_CUDA_DEVICE",
+    "torch_version": "REPLACE_WITH_REAL_TORCH_VERSION",
+    "loaded_model_revision_observed": "SAME_FULL_40_HEX_SHA_OBSERVED_ON_LOADED_MODEL",
+    "loaded_model_revision_verified": true
   },
   "predictions": []
 }
 \`\`\`
 
-**Never set** \`is_real_model_result\` to true for oracle, hand-authored, simulated, or fabricated predictions. The current new challenge has **zero** such reports. The scorer will reject this example until all 72 responses and the exact revision are populated.
+**Never set** \`is_real_model_result\` to true for oracle, hand-authored, simulated, or fabricated predictions. The current new challenge has **zero** such reports. The scorer will reject this example until all 72 original responses, the exact SHA, actual loaded-revision GPU metadata and valid timestamp are populated. Hand-authoring these fields is not an authorized replacement for executing inference.
 
 ## Step 3 — Independently check the provenance
 
@@ -58,7 +95,7 @@ Confirm in the inference environment that the downloaded model weights match the
 python -m pip install "auditkit==1.1.3"
 python -m scripts.score_track2a_72 \
   --dataset artifacts/challenge72_for_inference/challenge_v1.jsonl \
-  --model-report /path/to/real_tiny_aya_challenge72_predictions.json \
+  --model-report artifacts/track2a_72_unchanged_base_predictions.json \
   --output-dir artifacts/actual_72_case_evaluation
 \`\`\`
 
