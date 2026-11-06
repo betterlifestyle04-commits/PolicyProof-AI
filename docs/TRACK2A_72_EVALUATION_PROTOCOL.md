@@ -51,6 +51,36 @@ The code reuses the guarded unchanged-base 4-bit Transformers loader from the fi
 
 The complete inference file is a locally recorded GPU result, **not independently authenticated GPU provenance or human semantic accuracy**. Preserve the full private CUDA console logs, runtime versions, model SHA, source commit, original report and failure trace if any. Never upload tokens or gated weights.
 
+### Optional: preserve every completed GPU response and resume interrupted runs
+
+The original command writes its final report only after all 72 responses. For real Colab/Kaggle sessions where an interruption would waste GPU time, the runner also supports an **opt-in write-once per-case checkpoint**. Start a fresh session with the same authorized model SHA, frozen benchmark and existing opt-ins, adding `--checkpoint-dir`:
+
+```bash
+python -m scripts.challenge72_gpu_inference \
+  --dataset artifacts/challenge72_for_inference/challenge_v1.jsonl \
+  --revision FULL_REAL_40_HEX_MODEL_SHA \
+  --output artifacts/track2a_72_unchanged_base_predictions.json \
+  --checkpoint-dir artifacts/challenge72_gpu_progress \
+  --execute --confirm-gpu-run --acknowledge-gated-model-license
+```
+
+This loads the unchanged base model **once**, then exclusively saves each completed response as `case_000.json`, `case_001.json`, and so on. The `manifest.json` identifies the exact ordered 72 cases, challenge SHA-256, model SHA, generation configuration and explicitly labels the checkpoint **PARTIAL / NOT EVALUATION EVIDENCE**. Each case binds the original response's SHA-256 and the observed loaded-model revision recorded during generation. Saved files are never replaced.
+
+If the runtime stops, keep the **entire original checkpoint directory** and restart from a copy of the same trusted code, frozen dataset and model SHA. In the **same durable storage environment**, run:
+
+```bash
+python -m scripts.challenge72_gpu_inference \
+  --dataset artifacts/challenge72_for_inference/challenge_v1.jsonl \
+  --revision FULL_REAL_40_HEX_MODEL_SHA \
+  --output artifacts/track2a_72_unchanged_base_predictions.json \
+  --checkpoint-dir artifacts/challenge72_gpu_progress --resume \
+  --execute --confirm-gpu-run --acknowledge-gated-model-license
+```
+
+The read-only preflight inspects every original checkpoint record, enforces a contiguous ordered prefix and rejects changed hashes, unknown files, symlinks, source mismatches or revisions. A resumed run regenerates **only missing cases**. If all 72 cases were already preserved but the final report was never written, it can assemble the final report from the validated original checkpoint **without loading a model**; that report explicitly states no GPU inference occurred in the current process.
+
+**Important operational constraints:** a notebook VM reset can delete local checkpoint directories, so copy the journal privately to persistent storage during a run, without exposing gated weights or credentials. Always retain original logs. A checkpoint directory is **not** an official final report or independent GPU attestation; even a complete journal must pass the separate full-output validator and the read-only CPU AuditKIT/receipt verification. Saving a final report never upgrades self-recorded runtime metadata into externally verified GPU provenance. Do not edit, truncate, or manually fill checkpoint cases.
+
 **Alternative external runner:** a report produced by another authorized runtime is acceptable for scoring only if it supplies all real raw predictions, the exact dataset SHA, UTC timestamp, deterministic generation configuration, and actual reported loaded-model commit/GPU metadata. The scorer checks internal consistency but cannot authenticate an external claim.
 
 ## Previous manual report schema (for inspection only)
