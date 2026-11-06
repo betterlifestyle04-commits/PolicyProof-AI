@@ -47,6 +47,12 @@ python -m scripts.frozen_pair_inference \
 
 The process writes new JSON output files using exclusive creation rather than silently overwriting previous evidence. It does **not** automatically modify the human-review signoff or claim improvement. This script **has not yet been run with a genuine checkpoint on CUDA**, so the true runtime memory footprint, API compatibility and model behavior remain unverified.
 
+## Safe standalone AuditKIT comparison (November 6)
+
+For **offline, deterministic comparison only**, `python -m scripts.auditkit_compare --baseline <base.json> --candidate <tuned.json> --dataset <cases.jsonl> --output artifacts/<fresh-name>.json` now accepts read-only original reports, validates strict bounded JSON without duplicate fields/non-finite values/symlinks, and refuses an oversized or symlinked dataset. When the input declares the final 60-case split, the CLI additionally verifies complete original base/tuned metadata, the observed loaded-model revision, 60 raw responses each, matching input hashes and recomputed scores before invoking AuditKIT.
+
+Outputs are now restricted to a **new direct `artifacts/*.json` filename** and written exclusively. It refuses an existing report or a destination in `data/`, `reviews/`, `docs/` or elsewhere, so the command cannot overwrite frozen cases, private votes, prior predictions or a trained adapter. Dataset and both source-report hashes are checked again after the AuditKIT comparison; any change blocks the publication. This is **not** a new GPU experiment, does **not** independently authenticate original saved outputs, and does **not** replace the full human-review/model-adapter release gate. For an actual final 60-case comparison interrupted after GPU generation, follow the more stringent `scripts.finish_saved_pair` protocol rather than treating this generic comparison CLI as official completion.
+
 ## Scientific limitations and next stages
 
 Success in this pipeline proves only that a real model-prediction collection and deterministic comparison executed in the runtime. It does not prove safety, factual grounding, statistical significance, reviewer competence, generalization or a gain due to AlignTune.
