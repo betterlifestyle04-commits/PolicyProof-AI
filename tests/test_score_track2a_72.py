@@ -24,6 +24,12 @@ def rows_and_report():
         "dataset_sha256":digest,
         "created_utc":"2026-11-03T00:00:00Z",
         "generation_config":{"do_sample":False,"max_new_tokens":128},
+        "actual_gpu_inference_metadata":{
+            "gpu":"FAKE_UNIT_TEST_NOT_A_GPU",
+            "torch_version":"UNIT_TEST_NOT_REAL_TORCH",
+            "loaded_model_revision_observed":"a"*40,
+            "loaded_model_revision_verified":True,
+        },
         "predictions":[{"id":r["id"],
                         "raw":make_gold(r["expected_answer"],r["expected_source_id"])}
                        for r in rows],
@@ -110,3 +116,31 @@ def test_genuine_auditkit_api_on_72_synthetic_unit_test_oracle():
     assert receipt["model_generated_during_replay"] is False
     assert receipt["human_semantic_review_completed"] is False
     assert receipt["fingerprint"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("created_utc", "yesterday"),
+    ("created_utc", "2026-11-03T00:00:00"),
+    ("generation_config", {"do_sample": True, "max_new_tokens": 128}),
+    ("generation_config", {"do_sample": False, "max_new_tokens": -1}),
+    ("generation_config", {"do_sample": False, "max_new_tokens": 128, "num_beams": 3}),
+    ("actual_gpu_inference_metadata", {}),
+    ("actual_gpu_inference_metadata", {
+        "gpu": "FAKE_UNIT_TEST_NOT_A_GPU",
+        "torch_version": "TEST_RUNTIME_ONLY",
+        "loaded_model_revision_observed": "b" * 40,
+        "loaded_model_revision_verified": True,
+    }),
+])
+def test_reject_ambiguous_claims_of_original_72_gpu_generation(field, value):
+    rows, report, digest = rows_and_report()
+    report[field] = value
+    with pytest.raises(ValueError, match="inference|Generation|generation|UTC|commit|metadata|runtime"):
+        validate_model_report(report, rows, digest)
+
+
+def test_missing_observed_loaded_commit_is_not_substituted_by_requested_revision():
+    rows, report, digest = rows_and_report()
+    report["actual_gpu_inference_metadata"].pop("loaded_model_revision_observed")
+    with pytest.raises(ValueError, match="observed loaded-model"):
+        validate_model_report(report, rows, digest)
