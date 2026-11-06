@@ -22,7 +22,7 @@ def deterministic_report_target(output: str | Path, *, root: Path = ROOT) -> Pat
     """Accept only direct artifacts/<safe-name>.json, including an absolute default."""
     project = Path(root).resolve()
     literal = str(output)
-    if (not literal or len(literal) > 1024 or "\\" in literal
+    if (not literal or len(literal) > 1024
         or any(ord(ch) < 32 or ord(ch) == 127 for ch in literal)):
         raise ValueError("Report output must be a direct artifacts/<name>.json")
     candidate = Path(literal)
@@ -31,6 +31,10 @@ def deterministic_report_target(output: str | Path, *, root: Path = ROOT) -> Pat
             raise ValueError("Report output must be a direct artifacts/<name>.json")
         name = candidate.name
     else:
+        # Keep Windows-style absolute Path defaults supported on Windows, but
+        # never interpret a backslash-containing *relative* string as safe.
+        if "\\" in literal:
+            raise ValueError("Report output must be a direct artifacts/<name>.json")
         parts = literal.split("/")
         if len(parts) != 2 or parts[0] != "artifacts":
             raise ValueError("Report output must be a direct artifacts/<name>.json")
