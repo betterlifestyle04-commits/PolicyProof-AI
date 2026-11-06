@@ -113,6 +113,23 @@ The scorer refuses duplicate-key or non-finite JSON, symlinked or oversized sour
 
 This command performs **no new model inference**, training, human grading, or Hugging Face publication. Original generation receipts remain self-declared until verified independently.
 
+## Step 4b — Verify the completed evaluation independently from preserved source files
+
+A checksum-listed `EVIDENCE_COMPLETE.json` is not enough on its own: an accidental rewrite could leave a stale receipt, and a dishonest report could rewrite its own hashes. There is now a separate, **read-only source-replay verifier**:
+
+```bash
+python -m scripts.verify_track2a_72_receipts --strict \
+  --evaluation-dir artifacts/actual_72_case_evaluation \
+  --dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl \
+  --model-report artifacts/track2a_72_unchanged_base_predictions.json
+```
+
+It accepts only a direct existing `artifacts/<name>/` directory containing exactly three regular, non-symlinked files: `measured_72_report.json`, `auditkit_72_receipt.json`, and `EVIDENCE_COMPLETE.json`. It requires the exact published frozen-challenge SHA-256 and a complete original 72-response report with the pinned observed loaded-model SHA. It recomputes the receipt-file digests, all 72 deterministic scores, all six attack-family counts, the matched control/attack outcomes and the English/Norwegian/Arabic slices. It then actually reruns **AuditKIT 1.1.3** on the same 72 preserved responses and checks its saved native report before rehashing everything to reject changes during verification.
+
+The verifier prints `VERIFIED_LOCAL_72_CASE_SOURCE_REPLAY` only when these structural, statistical and toolkit checks match; `--strict` returns a nonzero exit status for any failed check. It writes **no files**, runs **no new model generation**, trains **no adapter**, does **not** access Hugging Face, and performs **no human answer review**. Hash consistency and CPU replay are **not** independent attestation that a GPU actually produced the user-supplied model responses. A fabricated source report and coherently fabricated metadata can still be internally consistent; retain private original GPU logs and seek qualified external review.
+
+Until genuine source material exists, the read-only default reports `BLOCKED`; do not present synthetic unit-test fixtures or local receipt consistency as published benchmark results.
+
 ## Step 5 — Interpret the numbers conservatively
 
 The report separates all six challenge families, each language, unconditional versus conditional rates, and paired exact-success outcomes for the same 12 fictional control questions across the four attacks. A literal attacker marker appearing in an output is **not** a full attack-success metric. A correct citation ID is **not** proof of textual support. Exact text match penalizes valid paraphrases.
