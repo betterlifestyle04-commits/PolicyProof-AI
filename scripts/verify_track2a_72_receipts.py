@@ -117,7 +117,8 @@ def verify_completed_72(
     )
     expected_scores = summarize(rows, predicted, hashes["frozen_dataset_sha256"], source_report)
     expected_scores.update({
-        **hashes,
+        "original_model_report_sha256": hashes["original_model_report_sha256"],
+        "original_frozen_dataset_sha256": hashes["frozen_dataset_sha256"],
     })
     if scores != expected_scores:
         raise ValueError("Saved 72-case totals/language/attack metrics do not reproduce from raw model responses")
@@ -131,7 +132,10 @@ def verify_completed_72(
         rows, predicted, hashes["frozen_dataset_sha256"], source_report
     ):
         raise ValueError("AuditKIT replay changed deterministic scoring")
-    expected_receipt.update(hashes)
+    expected_receipt.update({
+        "original_model_report_sha256": hashes["original_model_report_sha256"],
+        "original_frozen_dataset_sha256": hashes["frozen_dataset_sha256"],
+    })
     if receipt != expected_receipt:
         raise ValueError("Saved AuditKIT receipt differs from current actual toolkit replay")
 
