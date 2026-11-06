@@ -13,6 +13,8 @@ Usage:
 No GPU, Hugging Face token, or external judge API is required.
 """
 from __future__ import annotations
+from scripts.verify_evidence import read_evidence_json
+from scripts.research_report_io import preserve_deterministic_report
 import argparse
 from hashlib import sha256
 import importlib.metadata
@@ -131,15 +133,14 @@ def main():
     args = p.parse_args()
     source = Path(args.report)
     rows_path = Path(args.dataset)
-    report = json.loads(source.read_text(encoding="utf-8"))
+    report = read_evidence_json(source)
     result = audit_replay(report, read_jsonl(rows_path), file_sha(rows_path))
-    dest = Path(args.output)
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.resolve() == source.resolve():
-        raise ValueError("Cannot overwrite original model results")
-    dest.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    dest, reused = preserve_deterministic_report(
+        json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        args.output,
+    )
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    print("AuditKIT output saved:", dest)
+    print("AuditKIT output " + ("verified unchanged" if reused else "saved") + ":", dest)
 
 
 if __name__ == "__main__":
