@@ -20,6 +20,7 @@ import math
 
 from policyproof.core import aggregate, read_jsonl, score, sha256
 from scripts.verify_curator_archive import check_zip
+from scripts.research_report_io import preserve_deterministic_report
 
 EXPECTED_CURATOR_TRAIN_SHA256 = (
     "4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c"
@@ -167,11 +168,7 @@ def main():
                            curator_zip=args.curator_zip)
     payload = json.dumps(result, indent=2, ensure_ascii=False) + "\n"
     if args.out:
-        target = Path(args.out)
-        if args.baseline and target.resolve() == Path(args.baseline).resolve():
-            raise ValueError("Refusing to overwrite the baseline report")
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(payload, encoding="utf-8")
+        preserve_deterministic_report(payload, args.out)
     print(payload)
 
 
