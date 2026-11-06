@@ -25,6 +25,9 @@ from scripts.research_report_io import deterministic_report_target
 from scripts.score_track2a_72 import (
     KNOWN_CHALLENGE_SHA256, validate_model_report,
 )
+from scripts.challenge72_checkpoint import (
+    create_checkpoint, read_checkpoint, save_case,
+)
 
 DEFAULT_DATASET = "artifacts/track2a_challenge_unscored/challenge_v1.jsonl"
 DEFAULT_OUTPUT = "artifacts/track2a_72_unchanged_base_predictions.json"
@@ -51,6 +54,7 @@ def _frozen_challenge(dataset: Path) -> tuple[list[dict], str]:
 def preflight(
     root: Path = ROOT, *, dataset: str | Path = DEFAULT_DATASET,
     revision: str | None = None, output: str | Path = DEFAULT_OUTPUT,
+    checkpoint_dir: str | Path | None = None, resume: bool = False,
 ) -> dict:
     """Read-only prerequisite report; 'ready' is NOT proof of model access."""
     root = Path(root).resolve()
@@ -60,6 +64,7 @@ def preflight(
     checks = {}
     digest = None
     cases = None
+    rows = None
     try:
         rows, digest = _frozen_challenge(input_path)
         cases = len(rows)
@@ -89,6 +94,30 @@ def preflight(
         }
     except (ValueError, OSError, FileExistsError) as exc:
         checks["new_prediction_output"] = {"passed": False, "details": str(exc)[:240]}
+    if checkpoint_dir is not None:
+        try:
+            if rows is None or digest is None or not (
+                isinstance(revision, str) and REVISION.fullmatch(revision)
+            ):
+                raise ValueError("Validate exact frozen dataset and model SHA before checkpoint recovery")
+            _path, completed, _runtime = read_checkpoint(
+                root, checkpoint_dir, rows, digest, revision, resume=resume,
+            )
+            checks["write_once_checkpoint"] = {
+                "passed": True,
+                "details": (
+                    f"{len(completed)}/72 raw cases preserved; "
+                    + ("verified resume prefix" if resume else "new checkpoint path")
+                ),
+            }
+        except (OSError, ValueError, TypeError, KeyError, FileExistsError) as exc:
+            checks["write_once_checkpoint"] = {
+                "passed": False, "details": str(exc)[:240]
+            }
+    elif resume:
+        checks["write_once_checkpoint"] = {
+            "passed": False, "details": "--resume requires --checkpoint-dir"
+        }
     return {
         "status": "READY_FOR_EXPLICIT_GPU_EXECUTION" if all(
             item["passed"] is True for item in checks.values()
@@ -111,6 +140,7 @@ def preflight(
 
 def execute_gpu(
     root: Path, dataset: str | Path, revision: str, output: str | Path,
+    *, checkpoint_dir: str | Path | None = None, resume: bool = False,
 ) -> dict:
     """Run 72 genuine unchanged-base generations only after full opt-in in CLI.
 
@@ -118,7 +148,10 @@ def execute_gpu(
     real model outputs. Actual execution requires licensed CUDA + HF access.
     """
     root = Path(root).resolve()
-    state = preflight(root, dataset=dataset, revision=revision, output=output)
+    state = preflight(
+        root, dataset=dataset, revision=revision, output=output,
+        checkpoint_dir=checkpoint_dir, resume=resume,
+    )
     if state["status"] != "READY_FOR_EXPLICIT_GPU_EXECUTION":
         raise ValueError("GPU inference blocked by CPU prerequisites: " + json.dumps(state["checks"]))
     source = Path(dataset)
@@ -129,19 +162,56 @@ def execute_gpu(
     if digest != state["dataset_sha256"]:
         raise ValueError("Frozen challenge changed since validated preflight")
 
-    # The existing final-60 GPU loader checks the ACTUALLY loaded model config
-    # commit SHA before generation, forces untuned base and no sampling, and
-    # returns raw output text plus original runtime metadata.
-    predictions, gpu_metadata = _predict_on_gpu(rows, revision)
+    # The existing GPU loader checks the *actual* loaded model config before
+    # generation. A checkpoint captures each original response immediately,
+    # without reloading the model for every case.
+    saved, previous_runtime = {}, None
+    journal = None
+    if checkpoint_dir is not None:
+        if resume:
+            journal, saved, previous_runtime = read_checkpoint(
+                root, checkpoint_dir, rows, digest, revision, resume=True,
+            )
+        else:
+            journal = create_checkpoint(
+                root, checkpoint_dir, rows, digest, revision,
+            )
+    remaining = rows[len(saved):]
+    generated_here = bool(remaining)
+    if remaining and journal is not None:
+        positions = {row["id"]: i for i, row in enumerate(rows)}
+        def record_progress(row, raw, runtime):
+            if sha256(source) != digest:
+                raise ValueError("Frozen challenge changed during GPU generation")
+            save_case(
+                journal, index=positions[row["id"]], row=row, raw=raw,
+                digest=digest, revision=revision, runtime=runtime,
+            )
+        new_outputs, gpu_metadata = _predict_on_gpu(
+            remaining, revision, progress_callback=record_progress,
+        )
+    elif remaining:
+        new_outputs, gpu_metadata = _predict_on_gpu(rows, revision)
+    else:
+        new_outputs, gpu_metadata = {}, previous_runtime
     if not isinstance(gpu_metadata, dict) or (
         gpu_metadata.get("loaded_model_revision_observed") != revision
         or gpu_metadata.get("loaded_model_revision_verified") is not True
     ):
         raise RuntimeError("GPU runner returned no matching observed loaded-model commit")
     if sha256(source) != digest:
-        raise ValueError("Frozen benchmark changed during GPU inference")
-    if not isinstance(predictions, dict) or len(predictions) != len(rows):
+        raise ValueError("Frozen benchmark changed during GPU inference/recovery")
+    if not isinstance(new_outputs, dict) or len(new_outputs) != len(remaining):
         raise ValueError("Incomplete original GPU prediction coverage")
+    predictions = {**saved, **new_outputs}
+    if set(predictions) != {row["id"] for row in rows} or len(predictions) != 72:
+        raise ValueError("Incomplete combined 72-case output coverage")
+    if journal is not None:
+        _journal, persisted, _ = read_checkpoint(
+            root, checkpoint_dir, rows, digest, revision, resume=True,
+        )
+        if persisted != predictions or len(persisted) != 72:
+            raise ValueError("Write-once GPU checkpoint does not match complete original raw outputs")
     report = {
         "project": "PolicyProof AI / Lexsi Track 2a",
         "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -153,7 +223,10 @@ def execute_gpu(
         "dataset_sha256": digest,
         "generation_config": dict(GENERATION),
         "actual_gpu_inference_metadata": gpu_metadata,
-        "model_inference_executed_in_this_process": True,
+        "model_inference_executed_in_this_process": generated_here,
+        "resumed_partial_checkpoint": bool(saved),
+        "cases_restored_from_checkpoint": len(saved),
+        "checkpoint_only_partial_until_final_report": journal is not None,
         "human_semantic_review_completed": False,
         "model_improvement_verified": False,
         "predictions": [
@@ -180,7 +253,9 @@ def execute_gpu(
         "dataset_sha256": digest,
         "requested_revision": revision,
         "observed_loaded_revision": gpu_metadata["loaded_model_revision_observed"],
-        "base_model_inference_performed_in_this_process": True,
+        "base_model_inference_performed_in_this_process": generated_here,
+        "cases_recovered_from_write_once_checkpoint": len(saved),
+        "new_cases_generated_in_this_process": len(remaining),
         "training_performed": False,
         "independent_gpu_attestation": False,
         "human_semantic_review_completed": False,
@@ -196,17 +271,24 @@ def main() -> None:
     parser.add_argument("--revision", default=None,
                         help="Actual 40-hex pinned commit SHA for CohereLabs/tiny-aya-global")
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
+    parser.add_argument("--checkpoint-dir", default=None,
+                        help="Optional new artifacts/<name> write-once journal of each completed GPU response")
+    parser.add_argument("--resume", action="store_true",
+                        help="Reuse an existing source-pinned checkpoint without rewriting completed cases")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-gpu-run", action="store_true")
     parser.add_argument("--acknowledge-gated-model-license", action="store_true",
                         help="Confirm separately that Hugging Face account access and model license permit this run")
     args = parser.parse_args()
+    if args.resume and args.checkpoint_dir is None:
+        parser.error("--resume requires --checkpoint-dir")
     if not args.execute:
         if args.confirm_gpu_run or args.acknowledge_gated_model_license:
             parser.error("Execution confirmation flags require --execute")
         print(json.dumps(preflight(
             ROOT, dataset=args.dataset, revision=args.revision,
-            output=args.output,
+            output=args.output, checkpoint_dir=args.checkpoint_dir,
+            resume=args.resume,
         ), indent=2, ensure_ascii=False))
         print("Read-only CPU preflight. No model loaded, no GPU inference, no training.")
         return
@@ -215,7 +297,10 @@ def main() -> None:
             "Actual GPU execution requires --execute --confirm-gpu-run "
             "--acknowledge-gated-model-license"
         )
-    result = execute_gpu(ROOT, args.dataset, args.revision, args.output)
+    result = execute_gpu(
+        ROOT, args.dataset, args.revision, args.output,
+        checkpoint_dir=args.checkpoint_dir, resume=args.resume,
+    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
