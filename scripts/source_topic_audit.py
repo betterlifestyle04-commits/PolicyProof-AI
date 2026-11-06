@@ -9,6 +9,8 @@ Never use this as a model guard, final benchmark result, oracle, or automatic
 decision to reject or approve a banking response. No new model is run.
 """
 from __future__ import annotations
+from scripts.verify_evidence import read_evidence_json
+from scripts.research_report_io import preserve_deterministic_report
 
 import argparse
 from collections import Counter
@@ -213,13 +215,13 @@ def main() -> None:
     protected = {args.report.resolve(), args.dataset.resolve()}
     if args.output.resolve() in protected:
         raise ValueError("Refusing to overwrite original saved model or dataset evidence")
-    report = json.loads(args.report.read_text(encoding="utf-8"))
+    report = read_evidence_json(args.report)
     rows = read_jsonl(args.dataset)
     result = audit_saved_source_topics(report, rows, sha256(args.dataset))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(
-        result, ensure_ascii=False, indent=2, allow_nan=False
-    ) + "\n", encoding="utf-8")
+    preserve_deterministic_report(
+        json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        args.output,
+    )
     print(json.dumps({
         "status": result["status"],
         "samples": result["samples"],

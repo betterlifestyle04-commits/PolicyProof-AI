@@ -14,6 +14,8 @@ import re
 
 from policyproof.core import ABSTAIN, read_jsonl, sha256, score, aggregate
 from scripts.auditkit_replay import check_saved_outputs
+from scripts.verify_evidence import read_evidence_json
+from scripts.research_report_io import preserve_deterministic_report
 
 
 @dataclass(frozen=True)
@@ -214,11 +216,13 @@ def main():
     if output.resolve() in (baseline_file.resolve(), data_file.resolve()):
         raise ValueError("Refusing to overwrite original research evidence")
     result = evaluate_saved_guard(
-        json.loads(baseline_file.read_text(encoding="utf-8")),
+        read_evidence_json(baseline_file),
         read_jsonl(data_file), sha256(data_file),
     )
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    preserve_deterministic_report(
+        json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False) + "\n",
+        output,
+    )
     # Concise legitimate paired development diagnostics; no quality assertions.
     print(json.dumps({
         "status": result["status"], "type": result["experiment_type"],

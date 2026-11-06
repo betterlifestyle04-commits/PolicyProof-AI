@@ -67,6 +67,14 @@ The **Judge verification → Next evidence actions** table now derives its rows 
 
 The generated statuses `ACTIONABLE_LOCALLY` and `WAITING_FOR_DEPENDENCIES` are **planning labels**, not evidence that GPU compute is available, human reviews were performed, any Hugging Face upload happened or a submission was accepted. If all machine-readable gates pass, the worklist still requires independent license, research and organizer submission verification.
 
+## Immutable deterministic CPU report snapshots (November 6)
+
+The standalone baseline verifier, CuratorKIT/AuditKIT saved-output replay, output-guard experiment, paired-guard uncertainty report, numeric-source risk audit and multilingual source-topic audit now use the same create-once report store (`scripts.research_report_io`). The store accepts only direct `artifacts/<safe-name>.json` destinations, including a fully qualified path from scripts with absolute default output arguments.
+
+A fresh report is written using exclusive creation; **existing reports are never overwritten**. A byte-identical existing report is reused without modification so the multi-stage GitHub Actions build and public Render demo rebuild remain deterministic and idempotent. A stale or conflicting prior report causes a hard failure and requires a new filename. It cannot replace the frozen dataset, reviewer votes, saved inference, or model adapter via an output-path argument. Symlinks, directory traversal, nested output directories, oversized payloads and unsafe existing paths are rejected. These commands also parse saved baseline evidence with bounded, duplicate-key/nonfinite-aware JSON readers.
+
+Replaying a saved result remains **CPU-only**. Neither exact receipt matching nor a passing release check independently proves native GPU training, model-answer semantics, reviewer identity or official Lexsi submission. The standalone final-case AuditKIT command has its own stricter write-once, source-rehashing controls; genuine final paired reporting additionally requires the full reviewed dataset and model-adapter release gate.
+
 ## Highest-impact remaining work
 
 1. **Track 1:** Obtain a checkpoint produced by an eligible, demonstrated AlignTune optimizer run (the manual PyTorch 40-step fallback cannot be relabeled AlignTune). Then independently review the frozen 60 cases before any final model scoring.

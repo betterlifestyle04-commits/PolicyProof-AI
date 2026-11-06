@@ -8,6 +8,8 @@ can be attached to an entirely different product, term or unit.
 Default output is a human-review signal, not a forced model abstention.
 """
 from __future__ import annotations
+from scripts.verify_evidence import read_evidence_json
+from scripts.research_report_io import preserve_deterministic_report
 
 import argparse
 from collections import Counter
@@ -186,10 +188,12 @@ def main():
     args = p.parse_args()
     if args.output.resolve() in {args.report.resolve(), args.dataset.resolve()}:
         raise ValueError("Do not overwrite original source evidence")
-    report = json.loads(args.report.read_text(encoding="utf-8"))
+    report = read_evidence_json(args.report)
     result = audit_saved_predictions(report, read_jsonl(args.dataset), sha256(args.dataset))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+    preserve_deterministic_report(
+        json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        args.output,
+    )
     print(json.dumps({
         "status": result["status"], "samples": result["samples"],
         "numeric_review_flags": result["numeric_review_flags"],

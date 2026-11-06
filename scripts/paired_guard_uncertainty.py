@@ -14,6 +14,8 @@ import json
 from policyproof.core import ROOT, read_jsonl, sha256, score
 from scripts.inference_guard import safe_output
 from scripts.auditkit_replay import check_saved_outputs
+from scripts.verify_evidence import read_evidence_json
+from scripts.research_report_io import preserve_deterministic_report
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.95996398454) -> list[float] | None:
@@ -124,10 +126,12 @@ def main():
     target=Path(a.output)
     if target.resolve() in (original.resolve(),cases.resolve()):
         raise ValueError("Cannot overwrite original evidence")
-    report=analyze(json.loads(original.read_text(encoding="utf-8")),
+    report=analyze(read_evidence_json(original),
                    read_jsonl(cases),sha256(cases))
-    target.parent.mkdir(parents=True,exist_ok=True)
-    target.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    preserve_deterministic_report(
+        json.dumps(report,ensure_ascii=False,indent=2,allow_nan=False)+"\n",
+        target,
+    )
     print("Descriptive paired research diagnostics, NOT a trained-model result:")
     for k,m in report["metrics"].items():
         print(f"{k}: {m['raw_before']}/{m['denominator']} -> {m['raw_after']}/{m['denominator']}; "
