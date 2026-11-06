@@ -251,6 +251,20 @@ elif page == "Safety benchmark":
         "--acknowledge-gated-model-license, an authorized CUDA runtime and "
         "gated-model permission. It never fine-tunes the base model."
     )
+    st.markdown("**After preserving all 72 original model responses:**")
+    st.code(
+        "python -m scripts.score_track2a_72 "
+        "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
+        "--model-report artifacts/track2a_72_unchanged_base_predictions.json "
+        "--output-dir artifacts/actual_72_case_evaluation",
+        language="bash",
+    )
+    st.caption(
+        "CPU-only AuditKIT scoring. Rejects ambiguous input JSON, protects the "
+        "original model outputs and benchmark, and saves immutable source-hash "
+        "receipts with a completion marker. Language-specific statistics are "
+        "descriptive and are not proof of independently reviewed model safety."
+    )
     st.markdown(
         "[Guarded 72-case GPU execution and scoring protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_72_EVALUATION_PROTOCOL.md)"
