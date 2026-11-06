@@ -234,6 +234,27 @@ elif page == "Paired model evidence":
             })
 
 elif page == "Safety benchmark":
+    st.markdown("#### 72-case challenge: guarded real-model GPU handoff")
+    st.info(
+        "The 72 new adversarial cases are still UNscored by Tiny Aya. "
+        "A new GPU script can produce real original-model responses, but defaults "
+        "to read-only CPU preflight. No real 72-case inference has been run here."
+    )
+    st.code(
+        "python -m scripts.challenge72_gpu_inference "
+        "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
+        "--revision FULL_REAL_40_HEX_MODEL_SHA",
+        language="bash",
+    )
+    st.caption(
+        "Actual generation additionally requires --execute --confirm-gpu-run "
+        "--acknowledge-gated-model-license, an authorized CUDA runtime and "
+        "gated-model permission. It never fine-tunes the base model."
+    )
+    st.markdown(
+        "[Guarded 72-case GPU execution and scoring protocol]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/TRACK2A_72_EVALUATION_PROTOCOL.md)"
+    )
     from collections import Counter
     from policyproof.core import sha256
     from scripts.auditkit_replay import check_saved_outputs
