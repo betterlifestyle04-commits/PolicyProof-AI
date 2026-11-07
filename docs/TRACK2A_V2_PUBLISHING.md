@@ -4,6 +4,22 @@
 
 The new publisher is implemented in [`scripts/publish_track2a_candidate.py`](../scripts/publish_track2a_candidate.py). It performs **no network request by default**, does not use a GPU, does not generate Tiny Aya predictions, and cannot create a trained model or complete the Lexsi entry.
 
+## New: use the owner-only GitHub Actions handoff instead of local Python
+
+There is now a **manual GitHub Actions workflow** that can retrieve the exact original source archive from a successful main-branch CI run, verify its provenance and SHA256, and optionally perform the existing consent-gated publication path. **It defaults to inspection; it has never uploaded any dataset merely by existing.**
+
+[Owner-verified Track 2a Hugging Face dataset handoff](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/owner-track2a-hf-dataset.yml)
+
+1. Open the successful **main-branch** [Research scaffold CI workflow](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml). Locate the numeric Actions **run ID** of the successful run with the `policyproof-track2a-real-curatorkit-auditkit-20261103` artifact. Download that exact CI artifact **once** to check the release ZIP's 64-digit SHA256 locally. Do not infer a SHA from the file name or copy an unrelated run.
+2. Open the **Owner-verified Track 2a Hugging Face dataset handoff** Actions workflow, click **Run workflow**, and select the **main branch**. Enter the original `source_ci_run` ID and the exact `approved_archive_sha256`. Keep **`mode = inspect_only`** and leave both rights/publication approvals **unchecked**. Run it. This performs original GitHub run origin + main-ancestor validation, downloads exactly the prior CI artifact, and checks all 15 internal files, all checksums and the honest 48-scored/72-unscored scientific statements. **No Hugging Face token or upload is used.**
+3. If—and only if—you personally verify the source data rights, choose a compatible **dataset-only** license, own the target HF namespace, and explicitly authorize publication, separately configure your private GitHub Actions repository secret named **`HF_TOKEN`**. The token should have only the minimum dataset-repository/collection permissions required. **Never paste the token into a chat, workflow input or code file.**
+4. Start a **new manual workflow run** with the same trusted run ID/SHA. Set `mode = publish_public_dataset`, choose the real approved `license`, supply `hf_repo_id = YOUR_HF_NAMESPACE/new_dataset_repo`, choose `collection_mode = create_new` or `use_existing`, and only then **check both** `confirm_rights` and `confirm_publication`. A first publication refuses pre-existing dataset repositories. Nothing is uploaded if a required confirmation, correct source or token is missing.
+5. Only after a successful owner-led upload and **anonymous readback of every published file** will the workflow save a source-bound `policyproof-track2a-owner-publication-readback` receipt artifact. If the upload or verification fails partway, a public repository **may already exist**; inspect it manually, preserve its revision, and do not blindly rerun the action. The workflow deliberately does not pass an `--allow-existing-repo` bypass.
+
+This is a **dataset-only** handoff. It neither trains Tiny Aya nor publishes an adapter, creates the required **model** collection, independently verifies human gold labels, or submits the official Lexsi form. The anonymous public dataset receipt is not a signature proving scientific validity or model licensing. A complete official entry still needs an appropriate public, relevant model collection and manual confirmation of the submission; for a benchmark-only Track 2a entry, ask the organizers how to fill that field.
+
+The existing local command-line publication route below remains supported. Do not treat the manual GitHub workflow's safe inspection mode as external publication.
+
 ## 1. Obtain original research evidence and its trusted SHA-256
 
 Open a **successful main-branch** [GitHub Actions run](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml). Download the artifact `policyproof-track2a-real-curatorkit-auditkit-20261103`. Extract `track2a_release_candidate_v2_UNPUBLISHED.zip` and preserve it unchanged.
