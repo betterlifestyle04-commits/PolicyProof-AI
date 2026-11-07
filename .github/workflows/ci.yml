@@ -208,6 +208,12 @@ jobs:
           assert report["ready_to_submit"] is False
           assert report["checks"]["real_curatorkit_and_auditkit_chain"]["passed"] is True
           assert report["checks"]["unscored_challenge_curated"]["passed"] is True
+          # CI has curated original cases but does NOT have original 72 GPU
+          # responses. A forged or absent completion claim must never appear.
+          assert report["checks"]["optional_72_saved_model_source_replay"]["passed"] is False
+          assert report["new_model_evaluation_claimed_for_72_cases"] is False
+          assert report["saved_72_source_replay"]["status"] == "NO_SAVED_72_MODEL_EVALUATION"
+          assert report["conflicting_optional_evidence_blocks_release"] is False
           PY
       - name: Build unpublished, checksum-verified Track 2a research handoff (NO LICENSE / NO UPLOAD)
         run: |

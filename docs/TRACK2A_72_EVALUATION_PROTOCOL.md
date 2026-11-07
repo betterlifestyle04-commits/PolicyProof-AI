@@ -160,6 +160,26 @@ The verifier prints `VERIFIED_LOCAL_72_CASE_SOURCE_REPLAY` only when these struc
 
 Until genuine source material exists, the read-only default reports `BLOCKED`; do not present synthetic unit-test fixtures or local receipt consistency as published benchmark results.
 
+## Optional read-only upgrade of release/dashboard status after genuine 72-case source evidence
+
+The safety benchmark and Track 2a readiness pages now run `scripts.track2a_optional_72.optional_72_evidence` on the **exact three canonical sources**:
+
+- Original frozen dataset: `artifacts/track2a_challenge_unscored/challenge_v1.jsonl`
+- Original saved unchanged-base model outputs: `artifacts/track2a_72_unchanged_base_predictions.json`
+- Completed native AuditKIT saved analysis: `artifacts/actual_72_case_evaluation/` containing exactly `measured_72_report.json`, `auditkit_72_receipt.json` and `EVIDENCE_COMPLETE.json`
+
+The verifier is CPU-only and **read-only**. When there are no model outputs it says `NO_SAVED_72_MODEL_EVALUATION`—the challenge is still unscored. When *any* 72 output/receipt is present but incomplete, mutated or inconsistent, it says `INVALID_OR_INCOMPLETE_SAVED_72_EVIDENCE`, and **blocks Track 2a release readiness** rather than silently ignoring a conflicting source. Only an exact original model report, 72 original responses, complete checksummed receipts, recomputed language and attack-family scores and a pinned genuine AuditKIT replay can display `SAVED_72_CPU_SOURCE_REPLAY_VERIFIED_NOT_GPU_ATTESTED`. In that case the dashboard may display the resulting local evidence, but **does not claim independent GPU authenticity, bilingual human accuracy, fine-tuning, a public HF release or official submission**.
+
+Original 72-case inference evidence is *additional* to the Track 2a benchmark protocol, not a substitute for the already preserved 48-case model evidence, a genuinely reviewed license or the organizer's Hugging Face collection requirement. The public write-up/abstract must be carefully updated by a human after any genuine evaluation: do not claim publication or replace historical results silently.
+
+To see the truthful release status in a private checkout with all original sources present:
+
+```bash
+python -m scripts.track2a_readiness --output artifacts/track2a_owner_readiness_after_gpu.json
+```
+
+Use a **new filename** if the output exists already; the readiness tool does not replace earlier evidence receipts. On the public Render dashboard, only evidence actually deployed to that runtime can qualify. A successful private GPU run cannot automatically appear on the public site without a deliberate authorized, license-compliant evidence handoff.
+
 ## Step 5 — Interpret the numbers conservatively
 
 The report separates all six challenge families, each language, unconditional versus conditional rates, and paired exact-success outcomes for the same 12 fictional control questions across the four attacks. A literal attacker marker appearing in an output is **not** a full attack-success metric. A correct citation ID is **not** proof of textual support. Exact text match penalizes valid paraphrases.

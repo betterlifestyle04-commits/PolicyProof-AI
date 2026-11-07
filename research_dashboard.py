@@ -235,11 +235,26 @@ elif page == "Paired model evidence":
 
 elif page == "Safety benchmark":
     st.markdown("#### 72-case challenge: guarded real-model GPU handoff")
-    st.info(
-        "The 72 new adversarial cases are still UNscored by Tiny Aya. "
-        "A new GPU script can produce real original-model responses, but defaults "
-        "to read-only CPU preflight. No real 72-case inference has been run here."
-    )
+    from scripts.track2a_optional_72 import optional_72_evidence
+    saved72 = optional_72_evidence(ROOT)
+    if saved72["verified_source_replay"]:
+        st.info(
+            "A complete 72-case model-output report is present and its saved "
+            "scores reproduce with native AuditKIT on CPU. The source's original "
+            "GPU provenance is SELF-RECORDED, not independently attested; no "
+            "semantic review or model improvement has been established."
+        )
+    elif saved72["evidence_present"]:
+        st.error(
+            "Saved 72-case model evidence is incomplete or inconsistent. "
+            "It must not count as measured research: " + saved72["warning"][:260]
+        )
+    else:
+        st.info(
+            "The 72 new adversarial cases have no preserved model evaluation "
+            "in this deployment. The GPU generator is opt-in and defaults "
+            "to read-only CPU preflight."
+        )
     st.code(
         "python -m scripts.challenge72_gpu_inference "
         "--dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl "
@@ -313,31 +328,22 @@ elif page == "Safety benchmark":
         "original saved 72 responses. It never authenticates GPU execution "
         "or establishes human-reviewed semantic safety."
     )
-    completed72 = ARTIFACTS / "actual_72_case_evaluation/EVIDENCE_COMPLETE.json"
-    if completed72.is_file() or completed72.is_symlink():
-        try:
-            from scripts.verify_track2a_72_receipts import verify_completed_72
-            verified72 = verify_completed_72(
-                "artifacts/actual_72_case_evaluation",
-                "artifacts/track2a_challenge_unscored/challenge_v1.jsonl",
-                "artifacts/track2a_72_unchanged_base_predictions.json",
-                root=ROOT,
-            )
-            st.success(
-                "Saved 72-case CPU evaluation reproduces locally from complete "
-                "original responses, all subgroup scores, and AuditKIT. "
-                "Original model GPU execution remains externally unverified."
-            )
-            st.json(verified72)
-        except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
-            st.error(
-                "72-case saved evaluation evidence could not be verified: "
-                + str(exc)[:160]
-            )
-    else:
+    if saved72["verified_source_replay"]:
+        st.success(
+            "All 72 saved outputs, original source hashes and subgroup scores "
+            "reproduced locally through pinned native AuditKIT 1.1.3. "
+            "This is NOT independent GPU attestation or semantic safety review."
+        )
+        st.json(saved72["source_replay"])
+    elif not saved72["evidence_present"]:
         st.info(
             "No complete, locally verifiable 72-case model evaluation is present "
             "in this public deployment. The 72-case benchmark remains unscored."
+        )
+    else:
+        st.warning(
+            "Partial or tampered 72-case evidence cannot be displayed as a "
+            "finished model evaluation, even if a completion marker exists."
         )
     from collections import Counter
     from policyproof.core import sha256
@@ -346,9 +352,14 @@ elif page == "Safety benchmark":
     from scripts.generate_track2a_challenge import build_challenge
     st.subheader("Track 2a — multilingual adversarial safety benchmark")
     st.warning(
-        "There are TWO DISTINCT data sets: 48 original saved-output development "
-        "cases actually evaluated, and 72 NEW curated but UNscored challenge cases. "
-        "The 120 records are NOT a single 120-response model evaluation."
+        "Two DISTINCT sets: 48 inspected development cases with saved baseline "
+        "outputs, plus 72 independently frozen synthetic challenge cases. "
+        + (
+            "The 72 have source-replayed saved model results, not independently "
+            "attested original GPU execution." if saved72["verified_source_replay"]
+            else "The 72 remain unscored here."
+        )
+        + " These must never be presented as one 120-response experiment."
     )
     base = load_json(ARTIFACTS / "real_baseline/tiny_aya_base_unseen_policy-rescored-v2.json")
     rows = jsonl(DATA / "unseen_policy_test.jsonl")
@@ -414,12 +425,24 @@ elif page == "Safety benchmark":
         except (ValueError,KeyError) as exc:
             st.error("The preserved benchmark failed exact-dataset integrity checks.")
     st.divider()
-    st.subheader("New 72-case challenge — deliberately unscored")
+    st.subheader("New 72-case challenge — frozen synthetic dataset")
+    st.caption(
+        "Original challenge rows remain immutable and were marked UNscored when "
+        "curated. Saved model evaluation status is reported separately, based "
+        "only on replayed original model outputs."
+    )
     challenge=build_challenge()
     mix=Counter(r["category"] for r in challenge)
     st.dataframe(
-        [{"Attack family":k.replace("_"," ").title(),"Cases":v,"Model evaluation":"NOT performed"}
-         for k,v in sorted(mix.items())],
+        [{
+            "Attack family": k.replace("_", " ").title(),
+            "Cases": v,
+            "Saved model-output evaluation": (
+                "72-case SOURCE-REPLAYED" if saved72["verified_source_replay"]
+                else "UNVERIFIED EVIDENCE" if saved72["evidence_present"]
+                else "NOT performed"
+            ),
+        } for k, v in sorted(mix.items())],
         width="stretch",hide_index=True)
     a,b=st.columns(2)
     with a:
@@ -451,9 +474,15 @@ elif page == "Safety benchmark":
         mime="application/x-ndjson",
     )
     st.info(
-        "A real CuratorKIT pipeline has structurally curated the new 72 cases "
-        "but no model has answered them. Four fictional policies are reused across "
-        "multiple attack variants, so the examples are not independent domains."
+        "A real CuratorKIT pipeline structurally curated all 72 cases. "
+        + (
+            "A saved original-model output report has passed local score and "
+            "AuditKIT replay; original GPU compute and human semantic accuracy "
+            "remain unverified." if saved72["verified_source_replay"]
+            else "No acceptable 72-case original-model evaluation is present."
+        )
+        + " Four fictional policies recur across multiple attacks, so "
+        "the examples are not independent domains."
     )
     st.markdown(
         "[Verified two-toolkit Actions run]"
