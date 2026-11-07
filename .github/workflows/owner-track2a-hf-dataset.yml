@@ -13,8 +13,9 @@ on:
         required: true
         type: string
       approved_archive_sha256:
-        description: 'Exact owner-reviewed 64-character SHA256 of original CI release ZIP'
-        required: true
+        description: 'Leave BLANK to discover hash in inspect_only; REQUIRED, exact reviewed SHA256 for publication'
+        required: false
+        default: ''
         type: string
       mode:
         description: 'Safe default performs verification only (NO upload)'
@@ -106,16 +107,25 @@ jobs:
               raise SystemExit("This owner action is allowed on the protected main branch only")
           if not RUN.fullmatch(os.environ["SOURCE_RUN"]):
               raise SystemExit("Only numeric approved source CI run IDs are allowed")
-          if not re.fullmatch(r"[0-9a-f]{64}", os.environ["OWNER_SHA256"]):
-              raise SystemExit("Require the exact lowercase 64-hex source ZIP checksum")
           if mode not in ("inspect_only", "publish_public_dataset"):
               raise SystemExit("Unknown owner action")
+          digest = os.environ["OWNER_SHA256"]
+          if digest and not re.fullmatch(r"[0-9a-f]{64}", digest):
+              raise SystemExit("Any supplied original ZIP SHA256 must be lowercase 64-hex")
+          if mode == "publish_public_dataset" and not digest:
+              raise SystemExit(
+                  "PUBLIC UPLOAD BLOCKED: first inspect and review the original "
+                  "ZIP, then enter its exact 64-character digest yourself"
+              )
           if license_id not in LICENSES | {"undecided"}:
               raise SystemExit("Invalid owner dataset license")
           if mode == "inspect_only":
               if rights == "true" or publication == "true":
                   raise SystemExit("Do not supply publication approvals for inspect-only mode")
-              print("INSPECTION_ONLY: HF_TOKEN is not available to any current step")
+              print(
+                  "INSPECTION_ONLY: optional SHA may be empty; calculate and "
+                  "report original CI ZIP digest without any Hugging Face token"
+              )
           else:
               if rights != "true" or publication != "true":
                   raise SystemExit("Real publication requires BOTH independent owner approvals")
@@ -169,14 +179,53 @@ jobs:
           OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
         run: |
           set -euo pipefail
-          python -m scripts.verify_ci_hf_handoff \
-            --metadata /tmp/policyproof_original_run.json \
-            --download-dir handoff \
-            --run-id "$SOURCE_RUN" \
-            --expected-sha256 "$OWNER_SHA256" \
-            > /tmp/policyproof_source_preflight.json
-          python -m json.tool /tmp/policyproof_source_preflight.json
-          echo 'Source ZIP and original main-branch CI provenance verified. No upload yet.' >> "$GITHUB_STEP_SUMMARY"
+          handoff_args=(
+            --metadata /tmp/policyproof_original_run.json
+            --download-dir handoff
+            --run-id "$SOURCE_RUN"
+          )
+          if [ -n "$OWNER_SHA256" ]; then
+            handoff_args+=(--expected-sha256 "$OWNER_SHA256")
+          fi
+          mkdir -p artifacts
+          python -m scripts.verify_ci_hf_handoff "${handoff_args[@]}" \
+            > artifacts/owner_handoff_inspection.json
+          python -m json.tool artifacts/owner_handoff_inspection.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path("artifacts/owner_handoff_inspection.json").read_text())
+          lines = [
+              "### Track 2a original research ZIP — inspected, NOT published",
+              "",
+              "**Main CI run:** " + report["ci_run_id"],
+              "",
+              "**Original source commit:** `" + report["ci_head_sha"] + "`",
+              "",
+              "**Measured archive SHA256:** `" + report["measured_original_archive_sha256"] + "`",
+              "",
+              "Owner-approved hash supplied: **" + (
+                  "YES (matched)" if report["owner_approved_archive_digest_provided"]
+                  else "NO — discover-only"
+              ) + "**",
+              "",
+              "Verified research file count: **" + str(report["files_strictly_verified"]) + "**",
+              "",
+              "**No publication, model inference or human review occurred.** "
+              "Independently examine the exact archived files and rights "
+              "before supplying this hash in a SEPARATE publish run.",
+          ]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("\n".join(lines) + "\n")
+          PY
+      - name: Retain safe inspection and measured SHA256 for owner review
+        if: ${{ inputs.mode == 'inspect_only' && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-track2a-inspected-source-hash
+          path: artifacts/owner_handoff_inspection.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Install official Hugging Face API SDK (publication only)
         if: ${{ inputs.mode == 'publish_public_dataset' }}
         run: |
