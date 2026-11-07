@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 
 from scripts.publish_track2a_candidate import inspect_source
+from scripts.build_track2a_release_candidate import inspect_zip
 
 RUN = re.compile(r"^[1-9][0-9]{0,17}$")
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
@@ -37,7 +38,7 @@ def _no_duplicates(pairs):
 
 def verify_owner_handoff(
     metadata: Path, download_dir: Path, *, run_id: str,
-    expected_sha256: str, repository: str = REPOSITORY,
+    expected_sha256: str | None = None, repository: str = REPOSITORY,
 ) -> dict:
     """Validate run origin, non-symlink ZIP and immutable research payload."""
     if (not isinstance(run_id, str) or not RUN.fullmatch(run_id)
@@ -96,17 +97,28 @@ def verify_owner_handoff(
             found.append(candidate)
     if len(found) != 1:
         raise ValueError("Expected exactly one original research ZIP from the selected CI run")
-    audit = inspect_source(found[0], expected_sha256)
+    # Stage 1 discovers the original source hash without requiring the
+    # owner to calculate it first. Stage 2 (publication) must use a SEPARATE
+    # explicit owner-approved digest. Discovery never grants consent.
+    owner_pinned = expected_sha256 is not None
+    audit = (inspect_source(found[0], expected_sha256)
+             if owner_pinned else inspect_zip(found[0]))
     if audit.get("file_count") != 15:
         raise ValueError("Unexpected original research ZIP file count")
+    measured_sha256 = audit["archive_sha256"]
     return {
-        "status": "VERIFIED_OWNER_SELECTED_MAIN_CI_ZIP_NO_PUBLICATION",
+        "status": (
+            "VERIFIED_OWNER_SELECTED_MAIN_CI_ZIP_NO_PUBLICATION" if owner_pinned
+            else "INSPECTED_MAIN_CI_ZIP_UNAPPROVED_NO_PUBLICATION"
+        ),
         "ci_run_id": run_id,
         "ci_head_sha": commit,
         "ci_conclusion": "success",
         "official_workflow": EXPECTED_WORKFLOW,
         "original_archive_path": str(found[0]),
         "approved_archive_sha256": expected_sha256,
+        "measured_original_archive_sha256": measured_sha256,
+        "owner_approved_archive_digest_provided": owner_pinned,
         "files_strictly_verified": audit["file_count"],
         "model_generated_in_this_process": False,
         "model_training_performed": False,
@@ -114,6 +126,12 @@ def verify_owner_handoff(
         "model_collection_created": False,
         "official_submission_completed": False,
         "original_gpu_inference_independently_authenticated": False,
+        "warning": (
+            "Original CI source and all research files checked on CPU. The "
+            "measured archive SHA-256 is only a DISCOVERY result until the "
+            "owner independently reviews those bytes and enters the EXACT "
+            "digest in a separate explicitly authorized publication run."
+        ),
     }
 
 
@@ -122,7 +140,10 @@ def main() -> None:
     parser.add_argument("--metadata", required=True, type=Path)
     parser.add_argument("--download-dir", required=True, type=Path)
     parser.add_argument("--run-id", required=True)
-    parser.add_argument("--expected-sha256", required=True)
+    parser.add_argument(
+        "--expected-sha256", default=None,
+        help="Explicit owner-approved digest; omit ONLY for inspection/discovery, NEVER publication",
+    )
     args = parser.parse_args()
     print(json.dumps(
         verify_owner_handoff(

@@ -844,10 +844,12 @@ elif page == "Judge verification":
     st.markdown("#### Owner-controlled dataset publication handoff (not yet executed)")
     st.caption(
         "For Track 2a, an owner can verify a successful main-branch CI research "
-        "ZIP without local Python setup. This manual GitHub Actions workflow "
-        "defaults to INSPECT ONLY and requires separate rights and public-upload "
-        "approvals, exact SHA-256 and a private HF_TOKEN before any dataset "
-        "publication. It never creates the model collection or submits to Lexsi."
+        "ZIP without local Python setup. Start with INSPECT ONLY: supply the "
+        "successful main CI run ID, leave its SHA-256 input BLANK, and read "
+        "the computed hash in the Actions summary. Only AFTER independent "
+        "rights review does a separate publication run require that explicit "
+        "exact SHA-256, both owner approvals, a selected license and a private "
+        "HF_TOKEN. No model collection or Lexsi submission is created."
     )
     st.markdown(
         "[Open owner-only Track 2a Hugging Face dataset handoff]"
