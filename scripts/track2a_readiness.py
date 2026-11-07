@@ -11,45 +11,41 @@ import json
 
 from policyproof.core import ROOT
 from scripts.verify_hf_collections import receipt_is_current
+from scripts.track2a_source_evidence import verify_original_chain, verify_unscored_challenge
+from scripts.research_report_io import preserve_deterministic_report
 
 
 def readiness(root:Path=ROOT) -> dict:
     root=Path(root)
     checks={}
-    old=root/"artifacts/track2a_safety/track2a_chain_report.json"
-    actual_chain=False
-    if old.is_file():
-        try:
-            r=json.loads(old.read_text(encoding="utf-8"))
-            actual_chain=(
-                r.get("status")=="curatorkit_auditkit_chain_complete"
-                and r.get("case_count")==48
-                and r.get("curatorkit_version")=="0.1.22"
-                and r.get("auditkit_version")=="1.1.3"
-                and r.get("human_labels_independently_reviewed") is False
-                and r.get("model",{}).get("new_inference_performed") is False
-                and r.get("curation",{}).get("label_and_case_id_integrity_verified") is True
-            )
-        except (OSError,ValueError,TypeError):
-            pass
-    checks["real_curatorkit_and_auditkit_chain"]={
-        "passed":bool(actual_chain),
-        "details":"48 previously saved base-model outputs, genuine toolchain and exact curation integrity"
+    # A plausible status field in an owner-editable JSON file is NOT toolkit
+    # evidence. Recompute frozen source hashes, all 48 predictions, grouped
+    # scores and exact CuratorKIT/72-case exported labels instead.
+    try:
+        chain_proof = verify_original_chain(root)
+        actual_chain = chain_proof["source_curation_and_score_recomputed"] is True
+        chain_details = (
+            "Exact 48-case source SHA, raw Tiny Aya outputs, CuratorKIT labels "
+            "and grouped AuditKIT chain receipts rechecked on CPU"
+        )
+    except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
+        actual_chain = False
+        chain_details = "Source-linked CuratorKIT/AuditKIT evidence missing or invalid: " + str(exc)[:180]
+    checks["real_curatorkit_and_auditkit_chain"] = {
+        "passed": bool(actual_chain), "details": chain_details,
     }
-    newer=root/"artifacts/track2a_challenge_unscored/challenge_manifest.json"
-    challenge=False
-    if newer.is_file():
-        try:
-            m=json.loads(newer.read_text(encoding="utf-8"))
-            challenge=(m.get("status")=="curated_unscored"
-                and m.get("cases")==72 and m.get("curated_cases")==72
-                and m.get("model_predictions_available") is False
-                and m.get("independent_human_review") is False)
-        except (OSError,ValueError,TypeError):
-            pass
-    checks["unscored_challenge_curated"]={
-        "passed":bool(challenge),
-        "details":"72 attack/control cases curated, but not scored or independently reviewed"
+    try:
+        challenge_proof = verify_unscored_challenge(root)
+        challenge = challenge_proof["curated_cases"] == 72
+        challenge_details = (
+            "Exact unscored 72-case SHA, all source labels and actual curated "
+            "export checked; NOT independently reviewed or scored by a model"
+        )
+    except (OSError, ValueError, TypeError, KeyError, RecursionError) as exc:
+        challenge = False
+        challenge_details = "Frozen/curated 72-case source evidence missing or invalid: " + str(exc)[:180]
+    checks["unscored_challenge_curated"] = {
+        "passed": bool(challenge), "details": challenge_details,
     }
     docs=(root/"docs/TRACK2A_SUBMISSION_ABSTRACT.md").is_file() and (
         root/"docs/TRACK2A_SAFETY_BENCHMARK_2026-11-03.md").is_file()
@@ -101,9 +97,12 @@ def main():
     p.add_argument("--output",default="artifacts/track2a_readiness.json")
     args=p.parse_args()
     r=readiness()
-    file=Path(args.output)
-    file.parent.mkdir(parents=True,exist_ok=True)
-    file.write_text(json.dumps(r,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    # Readiness reports are evidence snapshots, not scratch logs: only new
+    # direct artifacts/*.json outputs, or byte-identical idempotent replays.
+    preserve_deterministic_report(
+        json.dumps(r, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        args.output,
+    )
     print(json.dumps(r,ensure_ascii=False,indent=2))
     if args.strict and not r["ready_to_submit"]:
         raise SystemExit(2)
