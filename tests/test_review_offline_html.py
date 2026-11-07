@@ -73,7 +73,7 @@ def test_private_export_is_new_write_once_and_preserves_frozen_source(tmp_path):
     before = source.read_bytes()
     created = export_offline_review(tmp_path, reviewer="reviewer_01")
     output = Path(created["private_output"])
-    assert output == tmp_path / "reviews/reviewer_reviewer_01_offline.html"
+    assert output == tmp_path / "reviews/reviewer_01_offline.html"
     assert created["verdicts_filled"] == 0
     assert created["human_review_completed"] is False
     assert created["no_model_predictions_included"] is True
@@ -100,7 +100,7 @@ def test_offline_html_cannot_overwrite_public_or_frozen_evidence(tmp_path, outpu
     _source_fixture(tmp_path)
     with pytest.raises((ValueError, FileExistsError)):
         export_offline_review(tmp_path, reviewer="reviewer_01", output=output)
-    assert not (tmp_path / "reviews/reviewer_reviewer_01_offline.html").exists()
+    assert not (tmp_path / "reviews/reviewer_01_offline.html").exists()
 
 
 @pytest.mark.parametrize("bad", [
@@ -120,7 +120,7 @@ def test_export_refuses_modified_source_or_symlinked_review_directory(tmp_path):
     # output is still source-hash bound to those exact bytes.
     receipt = export_offline_review(tmp_path, reviewer="reviewer_01")
     assert receipt["frozen_dataset_sha256"] == sha256(path)
-    assert (tmp_path / "reviews/reviewer_reviewer_01_offline.html").is_file()
+    assert (tmp_path / "reviews/reviewer_01_offline.html").is_file()
     second = tmp_path / "different"
     second.mkdir()
     _source_fixture(second)
