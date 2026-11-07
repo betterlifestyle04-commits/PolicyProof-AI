@@ -1,0 +1,225 @@
+name: Owner-verified Track 2a Hugging Face dataset handoff
+
+# MANUAL ONLY. The default is OFFLINE inspection of a preserved main CI ZIP.
+# Publication requires explicit owner rights + publication confirmations,
+# chosen license, public repository ID, collection mode, exact source checksum
+# and HF_TOKEN stored in GitHub Actions secrets. It never creates model weights,
+# model collections, human reviews or an official Lexsi submission.
+on:
+  workflow_dispatch:
+    inputs:
+      source_ci_run:
+        description: 'Numeric successful main CI run ID that produced the original Track 2a ZIP'
+        required: true
+        type: string
+      approved_archive_sha256:
+        description: 'Exact owner-reviewed 64-character SHA256 of original CI release ZIP'
+        required: true
+        type: string
+      mode:
+        description: 'Safe default performs verification only (NO upload)'
+        required: true
+        default: inspect_only
+        type: choice
+        options:
+          - inspect_only
+          - publish_public_dataset
+      license:
+        description: 'Owner-selected DATASET license (does not cover gated model weights)'
+        required: true
+        default: undecided
+        type: choice
+        options:
+          - undecided
+          - cc-by-4.0
+          - cc0-1.0
+          - cc-by-sa-4.0
+      hf_repo_id:
+        description: 'Required only for publishing: namespace/new-dataset-repository'
+        required: false
+        type: string
+      collection_mode:
+        description: 'Only for publishing: new public collection or existing one'
+        required: true
+        default: create_new
+        type: choice
+        options:
+          - create_new
+          - use_existing
+      collection_slug:
+        description: 'Required for use_existing: namespace/public-collection-slug'
+        required: false
+        type: string
+      confirm_rights:
+        description: 'I independently reviewed the source data, model terms and legal rights'
+        required: true
+        type: boolean
+        default: false
+      confirm_publication:
+        description: 'I explicitly authorize PUBLIC dataset upload to my Hugging Face account'
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: policyproof-track2a-owner-hf-publication
+  cancel-in-progress: false
+
+jobs:
+  owner-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check out protected default branch with complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate all inputs without secrets or network mutation
+        env:
+          SOURCE_RUN: ${{ inputs.source_ci_run }}
+          OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
+          PUBLISH_MODE: ${{ inputs.mode }}
+          SELECTED_LICENSE: ${{ inputs.license }}
+          HF_REPO_ID: ${{ inputs.hf_repo_id }}
+          COLLECTION_MODE: ${{ inputs.collection_mode }}
+          COLLECTION_SLUG: ${{ inputs.collection_slug }}
+          RIGHTS: ${{ inputs.confirm_rights }}
+          PUBLICATION: ${{ inputs.confirm_publication }}
+        run: |
+          python - <<'PY'
+          import os, re
+          from scripts.publish_track2a_dataset import HF_REPO, LICENSES
+          from scripts.verify_ci_hf_handoff import RUN
+          mode = os.environ["PUBLISH_MODE"]
+          license_id = os.environ["SELECTED_LICENSE"]
+          rights = os.environ["RIGHTS"]
+          publication = os.environ["PUBLICATION"]
+          if os.environ.get("GITHUB_REF") != "refs/heads/main":
+              raise SystemExit("This owner action is allowed on the protected main branch only")
+          if not RUN.fullmatch(os.environ["SOURCE_RUN"]):
+              raise SystemExit("Only numeric approved source CI run IDs are allowed")
+          if not re.fullmatch(r"[0-9a-f]{64}", os.environ["OWNER_SHA256"]):
+              raise SystemExit("Require the exact lowercase 64-hex source ZIP checksum")
+          if mode not in ("inspect_only", "publish_public_dataset"):
+              raise SystemExit("Unknown owner action")
+          if license_id not in LICENSES | {"undecided"}:
+              raise SystemExit("Invalid owner dataset license")
+          if mode == "inspect_only":
+              if rights == "true" or publication == "true":
+                  raise SystemExit("Do not supply publication approvals for inspect-only mode")
+              print("INSPECTION_ONLY: HF_TOKEN is not available to any current step")
+          else:
+              if rights != "true" or publication != "true":
+                  raise SystemExit("Real publication requires BOTH independent owner approvals")
+              if license_id not in LICENSES:
+                  raise SystemExit("Owner must approve a non-undecided dataset license")
+              if not HF_REPO.fullmatch(os.environ["HF_REPO_ID"]):
+                  raise SystemExit("Owner must supply a valid namespace/new dataset repository")
+              existing = os.environ["COLLECTION_MODE"] == "use_existing"
+              if existing:
+                  from scripts.verify_hf_collections import HF_COLLECTION
+                  if not HF_COLLECTION.fullmatch(os.environ["COLLECTION_SLUG"]):
+                      raise SystemExit("Expected namespace/public-collection-slug")
+              elif os.environ["COLLECTION_MODE"] != "create_new" or os.environ["COLLECTION_SLUG"]:
+                  raise SystemExit("New collection must not specify an existing collection slug")
+              print("OWNER CONFIRMATIONS RECORDED: Public dataset upload remains pending all source validation")
+          PY
+      - name: Fetch authenticated metadata for selected original same-repository CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_ci_run }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN}" > /tmp/policyproof_original_run.json
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          from scripts.verify_ci_hf_handoff import REPOSITORY, EXPECTED_WORKFLOW
+          r=json.loads(Path("/tmp/policyproof_original_run.json").read_text())
+          if (r.get("repository",{}).get("full_name") != REPOSITORY
+              or r.get("head_repository",{}).get("full_name") != REPOSITORY
+              or r.get("path") != EXPECTED_WORKFLOW
+              or r.get("head_branch") != "main"
+              or r.get("event") != "push"
+              or r.get("conclusion") != "success"
+              or r.get("status") != "completed"):
+              raise SystemExit("Not a successful, same-repository main CI push")
+          source=r["head_sha"]
+          subprocess.run(["git","merge-base","--is-ancestor",source,"HEAD"],check=True)
+          print("SOURCE_RUN_MAIN_ANCESTOR_VERIFIED:",source)
+          PY
+      - name: Retrieve original preserved CI archive from the EXACT specified run
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_ci_run }}
+          name: policyproof-track2a-real-curatorkit-auditkit-20261103
+          github-token: ${{ github.token }}
+          path: handoff
+      - name: Verify exact owner-approved ZIP bytes and research consistency
+        env:
+          SOURCE_RUN: ${{ inputs.source_ci_run }}
+          OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_ci_hf_handoff \
+            --metadata /tmp/policyproof_original_run.json \
+            --download-dir handoff \
+            --run-id "$SOURCE_RUN" \
+            --expected-sha256 "$OWNER_SHA256" \
+            > /tmp/policyproof_source_preflight.json
+          python -m json.tool /tmp/policyproof_source_preflight.json
+          echo 'Source ZIP and original main-branch CI provenance verified. No upload yet.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Install official Hugging Face API SDK (publication only)
+        if: ${{ inputs.mode == 'publish_public_dataset' }}
+        run: |
+          python -m pip install 'huggingface_hub>=1.16,<2'
+          python -m scripts.check_hf_sdk_contract
+      - name: PUBLIC owner-approved dataset upload and independent anonymous readback
+        if: ${{ inputs.mode == 'publish_public_dataset' }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
+          SELECTED_LICENSE: ${{ inputs.license }}
+          HF_REPO_ID: ${{ inputs.hf_repo_id }}
+          COLLECTION_MODE: ${{ inputs.collection_mode }}
+          COLLECTION_SLUG: ${{ inputs.collection_slug }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "HF_TOKEN secret is not configured; no upload attempted." >&2
+            exit 2
+          fi
+          case "$COLLECTION_MODE" in
+            create_new) collection_args=(--create-collection) ;;
+            use_existing) collection_args=(--collection-slug "$COLLECTION_SLUG") ;;
+            *) echo "Invalid collection mode" >&2; exit 2 ;;
+          esac
+          ORIGINAL_ZIP=handoff/track2a_release_candidate_v2_UNPUBLISHED.zip
+          if [ ! -f "$ORIGINAL_ZIP" ]; then
+            ORIGINAL_ZIP=handoff/artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
+          fi
+          python -m scripts.publish_track2a_candidate \
+            --archive "$ORIGINAL_ZIP" \
+            --expected-archive-sha256 "$OWNER_SHA256" \
+            --license "$SELECTED_LICENSE" \
+            --repo-id "$HF_REPO_ID" \
+            --publish --confirm-rights --confirm-publication \
+            "${collection_args[@]}" \
+            --receipt artifacts/track2a_v2_publication_receipt.json
+          echo 'PUBLIC DATASET VERIFIED. This is NOT a verified model collection or a Lexsi submission.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Preserve source/verification receipts (never credentials)
+        if: ${{ inputs.mode == 'publish_public_dataset' && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-track2a-owner-publication-readback
+          path: artifacts/track2a_v2_publication_receipt.json
+          retention-days: 30
+          if-no-files-found: error
