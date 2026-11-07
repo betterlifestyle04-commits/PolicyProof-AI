@@ -192,10 +192,23 @@ jobs:
           test -s artifacts/track2a_challenge_unscored/challenge_manifest.json
           test -s artifacts/track2a_challenge_unscored/challenge_curator_output/sft_alpaca.jsonl
           python -c "import json; x=json.load(open('artifacts/track2a_challenge_unscored/challenge_manifest.json')); assert x['cases']==72 and x['model_predictions_available'] is False and x['independent_human_review'] is False"
-      - name: Check Track 2a research release status (must not claim published)
+      - name: Recompute source-linked Track 2a research readiness (must not claim published)
         run: |
-          python -m scripts.track2a_readiness --output artifacts/track2a_safety/track2a_readiness.json
-          python -c "import json; r=json.load(open('artifacts/track2a_safety/track2a_readiness.json')); assert r['status']=='RESEARCH_READY_HF_PUBLICATION_BLOCKED' and r['ready_to_submit'] is False"
+          python -m scripts.track2a_readiness --output artifacts/track2a_readiness.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from scripts.track2a_source_evidence import verify_original_chain, verify_unscored_challenge
+          from scripts.track2a_readiness import readiness
+          assert verify_original_chain()["source_curation_and_score_recomputed"] is True
+          assert verify_unscored_challenge()["curated_cases"] == 72
+          report = json.loads(Path("artifacts/track2a_readiness.json").read_text())
+          assert report == readiness()
+          assert report["status"] == "RESEARCH_READY_HF_PUBLICATION_BLOCKED"
+          assert report["ready_to_submit"] is False
+          assert report["checks"]["real_curatorkit_and_auditkit_chain"]["passed"] is True
+          assert report["checks"]["unscored_challenge_curated"]["passed"] is True
+          PY
       - name: Build unpublished, checksum-verified Track 2a research handoff (NO LICENSE / NO UPLOAD)
         run: |
           python -m scripts.build_track2a_release_candidate
@@ -227,6 +240,7 @@ jobs:
           name: policyproof-track2a-real-curatorkit-auditkit-20261103
           path: |
             artifacts/track2a_safety/
+            artifacts/track2a_readiness.json
             artifacts/track2a_challenge_unscored/
             artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
           if-no-files-found: error
