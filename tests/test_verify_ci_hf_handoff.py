@@ -66,6 +66,74 @@ def test_verified_successful_main_research_zip_is_read_only(tmp_path, layout):
     assert [meta.read_bytes(), zipfile.read_bytes()] == original
 
 
+def test_inspection_without_preapproved_sha_discovers_original_exact_archive(tmp_path):
+    """An owner should see the SHA before deciding whether to publish."""
+    root, source, metadata, digest = handoff(tmp_path)
+    before = [source.read_bytes(), metadata.read_bytes()]
+    discovered = verify_owner_handoff(metadata, root, run_id="2345")
+    assert discovered["status"] == "INSPECTED_MAIN_CI_ZIP_UNAPPROVED_NO_PUBLICATION"
+    assert discovered["measured_original_archive_sha256"] == digest
+    assert discovered["approved_archive_sha256"] is None
+    assert discovered["owner_approved_archive_digest_provided"] is False
+    assert discovered["dataset_uploaded"] is False
+    assert discovered["files_strictly_verified"] == 15
+    assert [source.read_bytes(), metadata.read_bytes()] == before
+    # A later separately pinned check can confirm the EXACT bytes.
+    pinned = verify_owner_handoff(
+        metadata, root, run_id="2345", expected_sha256=discovered[
+            "measured_original_archive_sha256"
+        ],
+    )
+    assert pinned["status"] == "VERIFIED_OWNER_SELECTED_MAIN_CI_ZIP_NO_PUBLICATION"
+    assert pinned["owner_approved_archive_digest_provided"] is True
+    assert pinned["approved_archive_sha256"] == digest
+
+
+def test_cli_inspect_only_does_not_require_a_sha(tmp_path):
+    root, source, metadata, digest = handoff(tmp_path)
+    cli = subprocess.run(
+        [sys.executable, "-m", "scripts.verify_ci_hf_handoff",
+         "--metadata", str(metadata), "--download-dir", str(root),
+         "--run-id", "2345"],
+        cwd=ROOT, capture_output=True, text=True, timeout=25,
+    )
+    assert cli.returncode == 0, cli.stderr
+    record = json.loads(cli.stdout)
+    assert record["status"] == "INSPECTED_MAIN_CI_ZIP_UNAPPROVED_NO_PUBLICATION"
+    assert record["measured_original_archive_sha256"] == digest
+    assert record["owner_approved_archive_digest_provided"] is False
+
+
+@pytest.mark.parametrize("invalid", ["", "abc", "0" * 40, "G" * 64])
+def test_malformed_or_empty_explicit_pins_never_silently_turn_into_discovery(
+    tmp_path, invalid,
+):
+    root, original, metadata, digest = handoff(tmp_path)
+    with pytest.raises(ValueError, match="64-character"):
+        verify_owner_handoff(
+            metadata, root, run_id="2345", expected_sha256=invalid,
+        )
+    assert original.is_file()
+
+
+def test_inspection_workflow_separates_unapproved_discovery_from_any_upload():
+    workflow = (ROOT / ".github/workflows/owner-track2a-hf-dataset.yml").read_text()
+    assert "required: false" in workflow
+    assert "default: ''" in workflow
+    assert 'if mode == "publish_public_dataset" and not digest' in workflow
+    assert "first inspect and review the original" in workflow
+    assert 'if [ -n "$OWNER_SHA256" ]; then' in workflow
+    assert "handoff_args+=(--expected-sha256" in workflow
+    assert "Retain safe inspection and measured SHA256" in workflow
+    assert workflow.count("HF_TOKEN: ${{ secrets.HF_TOKEN }}") == 1
+    assert "GITHUB_STEP_SUMMARY" in workflow
+    assert "INSPECTION_ONLY" in workflow
+    assert "cancel-in-progress: false" in workflow
+    assert workflow.index("Verify exact owner-approved ZIP bytes") < workflow.index(
+        "PUBLIC owner-approved dataset upload"
+    )
+
+
 @pytest.mark.parametrize("change", [
     {"head_branch": "feature"}, {"event": "pull_request"},
     {"status": "in_progress"}, {"conclusion": "failure"},
