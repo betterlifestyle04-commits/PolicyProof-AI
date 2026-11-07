@@ -4,6 +4,17 @@
 
 
 
+## November 7 — stronger Track 2a source-linked release gate
+
+The alternative Track 2a release checker now refuses to declare the 48-case CuratorKIT/AuditKIT chain or the new 72-case curated challenge complete merely because their mutable summary JSON files say `status=complete`. It reads and validates original source files and tool receipts instead.
+
+- **48 original model responses:** require the exact pinned benchmark SHA-256, all original raw responses with matching IDs, real CuratorKIT input and export labels, checksums and native AuditKIT report, matching model identity and **recomputed category, language and overall scores**. All evidence paths must be bounded, regular files with no symlinks or duplicate JSON fields.
+- **72 new unscored adversarial cases:** require the original frozen dataset SHA-256, actual CuratorKIT input/export records with complete case IDs and reference labels, an exact export digest, all six category counts and all three language counts. The manifest must still state **no new model predictions, no evaluation and no human review**.
+- **CI and reproducibility:** the real-toolkit CI workflow recomputes both sets from the source data before it can call Track 2a research-ready. A status-only fake test fixture is explicitly **RESEARCH_INCOMPLETE** even when its JSON claims success.
+- **Immutable readiness receipts:** `python -m scripts.track2a_readiness --output artifacts/track2a_readiness.json` creates only a new direct artifacts JSON report or reuses a byte-identical one. It cannot overwrite a benchmark, private review, prior experiment or existing differing receipt.
+
+This is a **CPU-only local consistency gate**, not proof that the original GPU actually ran or that model answers are correct. Public Hugging Face collections remain unpublished/unverified; original model access restrictions and organizer eligibility still require human decisions. Track 1 native AlignTune training and independent final review remain blocked. The official submission is not confirmed.
+
 **Track:** 1 — Fine-tuning and Data Curation  
 **Project:** PolicyProof AI · multilingual evidence-grounded synthetic policy QA  
 **Initial submission:** **November 14, 2026** (official site says end of day; organizer email previously specified 23:59 AoE).  
