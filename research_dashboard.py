@@ -841,6 +841,24 @@ elif page == "Judge verification":
     from scripts.track2a_readiness import readiness as track2a_evidence_readiness
     track1_gate = evaluate_readiness(ROOT)
     track2a_gate = track2a_evidence_readiness(ROOT)
+    st.markdown("#### Owner-controlled dataset publication handoff (not yet executed)")
+    st.caption(
+        "For Track 2a, an owner can verify a successful main-branch CI research "
+        "ZIP without local Python setup. This manual GitHub Actions workflow "
+        "defaults to INSPECT ONLY and requires separate rights and public-upload "
+        "approvals, exact SHA-256 and a private HF_TOKEN before any dataset "
+        "publication. It never creates the model collection or submits to Lexsi."
+    )
+    st.markdown(
+        "[Open owner-only Track 2a Hugging Face dataset handoff]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
+        "actions/workflows/owner-track2a-hf-dataset.yml)"
+    )
+    st.markdown(
+        "[Read the owner publishing guide]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
+        "blob/main/docs/TRACK2A_V2_PUBLISHING.md)"
+    )
     st.markdown("#### Release decision ledger — independent evidence, not self-attestation")
     left, right = st.columns(2)
     mandatory = track1_gate["mandatory_checks"]
