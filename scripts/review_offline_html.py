@@ -316,7 +316,7 @@ def export_offline_review(
     if report["sha256"] != before:
         raise ValueError("Frozen dataset changed during validation")
     target = _private_new_output(
-        root, output or "reviews/reviewer_" + reviewer + "_offline.html", ".html"
+        root, output or "reviews/" + reviewer + "_offline.html", ".html"
     )
     content = render_offline_review(rows, before, reviewer)
     if sha256(source) != before:
