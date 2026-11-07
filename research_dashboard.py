@@ -752,6 +752,7 @@ elif page == "Final benchmark review":
     from scripts.review_holdout import (
         HEADERS as REVIEW_HEADERS, check_reviewer_code, make_review_pack
     )
+    from scripts.review_offline_html import render_offline_review
     from scripts.validate_final_holdout import validate_final_holdout
 
     st.subheader("Final benchmark — independent human review packs")
@@ -795,6 +796,18 @@ elif page == "Final benchmark review":
                 data=buffer.getvalue().encode("utf-8-sig"),
                 file_name=f"policyproof_holdout_review_{reviewer_code}.csv",
                 mime="text/csv",
+            )
+            st.download_button(
+                "Download private offline reviewer workbench (HTML)",
+                data=render_offline_review(cases, digest, reviewer_code).encode("utf-8"),
+                file_name=f"policyproof_holdout_review_{reviewer_code}.html",
+                mime="text/html",
+            )
+            st.caption(
+                "Use the offline HTML in a local browser to review each question, "
+                "source and proposed label, then export a CSV in the exact required "
+                "format. It has no network calls or model predictions. Nothing is "
+                "automatically marked Yes or No. Each reviewer needs a DISTINCT code."
             )
             st.caption(
                 "60 cases × 3 yes/no checks. Leave blank until independently judged; "

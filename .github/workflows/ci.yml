@@ -275,6 +275,8 @@ jobs:
           curl -fsS http://127.0.0.1:10000/_stcore/health
       - name: Interact with dashboard pages and forged-source rejection in Chromium
         run: python qa/browser_smoke.py
+      - name: Verify offline private gold-review UI, CSV export, reimport and tampering in Chromium
+        run: python qa/offline_review_smoke.py
       - name: Save browser screenshots for judge QA
         if: always()
         uses: actions/upload-artifact@v4

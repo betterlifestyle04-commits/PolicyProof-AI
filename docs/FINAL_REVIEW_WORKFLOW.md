@@ -34,6 +34,25 @@ These files contain all 60 fictional examples, full proposed labels, source evid
 
 Review in a spreadsheet editor or CSV tool. Do not change case IDs, question/context, gold labels, source IDs, dataset SHA, or reviewer code. Write just `yes` or `no` into the three verdict columns, and optional `review_notes` for a proposed correction. For unsupported items, check all supplied policy records to confirm the answer really is missing. For injection items, do not treat attacker notes as real sources. Check translations, negations, units and paraphrases. Reviewers should not view each other's filled packets before completing their own.
 
+## Easier option: each human can review in a private offline browser
+
+The live **Final benchmark review** page now offers **Download private offline reviewer workbench (HTML)** next to the blank CSV. Pick a **different pseudonym for each actual independent reviewer**, download the HTML packet for each one and send it privately to the intended qualified person. Its only content is the 60 frozen fictional questions, complete source evidence and **proposed gold labels**; **no model predictions** and **no prefilled votes** are included.
+
+The reviewer opens the downloaded `.html` file directly in a normal browser (no log-in or internet connection needed), reads each case and records three judgments: source support, translation fidelity and question clarity. The interface shows the exact original label and source, a progress bar, language filter, and a distinct No decision. It **does not run a model, send answers to the server, auto-approve any case, or prove reviewer qualifications**.
+
+The reviewer should click **Export private CSV / save progress** frequently. The HTML does not automatically synchronize work to a server or promise a durable browser session. An incomplete CSV is only a private backup, **not an approved review**. After reopening the same unmodified HTML, the reviewer can import their **own** saved CSV to continue; the browser verifies all original case IDs, reviewer code, dataset hash, source text, proposed labels and 60-case row order before accepting votes. It rejects altered files and exports an Excel-compatible UTF-8-with-BOM CSV with the exact existing validator schema.
+
+To create the equivalent standalone HTML from the repository without downloading it from Streamlit:
+
+```bash
+python -m scripts.review_offline_html --reviewer reviewer_A
+python -m scripts.review_offline_html --reviewer reviewer_B
+```
+
+This creates **new files** `reviews/reviewer_A_offline.html` and `reviews/reviewer_B_offline.html`; `reviews/` remains private and git-ignored. It refuses existing filenames, traversal paths and symbolic links. **Do not upload completed CSVs or private notes to the public GitHub repository or public Streamlit deployment.** If using a spreadsheet application, import CSV columns as literal text, not executable formulas. Preserve every source CSV and review note exactly as produced.
+
+Once an actual reviewer has exported a complete CSV, rename or copy the original files into distinct unused direct paths such as `reviews/reviewer_A.csv` and `reviews/reviewer_B.csv`. **Do not falsify blank or "no" verdicts to make the gate green.** The existing strict `scripts.review_holdout --summarize` command remains the sole automated reconciliation step; it must still require human adjudication and approval.
+
 ## Consolidate the files, without inventing sign-off
 
 ```bash
