@@ -58,7 +58,7 @@ textarea{display:block;width:100%;min-height:90px;font:inherit;padding:10px;bord
 <body>
 <header>
 <h1>PolicyProof AI · independent gold-label review</h1>
-<p>Offline reviewer packet · 60 fictional policy cases · no model predictions · no automatic votes</p>
+<p>Offline reviewer packet · 60 fictional policy cases · No model predictions · no automatic votes</p>
 </header>
 <main>
 <div class="card">
