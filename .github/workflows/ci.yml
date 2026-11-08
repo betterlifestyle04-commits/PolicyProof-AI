@@ -240,6 +240,37 @@ jobs:
           assert report["new_gpu_inference_executed"] is False
           assert report["official_lexsi_submission_completed"] is False
           PY
+      - name: Build judge source-evidence handoff and independently replay exact ZIP (NO GPU / NO UPLOAD)
+        run: |
+          python -m scripts.build_judge_evidence_packet
+          python -m scripts.build_judge_evidence_packet --build \
+            --output artifacts/policyproof_lexsi_judge_evidence_UNSUBMITTED.zip
+          python -m scripts.build_judge_evidence_packet --inspect \
+            artifacts/policyproof_lexsi_judge_evidence_UNSUBMITTED.zip \
+            > artifacts/judge_packet_verification.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("artifacts/judge_packet_verification.json").read_text())
+          assert result["status"] == "JUDGE_PACKET_SOURCE_REPLAY_VERIFIED_NOT_SUBMITTED"
+          assert result["original_scored_development_cases"] == 48
+          assert result["new_challenge_cases_unscored"] == 72
+          assert result["native_source_consistency_recomputed"] is True
+          for check in ("original_gpu_inference_independently_attested",
+                        "human_semantic_review_verified",
+                        "public_hf_publication_verified",
+                        "official_lexsi_submission_verified"):
+              assert result[check] is False
+          PY
+      - name: Retain reproducible judge evidence ZIP and verification (UNSUBMITTED)
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-lexsi-judge-evidence-UNSUBMITTED
+          path: |
+            artifacts/policyproof_lexsi_judge_evidence_UNSUBMITTED.zip
+            artifacts/judge_packet_verification.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Preserve actual toolkit execution evidence and curated safety benchmark
         uses: actions/upload-artifact@v4
         with:
