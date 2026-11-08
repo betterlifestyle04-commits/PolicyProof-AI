@@ -870,6 +870,31 @@ elif page == "Judge verification":
     from scripts.track2a_readiness import readiness as track2a_evidence_readiness
     track1_gate = evaluate_readiness(ROOT)
     track2a_gate = track2a_evidence_readiness(ROOT)
+    st.markdown("#### Download source-verifiable Lexsi judge evidence (UNSUBMITTED)")
+    st.caption(
+        "Each successful main-branch native CuratorKIT/AuditKIT CI job builds a "
+        "checksum-verified judge ZIP containing the original 48 saved-output "
+        "baseline, original toolkit source receipts, 72 curated-but-UNSCORED "
+        "challenge cases and an accurately limited paired-dev48 summary. "
+        "The ZIP does NOT include original paired GPU raw reports, native "
+        "trained adapter, independent human votes, model weights or submission."
+    )
+    st.markdown(
+        "[Open main-branch CI runs and download "
+        "policyproof-lexsi-judge-evidence-UNSUBMITTED]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
+        "actions/workflows/ci.yml)"
+    )
+    st.code(
+        "python -m scripts.build_judge_evidence_packet --inspect "
+        "artifacts/policyproof_lexsi_judge_evidence_UNSUBMITTED.zip",
+        language="bash",
+    )
+    st.caption(
+        "Download the original CI artifact and inspect locally to recheck the "
+        "exact packet inventory, source hashes and recomputed 48/72 evidence "
+        "without any new GPU inference or Hugging Face publication."
+    )
     st.markdown("#### Owner-controlled dataset publication handoff (not yet executed)")
     st.caption(
         "For Track 2a, an owner can verify a successful main-branch CI research "
