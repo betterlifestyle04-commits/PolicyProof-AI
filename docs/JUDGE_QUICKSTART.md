@@ -5,6 +5,30 @@
 **Official hackathon:** https://hackathon.lexsi.ai  
 **Track status:** Track 1 fine-tuning attempt **unfinished**. Track 2a **actual CPU benchmark/toolkit chain completed**; official HF publication and submission pending.
 
+## NEW: one verifiable source-evidence bundle for the judges (November 8)
+
+A successful **main-branch** CuratorKIT/AuditKIT CI run produces `policyproof-lexsi-judge-evidence-UNSUBMITTED`, a downloadable artifact with the exact ZIP `policyproof_lexsi_judge_evidence_UNSUBMITTED.zip` and `judge_packet_verification.json`. The ZIP contains an **allowlisted** 48-original-response / 72-curated-but-unscored research handoff, SHA256SUMS, a manifest and a `START_HERE.txt` explaining exactly what was and was not done.
+
+Use [Research scaffold CI → successful main run](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml), find the `Real CuratorKIT then AuditKIT safety benchmark (CPU)` job, and download the **judge evidence UNSUBMITTED** artifact. Preserve the ZIP intact, and run:
+
+```bash
+python -m scripts.build_judge_evidence_packet --inspect \
+  artifacts/policyproof_lexsi_judge_evidence_UNSUBMITTED.zip
+```
+
+The verifier reads every file, checks an exact inventory and byte-level checksums, reconstructs the original dataset and toolkit receipts into an isolated temporary folder and **recomputes all 48 original model-output scores and the 72 unscored challenge source labels**. A complete marker or owner-authored JSON flag by itself cannot pass. It refuses unknown or symlink-like ZIP members, oversized data, duplicates, changed score receipts, invalid public paired-development summaries, and apparent credentials. The checks run **without CUDA, Hugging Face login, network calls, independent human votes, or model generation**.
+
+Only source artifacts and public research narrative are included; **the original uploaded 48-case paired raw ZIP is NOT distributed**, and the public paired summary cannot be mistaken for raw inference evidence. No PEFT adapter, gated model weights, token, reviewer CSV, final 60-case score, approved Hugging Face collection, or official Lexsi submission confirmation is included. The ZIP is for **judge reproduction and limitation disclosure**, not proof of semantic improvement.
+
+From a private checkout, the owner can create an independent fresh copy after the native toolkit receipts are already generated:
+
+```bash
+python -m scripts.build_judge_evidence_packet
+python -m scripts.build_judge_evidence_packet --build
+```
+
+The builder only creates a **new** direct `artifacts/<safe-name>.zip` and refuses overwrites. The live dashboard's **Judge verification** tab links to the CI artifact source. Do not submit a synthetic test fixture as real evidence.
+
 ## What works today
 
 - A verified original 78-row CuratorKIT training-only archive, 26 rows per language (English/Norwegian/Arabic).
