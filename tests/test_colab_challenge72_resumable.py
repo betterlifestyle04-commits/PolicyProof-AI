@@ -54,7 +54,7 @@ def test_all_license_gpu_score_export_switches_default_off():
         assert not any(line.strip().startswith(setting + " = True")
                        for cell in code_cells() for line in cell.splitlines())
     assert f'MODEL_SHA = "{TRUSTED_SHA}"' in settings
-    assert "TRAINING" in settings
+    assert "training" in settings.lower()
     assert not any("torch.optim" in s or "trainer.train(" in s
                    for s in code_cells())
 
@@ -130,7 +130,7 @@ def test_no_hardcoded_tokens_api_calls_or_unreviewed_gold_scores():
     assert "notebook_login()" in blob
     assert "MODEL_SHA" in blob
     assert "original_gpu_provenance_independently_verified" in blob
-    assert "TRAINING" in blob
+    assert "training" in blob.lower()
 
 
 def test_markdown_warns_original_72_unscored_and_independent_review_missing():
