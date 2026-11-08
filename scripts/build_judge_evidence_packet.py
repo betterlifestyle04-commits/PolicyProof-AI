@@ -39,6 +39,7 @@ SOURCES = (
     "artifacts/track2a_safety/auditkit_native_receipt.json",
     "artifacts/track2a_challenge_unscored/challenge_v1.jsonl",
     "artifacts/track2a_challenge_unscored/challenge_manifest.json",
+    "artifacts/track2a_challenge_unscored/challenge_curator_input.jsonl",
     "artifacts/track2a_challenge_unscored/challenge_curator_output/sft_alpaca.jsonl",
     "artifacts/track2a_readiness.json",
 )
