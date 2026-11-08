@@ -235,6 +235,20 @@ elif page == "Paired model evidence":
 
 elif page == "Safety benchmark":
     st.markdown("#### 72-case challenge: guarded real-model GPU handoff")
+    st.markdown(
+        "[Open guided Stage 12 GPU notebook in Google Colab]"
+        "(https://colab.research.google.com/github/"
+        "betterlifestyle04-commits/PolicyProof-AI/blob/main/"
+        "notebooks/12_track2a_72_drive_resumable_t4.ipynb)"
+    )
+    st.caption(
+        "New operator-only guided 72-case inference flow: optional private "
+        "Google Drive checkpoint persistence, existing frozen-source checks, "
+        "explicit licensed GPU opt-in, automatic interrupted-run resume and "
+        "separate native AuditKIT scoring. Opening it does not execute the "
+        "model or train a checkpoint. Actual GPU access and licensed model "
+        "rights remain your responsibility."
+    )
     from scripts.track2a_optional_72 import optional_72_evidence
     saved72 = optional_72_evidence(ROOT)
     if saved72["verified_source_replay"]:

@@ -11,6 +11,19 @@ The 72 cases are 12 matched fictional policy-language base questions, each measu
 
 Four fictional source policies are reused across variants, so examples are **correlated** rather than 72 independent topics. Do not claim a statistically representative real-world safety sample.
 
+## NEW: guided, interruption-safe Google Colab run for the original 72 cases
+
+[Open Stage 12: private Drive-backed 72-case GPU inference notebook in Google Colab](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/12_track2a_72_drive_resumable_t4.ipynb)
+
+This notebook is the **simplest prepared operator path** through the exact, already-tested Python runner below. It connects a licensed T4 GPU, optionally mounts your **private** Google Drive (with your explicit approval), preserves the original repo checkout without silently pulling new code after a restart, generates and checks the exact frozen 72-case dataset, and runs the **read-only CPU preflight first**.
+
+- **All meaningful actions are OFF by default.** The owner must deliberately set `VERIFY_HF_ACCOUNT_AND_MODEL_SHA=True`, `MODEL_LICENSE_AND_COST_APPROVED=True` and `RUN_ORIGINAL_72_GPU=True` before real original-model inference.
+- **Preserve work after disconnects:** when private Drive storage is enabled, the original checkpoint folder is inside that Drive-backed checkout. The existing runner saves each raw response once and automatically resumes an already-present checkpoint prefix; unlike plain `/content`, the files persist after a VM reset. Drive syncing is not infallible; keep separate backups of your original files. Never expose gated weights or credentials.
+- **Unchanged base only:** the notebook defaults to the *previously requested* SHA `af89d219b53ed9b13b8a4645f9c8028973510324`, checks authenticated Hub metadata and the actual loaded model revision at runtime, and never trains. The stored requested SHA or self-reported runtime is **not third-party attestation**.
+- **Only after 72 actual saved outputs:** a separate opt-in CPU step runs pinned native AuditKIT 1.1.3, saves the three original result files, and calls the strict independent source-replay verifier. A separate download toggle exports only the source dataset, original model report and CPU AuditKIT receipts, not model weights/tokens. A partial-checkpoint download is explicitly marked **NOT A COMPLETED EVALUATION**.
+
+**No model outputs or verified scores are created by merely opening, testing or passing CI on the notebook.** Colab GPU availability, access to the gated base model, complete original inference, license rights, independent semantic review and final Lexsi eligibility still require actual owner action.
+
 ## Step 1 — Generate and freeze the exact dataset (CPU only)
 
 Run from repository root with Python 3.11:
