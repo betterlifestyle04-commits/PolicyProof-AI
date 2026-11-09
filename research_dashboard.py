@@ -1090,6 +1090,8 @@ elif page == "Judge verification":
     st.markdown(
         "[Native AlignTune 40-step GPU protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md)"
+        " · [Stage 11 owner Colab: train once, download separately]"
+        "(https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/11_native_aligntune_40step_t4.ipynb)"
         " · [Frozen 60-case human review protocol]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/FINAL_REVIEW_WORKFLOW.md)"
     )
