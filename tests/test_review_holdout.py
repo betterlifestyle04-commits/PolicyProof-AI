@@ -351,3 +351,49 @@ def test_cli_reconciliation_cannot_overwrite_public_manual_signoff(
     with pytest.raises(ValueError, match="private"):
         tool.main()
     assert sentinel.read_bytes() == b"PRIVATE MANUAL SIGNOFF PRESERVE"
+
+
+@pytest.mark.parametrize("attack", [
+    '=HYPERLINK("https://example.invalid","click")',
+    "  @SUM(1,2)",
+    "\uFEFF+cmd",
+    "-1+1",
+])
+def test_reviewer_csv_rejects_spreadsheet_formulas_without_touching_evidence(
+    tmp_path, fixture_data, attack
+):
+    cases, digest = fixture_data
+    poisoned = [dict(row) for row in cases]
+    poisoned[0]["question"] = attack
+    with pytest.raises(ValueError, match="spreadsheet formula"):
+        make_review_pack(poisoned, digest, "reviewer_A")
+
+    safe = make_review_pack(cases, digest, "reviewer_A")
+    safe[0]["review_notes"] = attack
+    target = tmp_path / "unsafe_review.csv"
+    with pytest.raises(ValueError, match="spreadsheet formula"):
+        write_review_csv(target, safe)
+    assert not target.exists()
+
+
+def test_external_unsafe_reviewer_note_refused_but_literal_escaped_note_allowed(
+    tmp_path, fixture_data
+):
+    cases, digest = fixture_data
+    records = make_review_pack(cases, digest, "reviewer_A")
+    records[0]["review_notes"] = '=HYPERLINK("https://example.invalid","click")'
+    unsafe = tmp_path / "externally_supplied.csv"
+    with unsafe.open("w", encoding="utf-8", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=HEADERS)
+        writer.writeheader()
+        writer.writerows(records)
+    with pytest.raises(ValueError, match="unsafe spreadsheet formula"):
+        read_and_validate_review(unsafe, cases, digest)
+
+    # Prefixing the original text with an apostrophe makes it literal to
+    # spreadsheet programs without asserting any reviewer judgment is true.
+    records[0]["review_notes"] = "'" + records[0]["review_notes"]
+    escaped = tmp_path / "safe_literal.csv"
+    write_review_csv(escaped, records)
+    _, verified = read_and_validate_review(escaped, cases, digest)
+    assert verified[cases[0]["id"]]["review_notes"].startswith("'=HYPERLINK")
