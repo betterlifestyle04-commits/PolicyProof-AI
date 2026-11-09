@@ -72,6 +72,12 @@ def main():
                 assert indexed[first]["evidence_support_yes_no"] == "yes"
                 assert indexed[first]["review_notes"].startswith("Synthetic UI test")
                 assert indexed[rows[1]["id"]]["evidence_support_yes_no"] == ""
+                # Language filtering intentionally moved the current case.
+                # Restore the original CSV and jump back to the FIRST case
+                # before asserting which exact row receives the hostile note.
+                page.reload(wait_until="load")
+                page.locator("#importInput").set_input_files(str(exported))
+                expect(page.locator("#caseMeta")).to_contain_text(first)
                 # A malicious spreadsheet formula must never execute when
                 # the downloadable private review is opened as a CSV.
                 page.locator("#notes").fill("=" + "x" * 3999)
