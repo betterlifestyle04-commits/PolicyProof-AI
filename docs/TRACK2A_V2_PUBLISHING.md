@@ -23,6 +23,30 @@ This is a **dataset-only** handoff. It neither trains Tiny Aya nor publishes an 
 
 The existing local command-line publication route below remains supported. Do not treat the manual GitHub workflow's safe inspection mode as external publication.
 
+## November 9 — exact OFFLINE public-file preview before making a release decision
+
+The manual [owner-only GitHub Actions workflow](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/owner-track2a-hf-dataset.yml) now offers a third mode: **`preview_public_dataset`**. This reduces the legal/license review gap without creating any Hugging Face artifacts.
+
+1. First perform **`inspect_only`** on a successful original **main push** CI run and independently examine its preserved original 15-file research ZIP. Discovery is **not** approval.
+2. Start a **separate** manual workflow with `mode = preview_public_dataset`; enter the original successful `source_ci_run`, copy its **exact measured 64-character `approved_archive_sha256`** and choose a **tentative** dataset `license` from the existing supported options. This is a *hypothetical preview selection*, **not final legal approval**. Leave both rights/publication confirmations unchecked. Do not enter a public HF destination or token.
+3. Once successful, download the private GitHub Actions artifact **`policyproof-track2a-owner-HF-PREVIEW-NOT-PUBLISHED`**. It contains `track2a_HF_DATASET_PUBLIC_FILES_PREVIEW_NOT_PUBLISHED.zip`, an inspection receipt and independent source-rebuild readback. Its ZIP holds the **exact 15 staged files** that the owner-authorized uploader would later send to a public dataset repository: the transformed dataset card with tentative frontmatter license, 48 original saved baseline results, 72 **unscored** challenge samples, source receipts, `PUBLICATION_SCOPE.json` and a complete public-file `SHA256SUMS.txt`. It contains **no Hugging Face credentials, model weights, adapter or signed authorization**.
+4. Inspect **every** file and proposed license. Ask whether the synthetic policies, translations, labels, original model responses, source provenance and downstream use license can lawfully be made public. A hash or a green test cannot make this decision for you. If the rights review fails, stop rather than publishing.
+5. **Only after genuine owner rights approval**, start a **new, separate** `publish_public_dataset` run using the exact same owner-reviewed original source ZIP SHA, actual approved dataset license, destination namespace and collection mode, configured private `HF_TOKEN`, and BOTH explicit rights and publication confirmations. The publisher recreates and revalidates the 15 files before upload and performs an anonymous public readback afterward. The preview run never records approval and cannot advance automatically to publication.
+
+To independently check the downloaded preview locally on the original research ZIP:
+
+```bash
+python -m scripts.owner_track2a_publication_preview \
+  --archive /path/to/track2a_release_candidate_v2_UNPUBLISHED.zip \
+  --expected-sha256 YOUR_ORIGINAL_SOURCE_ZIP_SHA256 \
+  --license YOUR_TENTATIVE_LICENSE \
+  --inspect-zip /path/to/track2a_HF_DATASET_PUBLIC_FILES_PREVIEW_NOT_PUBLISHED.zip
+```
+
+The inspection **rebuilds the public staging payload from the original source**, byte-compares every ZIP member and checksum, and never contacts Hugging Face. A self-consistent edited ZIP is rejected if it differs from the reconstructed source. The exact source archive SHA can change across native-toolkit CI runs; always use the hash of the **same CI run** from which you downloaded the original archive.
+
+**Warnings:** The preview is a *private owner handoff*, not a license approval, public dataset publication, relevant public model collection, successful independent human review or official Lexsi submission. Any publicly downloadable GitHub Actions artifacts may be accessible to collaborators with repository access; do not insert secrets or private reviewer notes.
+
 ## 1. Obtain original research evidence and its trusted SHA-256
 
 Open a **successful main-branch** [GitHub Actions run](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml). Download the artifact `policyproof-track2a-real-curatorkit-auditkit-20261103`. Extract `track2a_release_candidate_v2_UNPUBLISHED.zip` and preserve it unchanged.

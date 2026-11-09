@@ -24,6 +24,7 @@ on:
         type: choice
         options:
           - inspect_only
+          - preview_public_dataset
           - publish_public_dataset
       license:
         description: 'Owner-selected DATASET license (does not cover gated model weights)'
@@ -107,25 +108,32 @@ jobs:
               raise SystemExit("This owner action is allowed on the protected main branch only")
           if not RUN.fullmatch(os.environ["SOURCE_RUN"]):
               raise SystemExit("Only numeric approved source CI run IDs are allowed")
-          if mode not in ("inspect_only", "publish_public_dataset"):
+          if mode not in ("inspect_only", "preview_public_dataset", "publish_public_dataset"):
               raise SystemExit("Unknown owner action")
           digest = os.environ["OWNER_SHA256"]
           if digest and not re.fullmatch(r"[0-9a-f]{64}", digest):
               raise SystemExit("Any supplied original ZIP SHA256 must be lowercase 64-hex")
-          if mode == "publish_public_dataset" and not digest:
+          if mode in ("preview_public_dataset", "publish_public_dataset") and not digest:
               raise SystemExit(
-                  "PUBLIC UPLOAD BLOCKED: first inspect and review the original "
-                  "ZIP, then enter its exact 64-character digest yourself"
+                  "PREVIEW / PUBLIC UPLOAD BLOCKED: first inspect the original "
+                  "ZIP, then manually type its exact 64-character digest"
               )
           if license_id not in LICENSES | {"undecided"}:
               raise SystemExit("Invalid owner dataset license")
-          if mode == "inspect_only":
+          if mode in ("inspect_only", "preview_public_dataset"):
               if rights == "true" or publication == "true":
-                  raise SystemExit("Do not supply publication approvals for inspect-only mode")
-              print(
-                  "INSPECTION_ONLY: optional SHA may be empty; calculate and "
-                  "report original CI ZIP digest without any Hugging Face token"
-              )
+                  raise SystemExit("Do not supply rights/publication approvals for offline inspection or preview")
+              if mode == "preview_public_dataset":
+                  if license_id not in LICENSES:
+                      raise SystemExit("Preview requires an owner-chosen TENTATIVE dataset license")
+                  if os.environ["HF_REPO_ID"] or os.environ["COLLECTION_SLUG"]:
+                      raise SystemExit("Preview cannot carry a repository or collection destination")
+                  print("OFFLINE PREVIEW: source-pin + tentative license only; no upload or rights consent")
+              else:
+                  print(
+                      "INSPECTION_ONLY: optional SHA may be empty; calculate and "
+                      "report original CI ZIP digest without any Hugging Face token"
+                  )
           else:
               if rights != "true" or publication != "true":
                   raise SystemExit("Real publication requires BOTH independent owner approvals")
@@ -225,6 +233,65 @@ jobs:
           name: policyproof-track2a-inspected-source-hash
           path: artifacts/owner_handoff_inspection.json
           retention-days: 30
+          if-no-files-found: error
+      - name: Construct and VERIFY exact public dataset ZIP offline (NO UPLOAD)
+        if: ${{ inputs.mode == 'preview_public_dataset' }}
+        env:
+          OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
+          SELECTED_LICENSE: ${{ inputs.license }}
+        run: |
+          set -euo pipefail
+          ORIGINAL_ZIP=handoff/track2a_release_candidate_v2_UNPUBLISHED.zip
+          if [ ! -f "$ORIGINAL_ZIP" ]; then
+            ORIGINAL_ZIP=handoff/artifacts/track2a_release_candidate_v2_UNPUBLISHED.zip
+          fi
+          python -m scripts.owner_track2a_publication_preview \
+            --archive "$ORIGINAL_ZIP" --expected-sha256 "$OWNER_SHA256" \
+            --license "$SELECTED_LICENSE" \
+            > artifacts/owner_preview_preflight.json
+          python -m scripts.owner_track2a_publication_preview \
+            --archive "$ORIGINAL_ZIP" --expected-sha256 "$OWNER_SHA256" \
+            --license "$SELECTED_LICENSE" \
+            --inspect-zip artifacts/track2a_HF_DATASET_PUBLIC_FILES_PREVIEW_NOT_PUBLISHED.zip \
+            > artifacts/owner_preview_independent_readback.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          first=json.loads(Path("artifacts/owner_preview_preflight.json").read_text())
+          second=json.loads(Path("artifacts/owner_preview_independent_readback.json").read_text())
+          assert second["status"] == "OWNER_PUBLIC_FILES_PREVIEW_REBUILT_EXACTLY_NO_PUBLICATION"
+          assert second["original_source_archive_sha256"] == first["original_source_archive_sha256"]
+          assert second["owner_preview_archive_sha256"] == first["owner_preview_archive_sha256"]
+          assert second["public_payload_file_count"] == 15
+          for key in ("rights_approval_obtained_by_script",
+                      "license_rights_independently_verified",
+                      "huggingface_token_used", "huggingface_upload_performed",
+                      "dataset_collection_created", "model_collection_created",
+                      "official_lexsi_submission_completed"):
+              assert second[key] is False
+          PY
+          {
+            echo "### Owner public dataset preview — NOT PUBLISHED"
+            echo ""
+            echo "**Source ZIP SHA256:** \`$OWNER_SHA256\`"
+            echo "**TENTATIVE license only:** \`$SELECTED_LICENSE\`"
+            echo "**15 source-derived public files built & independently rechecked**"
+            echo ""
+            echo "Download artifact policyproof-track2a-owner-HF-PREVIEW-NOT-PUBLISHED;"
+            echo "review exact README, licensing scope, hashes, original model outputs,"
+            echo "synthetic challenge data and rights BEFORE a separate consented upload."
+            echo "**No HF token, license approval, dataset collection, or submission.**"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain owner-only offline HF public payload PREVIEW and evidence checks
+        if: ${{ inputs.mode == 'preview_public_dataset' && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-track2a-owner-HF-PREVIEW-NOT-PUBLISHED
+          path: |
+            artifacts/track2a_HF_DATASET_PUBLIC_FILES_PREVIEW_NOT_PUBLISHED.zip
+            artifacts/track2a_HF_DATASET_PUBLIC_FILES_PREVIEW_NOT_PUBLISHED.json
+            artifacts/owner_preview_independent_readback.json
+          retention-days: 14
           if-no-files-found: error
       - name: Install official Hugging Face API SDK (publication only)
         if: ${{ inputs.mode == 'publish_public_dataset' }}
