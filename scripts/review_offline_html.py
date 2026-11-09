@@ -215,7 +215,7 @@ byId("notes").addEventListener("input",function(){
  }
 });
 function formulaRisk(s){
- return /^[\\s\\uFEFF]*[=+\\-@]/u.test(s);
+ return /^[\s\uFEFF]*[=+\-@]/u.test(s);
 }
 function csvCell(value){
  const s=String(value==null?"":value);
