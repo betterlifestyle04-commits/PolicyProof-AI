@@ -71,6 +71,7 @@ textarea{display:block;width:100%;min-height:90px;font:inherit;padding:10px;bord
 <label for="importInput" class="mini">Resume from your CSV</label><input id="importInput" type="file" accept=".csv,text/csv">
 </div><small>Keep the exported CSV private and send it to the project owner only when ready.</small></div>
 </div>
+<p id="saveState" class="mini" role="status" aria-live="polite">No local votes yet. Export CSV regularly; no private answers are stored by this page.</p>
 <p id="status" role="status" aria-live="polite"></p>
 </div>
 <div class="card">
@@ -109,6 +110,8 @@ const fields = immutable.verdicts;
 const answers = rows.map(function(){return {"evidence_support_yes_no":"","translation_faithful_yes_no":"","question_unambiguous_yes_no":"","review_notes":""};});
 const fixedHeaders = headers.filter(function(h){return fields.indexOf(h)===-1 && h!=="review_notes";});
 let index = 0;
+let unsaved = false;
+let saveOrigin = "blank";
 const byId = function(id){return document.getElementById(id);};
 const setText = function(id,text){byId(id).textContent=String(text);};
 const readable = {
@@ -117,6 +120,28 @@ const readable = {
  "question_unambiguous_yes_no":"Is the question sufficiently clear and not misleading?"
 };
 const status = function(t,problem){setText("status",t);byId("status").style.color=problem?"#a43f1d":"#16744e";};
+function updateSaveStatus(){
+ const el=byId("saveState");
+ if(unsaved){
+  el.textContent="UNSAVED PRIVATE JUDGMENTS — export a CSV before closing/reloading this tab. No automatic browser storage is used.";
+  el.style.color="#a43f1d";
+  }else if(saveOrigin==="export"){
+  el.textContent="CSV download requested. Check that the file really exists on your device; keep a private copy before leaving.";
+  el.style.color="#516476";
+ }else if(saveOrigin==="import"){
+  el.textContent="Private CSV restored. Any new vote or note must be exported before leaving this tab.";
+  el.style.color="#516476";
+ }else{
+  el.textContent="No local votes yet. Export a CSV regularly; no private answers are stored by this page.";
+  el.style.color="#516476";
+ }
+}
+function markDirty(){unsaved=true;updateSaveStatus();}
+window.addEventListener("beforeunload",function(event){
+ if(!unsaved)return;
+ event.preventDefault();
+ event.returnValue="";
+});
 setText("reviewer",immutable.reviewer);
 setText("datasetDigest",immutable.digest);
 function completed(){let n=0;answers.forEach(function(item){fields.forEach(function(f){if(item[f])n++;});});return n;}
@@ -163,13 +188,13 @@ function paint(){
    input.name="vote_"+f;input.value=value;input.checked=a[f]===value;
    input.setAttribute("aria-label",f+" "+value);
    input.addEventListener("change",function(){
-    a[f]=value;updateProgress();
+    a[f]=value;markDirty();updateProgress();
    });
    label.appendChild(input);label.appendChild(document.createTextNode(value==="yes"?"Yes":"No"));
    fieldset.appendChild(label);
   });
   const clear=document.createElement("button");clear.type="button";clear.textContent="Clear vote";
-  clear.addEventListener("click",function(){a[f]="";paint();});
+  clear.addEventListener("click",function(){if(a[f]!==""){a[f]="";markDirty();}paint();});
   fieldset.appendChild(clear);voteBox.appendChild(fieldset);
  });
  byId("notes").value=a.review_notes;
@@ -184,7 +209,11 @@ function move(delta){
 byId("prev").addEventListener("click",function(){move(-1);});
 byId("next").addEventListener("click",function(){move(1);});
 ["language","view"].forEach(function(k){byId(k).addEventListener("change",paint);});
-byId("notes").addEventListener("input",function(){answers[index].review_notes=this.value;});
+byId("notes").addEventListener("input",function(){
+ if(answers[index].review_notes!==this.value){
+  answers[index].review_notes=this.value;markDirty();
+ }
+});
 function csvCell(value){
  const s=String(value==null?"":value);
  return '"'+s.replace(/"/g,'""')+'"';
@@ -201,9 +230,16 @@ function exportCSV(){
  const a=document.createElement("a");a.href=url;a.download="reviewer_"+immutable.reviewer+"_final_holdout.csv";
  document.body.appendChild(a);a.click();a.remove();
  setTimeout(function(){URL.revokeObjectURL(url);},1200);
- status("Private CSV prepared ("+n+"/180 verdicts). Preserve this original file; it does not certify review.",false);
+ unsaved=false;saveOrigin="export";updateSaveStatus();
+ status("CSV download requested ("+n+"/180 verdicts). VERIFY it was saved on disk; no human review is certified.",false);
 }
 byId("export").addEventListener("click",exportCSV);
+document.addEventListener("keydown",function(event){
+ if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==="s"){
+  event.preventDefault();event.stopPropagation();
+  exportCSV();  // Save the CSV, never the unfilled original HTML.
+ }
+});
 function parseCSV(input){
  const text=input.replace(/^\uFEFF/,"");
  const out=[];let row=[],field="",i=0,quoted=false,closed=false;
@@ -254,6 +290,7 @@ async function importCSV(file){
  }
  if(!confirm("Load "+file.name+"? This replaces any unsaved answers currently in this tab."))return;
  incoming.forEach(function(r,i){answers[i]=r;});
+ unsaved=false;saveOrigin="import";updateSaveStatus();
  index=0;byId("language").value="all";byId("view").value="all";paint();
  status("Loaded 60 original records from your private CSV. Review all votes before submitting.",false);
 }
@@ -262,7 +299,7 @@ byId("importInput").addEventListener("change",async function(){
  catch(e){status("Import refused: "+(e&&e.message?e.message:"invalid CSV"),true);}
  this.value="";
 });
-paint();
+updateSaveStatus();paint();
 })();
 </script>
 </body>

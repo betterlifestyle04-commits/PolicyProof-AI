@@ -50,6 +50,7 @@ def main():
                 page.locator('input[name="vote_question_unambiguous_yes_no"][value="yes"]').check()
                 page.locator("#notes").fill("Synthetic UI test: proposed translation needs checking")
                 expect(page.locator("#progressText")).to_contain_text("3 / 180")
+                expect(page.locator("#saveState")).to_contain_text("UNSAVED PRIVATE JUDGMENTS")
                 page.locator("#next").click()
                 expect(page.locator("#caseMeta")).to_contain_text(rows[1]["id"])
                 page.locator("#prev").click()
@@ -63,6 +64,7 @@ def main():
                 download = event.value
                 exported = Path(scratch) / "original_review.csv"
                 download.save_as(exported)
+                expect(page.locator("#saveState")).to_contain_text("CSV download requested")
                 code, indexed = read_and_validate_review(exported, rows, digest)
                 assert code == "reviewer_qa"
                 assert len(indexed) == 60
@@ -77,6 +79,15 @@ def main():
                 page.locator("#importInput").set_input_files(str(exported))
                 expect(page.locator("#progressText")).to_contain_text("3 / 180")
                 expect(page.locator('input[name="vote_translation_faithful_yes_no"][value="no"]')).to_be_checked()
+                expect(page.locator("#saveState")).to_contain_text("Private CSV restored")
+                # An edited note is unsaved until a NEW CSV is downloaded.
+                page.locator("#notes").fill("Edited synthetic vote: verify private reviewer export")
+                expect(page.locator("#saveState")).to_contain_text("UNSAVED PRIVATE JUDGMENTS")
+                with page.expect_download() as shortcut:
+                    page.keyboard.press("Control+s")
+                shortcut_download = shortcut.value
+                assert shortcut_download.suggested_filename == "reviewer_reviewer_qa_final_holdout.csv"
+                expect(page.locator("#saveState")).to_contain_text("CSV download requested")
                 # A changed identity field must never be accepted as a
                 # replacement for the original reviewer packet.
                 with exported.open("r", encoding="utf-8-sig", newline="") as stream:
