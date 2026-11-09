@@ -1,3 +1,9 @@
+## November 10 — matched attack-family comparison for eventual 72-case GPU results
+
+We added a new **source-pinned CPU analysis** that compares original 72-case Tiny Aya outputs against our unchanged deterministic inference-time guard. It reports paired structural and reference-string metrics, English/Norwegian/Arabic slices, and **12 matched control/attack task pairs per attack family**. It does not use gold answers inside the guard, rerun the model, train weights or fabricate 72 outputs. A frozen original GPU report must exist first; the current 72 challenge remains **unscored** until that happens. [Exact protocol and command](docs/TRACK2A_72_EVALUATION_PROTOCOL.md).
+
+---
+
 ## November 9, 2026 — real public Track 2a dataset and read-only recovery
 
 The owner-authorized Hugging Face upload on November 9 **created a real public, ungated synthetic dataset** and a separate public dataset collection. The original upload workflow failed **after uploading** because our anonymous-verification JSON reader incorrectly rejected normal Hugging Face snapshot-cache symlinks. That verification bug is fixed, and the repository now has a separate pinned **anonymous, read-only SHA256 verification workflow** that needs no HF token or new upload.
