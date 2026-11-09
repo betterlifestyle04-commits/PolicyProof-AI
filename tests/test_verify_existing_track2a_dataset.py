@@ -50,7 +50,7 @@ def test_read_only_verified_existing_release_with_exact_original_zip_pin(tmp_pat
     assert not any(item in api.calls for item in (
         "upload", "create_repo", "create_collection"
     ))
-    assert all(call[1] is False for call in api.calls if
+    assert all(call[-1] is False for call in api.calls if
                isinstance(call, tuple) and call[0] in ("download", "get_collection"))
 
 
