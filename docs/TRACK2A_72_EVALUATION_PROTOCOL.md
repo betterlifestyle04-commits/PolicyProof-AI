@@ -24,6 +24,22 @@ This notebook is the **simplest prepared operator path** through the exact, alre
 
 **No model outputs or verified scores are created by merely opening, testing or passing CI on the notebook.** Colab GPU availability, access to the gated base model, complete original inference, license rights, independent semantic review and final Lexsi eligibility still require actual owner action.
 
+## NEW: verify the ORIGINAL private Stage 12 results ZIP without manually extracting it
+
+When the owner actually completes Stage 12's **72 original-model responses and native AuditKIT CPU replay**, the notebook can download the original unmodified private ZIP named `policyproof_challenge72_original_evidence_NOT_ATTESTED.zip`. On a separate local checkout, verify this file directly:
+
+```bash
+python -m pip install "auditkit==1.1.3"
+python -m scripts.verify_colab_72_bundle \
+  --archive "/path/to/policyproof_challenge72_original_evidence_NOT_ATTESTED.zip"
+```
+
+The verifier accepts only the Stage 12 six-member, uncompressed ZIP schema and refuses missing, duplicate, unknown, traversal, symlinked, encrypted, or oversized members. It validates the owner's explicitly **unreviewed/not-submitted** scope manifest and the exact original frozen challenge SHA-256. It then places the six files into a temporary isolated directory, validates all 72 raw prediction IDs/source metadata and checksums, recomputes each score and native AuditKIT 1.1.3 receipt, and compares those to the original saved three-file evaluation. It cleans its temporary directory and **does not import, publish, rewrite or overwrite** source evidence in the repository.
+
+A passing report is labeled `VERIFIED_PRIVATE_STAGE12_72_LOCAL_SOURCE_REPLAY_NOT_GPU_ATTESTATION`, and contains the original archive's SHA-256 and the independently recalculated source and receipt hashes. It **does not prove actual GPU execution**: a malicious actor can fabricate internally self-consistent raw answers and a model metadata record. Preserve unedited Colab GPU logs and licensed model-access records separately. The original ZIP contains no Hugging Face token, weights, original 60-case final evaluation or real reviewer signoff. Keep it **private** until rights and publication scope have been approved.
+
+Partial checkpoint backups are **not** accepted as six-file complete evaluation ZIPs. To continue an incomplete 72-case run, restore the private Drive-backed original checkpoint and resume through Stage 12 instead.
+
 ## Step 1 — Generate and freeze the exact dataset (CPU only)
 
 Run from repository root with Python 3.11:

@@ -909,6 +909,26 @@ elif page == "Judge verification":
         "exact packet inventory, source hashes and recomputed 48/72 evidence "
         "without any new GPU inference or Hugging Face publication."
     )
+    st.markdown("#### Private Stage 12 results ZIP verification (owner-only)")
+    st.caption(
+        "After you actually run 72 original Tiny Aya GPU predictions and "
+        "complete native AuditKIT scoring in Colab, download the PRIVATE "
+        "original evidence ZIP. This separate read-only verifier checks "
+        "its exact files, frozen 72-case SHA, all saved response IDs and "
+        "fresh native AuditKIT replay, without importing private results "
+        "into the public platform or claiming independent GPU provenance."
+    )
+    st.code(
+        "python -m scripts.verify_colab_72_bundle --archive "
+        "/path/to/policyproof_challenge72_original_evidence_NOT_ATTESTED.zip",
+        language="bash",
+    )
+    st.caption(
+        "An internally consistent saved ZIP may still contain fabricated "
+        "GPU metadata or incorrect human semantics. Keep unedited Colab "
+        "runtime records; do not confuse the private 72-case result with "
+        "the separate public UNSUBMITTED judge ZIP."
+    )
     st.markdown("#### Owner-controlled dataset publication handoff (not yet executed)")
     st.caption(
         "For Track 2a, an owner can verify a successful main-branch CI research "
