@@ -139,3 +139,25 @@ def test_cli_help_never_triggers_training_or_writes():
     )
     assert result.returncode == 0
     assert "Distinct private reviewer code" in result.stdout
+
+
+def test_private_offline_workbench_warns_before_discarding_unsaved_votes():
+    cases = read_jsonl(ROOT / "data/final_holdout_v1.jsonl")
+    digest = sha256(ROOT / "data/final_holdout_v1.jsonl")
+    html = render_offline_review(cases, digest, "reviewer_01")
+    assert 'id="saveState"' in html
+    assert 'window.addEventListener("beforeunload"' in html
+    assert "if(!unsaved)return;" in html
+    assert "event.preventDefault();" in html
+    assert 'event.returnValue="";' in html
+    assert "markDirty();updateProgress();" in html
+    assert 'if(answers[index].review_notes!==this.value)' in html
+    assert "unsaved=false;saveOrigin=\"export\";updateSaveStatus();" in html
+    assert "unsaved=false;saveOrigin=\"import\";updateSaveStatus();" in html
+    assert "Ctrl" not in html or 'event.ctrlKey||event.metaKey' in html
+    assert "event.key.toLowerCase()===\"s\"" in html
+    assert "exportCSV();" in html
+    # Deliberately NO automatic persistent storage of private reviewer votes.
+    assert "localStorage" not in html and "sessionStorage" not in html
+    assert "indexedDB" not in html and "sendBeacon" not in html
+    assert "fetch(" not in html and "XMLHttpRequest" not in html
