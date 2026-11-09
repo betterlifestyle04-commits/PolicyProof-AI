@@ -145,3 +145,13 @@ def test_markdown_warns_original_72_unscored_and_independent_review_missing():
     assert "review" in doc.lower()
     assert "private" in doc.lower()
     assert "notebook tests" in doc.lower()
+
+
+def test_stage12_final_cell_includes_private_read_only_original_zip_verifier():
+    doc = "".join(cells()[-1]["source"])
+    assert "python -m scripts.verify_colab_72_bundle" in doc
+    assert "--archive" in doc
+    assert "auditkit==1.1.3" in doc
+    assert "does not" in doc.lower()
+    assert "GPU" in doc
+    assert "Colab" in doc
