@@ -49,3 +49,39 @@ Inspect the truthful handoff and its `required_actions` list. In a private brows
 Only then paste the up-to-date under-500-word abstract, verified public links, track/model/toolkit information and write-up into the [official form](https://hackathon.lexsi.ai/submission/). Confirm the organizer actually accepted the entry and retain their real confirmation or submission ID privately. The handoff script **never asserts that this step happened**.
 
 For judging without a GPU, use the separately generated CI `policyproof-lexsi-judge-evidence-UNSUBMITTED` ZIP and [judge quickstart](JUDGE_QUICKSTART.md). That ZIP reproduces original 48 baseline source scores and preserves the new curated 72 examples, but is **not** substitute for public collections or a submitted organizer form.
+
+## Offline copyable owner form checklist (November 9)
+
+The **Judge verification** dashboard now has a second download:
+**"Download offline read-only Lexsi submission checklist (HTML; NOT SUBMITTED)"**.
+This is a more legible counterpart to the existing source-checked JSON. It
+includes the exact historical under-500-word abstract (unless newer evidence
+makes the text stale), the field values, the remaining owner actions, the
+deadline and conspicuous missing-model/dataset-collection warnings.
+
+For a reproducible local, write-once HTML copy without opening a browser or
+uploading data, run:
+
+```bash
+python -m scripts.lexsi_submission_offline_html
+```
+
+Open \`artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html\` locally.
+The producer is strictly offline, output-allowlisted, and refuses to overwrite
+a previous file. Private registration email and HF token are never requested
+or embedded. Its browser page has a restrictive Content Security Policy and
+no script, login, form submission, clipboard access or persistence. The only
+external link points to the actual Lexsi submission form for **manual** use.
+
+A successful native-toolkit CI run also uploads this exact HTML inside the
+existing **owner form draft UNSUBMITTED** artifact alongside the JSON. The
+HTML renderer refuses inconsistent readiness, stale-but-exposed abstracts,
+self-reported publication completion and collection links lacking the source
+handoff's authenticated anonymous-access receipt. It does **not** independently
+verify external access by itself; that is done by the existing source-bound
+handoff/verifier upstream.
+
+**This is not a final submission.** Once actual HF publication/72-case
+measurements change the evidence, regenerate rather than reusing an old HTML
+copy. Never infer that an offline form or successful tests establish rights,
+independent semantic evaluation, organizer acceptance or a real fine-tune.
