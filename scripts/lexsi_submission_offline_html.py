@@ -14,6 +14,7 @@ import re
 
 from policyproof.core import ROOT
 from scripts.lexsi_submission_handoff import OFFICIAL_FORM, handoff
+from scripts.verify_hf_collections import _url_id
 
 OUTPUT_REL = Path("artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html")
 VALID_STATUS = {
@@ -76,12 +77,15 @@ def _verify(packet: dict) -> dict:
         raise ValueError("Unverified HF readback state")
     if public is False and any(fields.get(key) is not None for key in hf_fields):
         raise ValueError("Owner-entered/unverified HF links must never appear")
-    if public is True and any(
-        not isinstance(fields.get(key), str)
-        or not fields[key].startswith("https://huggingface.co/")
-        for key in hf_fields
-    ):
-        raise ValueError("HF links require source-checked canonical URLs")
+    if approved_status and public is not True:
+        raise ValueError("Claimed local readiness without public HF verification")
+    if public is True:
+        for key, kind in (
+            ("hf_model_collection", "collection"),
+            ("hf_dataset_collection", "collection"),
+            ("hf_dataset_repository", "dataset"),
+        ):
+            _url_id(fields.get(key), kind)
     if not isinstance(packet.get("required_actions"), list) or not all(
         isinstance(item, str) and 0 < len(item) <= 500
         for item in packet["required_actions"]
