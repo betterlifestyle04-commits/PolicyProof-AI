@@ -952,6 +952,20 @@ elif page == "Judge verification":
             file_name="policyproof_lexsi_track2a_form_draft_UNSUBMITTED.json",
             mime="application/json",
         )
+        from scripts.lexsi_submission_offline_html import render_owner_form_html
+        owner_offline_html = render_owner_form_html(owner_packet)
+        st.download_button(
+            "Download offline read-only Lexsi submission checklist (HTML; NOT SUBMITTED)",
+            data=owner_offline_html,
+            file_name="lexsi_track2a_owner_form_offline_UNSUBMITTED.html",
+            mime="text/html",
+        )
+        st.caption(
+            "The HTML works offline and contains copyable source-bounded form fields, "
+            "a blocked/missing-field checklist and no registration email, token "
+            "or actual submission functionality. The owner must still complete "
+            "the organizer form manually."
+        )
     except (ValueError, OSError, TypeError, KeyError, RecursionError):
         st.error(
             "Owner form preflight cannot verify local source or abstract "

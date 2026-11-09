@@ -130,6 +130,26 @@ def main():
                 assert network_requests == [], "Offline review unexpectedly contacted a remote server"
                 page.screenshot(path=str(OUTPUT / "offline_private_review_ui.png"), full_page=True)
                 print("CHROMIUM OFFLINE REVIEW SUCCESS: 60-case exact CSV, restored partial votes, tampering refused, no network", flush=True)
+                # Also verify the owner submission handoff is a STATIC local
+                # page, visually readable and missing unverifiable HF links.
+                # No form submission, external navigation or data upload.
+                from scripts.lexsi_submission_handoff import handoff
+                from scripts.lexsi_submission_offline_html import render_owner_form_html
+                owner_page = Path(scratch) / "lexsi_owner_UNSUBMITTED.html"
+                owner_page.write_text(
+                    render_owner_form_html(handoff(ROOT)), encoding="utf-8"
+                )
+                page.goto(owner_page.as_uri(), wait_until="load")
+                expect(page.locator("h1")).to_contain_text("Lexsi owner form handoff")
+                expect(page.locator(".state")).to_contain_text("DRAFT ONLY")
+                expect(page.locator("#abstract")).to_contain_text(
+                    "48 previously saved Tiny Aya"
+                )
+                expect(page.get_by_text("MISSING — DO NOT INVENT A LINK").first).to_be_visible()
+                assert page.locator("script,form").count() == 0
+                assert network_requests == [], "Offline owner handoff accessed network"
+                page.screenshot(path=str(OUTPUT / "offline_lexsi_owner_handoff.png"), full_page=True)
+                print("CHROMIUM OFFLINE LEXSI FORM SUCCESS: historical source, blocked HF links, zero network", flush=True)
             except Exception:
                 page.screenshot(path=str(OUTPUT / "offline_review_failure.png"), full_page=True)
                 raise

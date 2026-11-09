@@ -284,11 +284,24 @@ jobs:
           assert packet["organizer_confirmation_verified"] is False
           assert packet["external_network_used"] is False
           PY
+      - name: Build source-checked OFFLINE Lexsi owner form page (NO upload / no submission)
+        run: |
+          python -m scripts.lexsi_submission_offline_html
+          python - <<'PY'
+          from pathlib import Path
+          html = Path("artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html").read_text()
+          assert "BLOCKED / DRAFT ONLY" in html
+          assert "MISSING — DO NOT INVENT A LINK" in html
+          assert "<script" not in html and "<form" not in html
+          assert "registered_email" not in html and "official_submission_completed" not in html
+          PY
       - name: Retain bounded owner Lexsi submission draft (UNSUBMITTED)
         uses: actions/upload-artifact@v4
         with:
           name: policyproof-lexsi-track2a-owner-form-draft-UNSUBMITTED
-          path: artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json
+          path: |
+            artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json
+            artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html
           retention-days: 30
           if-no-files-found: error
       - name: Retain reproducible judge evidence ZIP and verification (UNSUBMITTED)
