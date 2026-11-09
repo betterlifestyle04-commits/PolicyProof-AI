@@ -120,7 +120,9 @@ def test_inspection_workflow_separates_unapproved_discovery_from_any_upload():
     workflow = (ROOT / ".github/workflows/owner-track2a-hf-dataset.yml").read_text()
     assert "required: false" in workflow
     assert "default: ''" in workflow
-    assert 'if mode in ("preview_public_dataset", "publish_public_dataset") and not digest' in workflow
+    assert 'if mode in ("preview_public_dataset", "publish_public_dataset", "verify_existing_publication") and not digest' in workflow
+    assert "Read-only recovery MUST NOT authorize a new publication" in workflow
+    assert "READ-ONLY recovery of previously uploaded public dataset" in workflow
     assert "first inspect the original" in workflow
     assert "Do not supply rights/publication approvals for offline inspection or preview" in workflow
     assert "OFFLINE PREVIEW" in workflow
@@ -203,7 +205,10 @@ def test_owner_action_stays_manual_and_confirms_rights_before_token():
     assert "publish_public_dataset" in workflow
     assert "confirm_rights" in workflow and "confirm_publication" in workflow
     assert workflow.count("HF_TOKEN: ${{ secrets.HF_TOKEN }}") == 1
-    assert workflow.count("if: ${{ inputs.mode == 'publish_public_dataset' }}") == 2
+    assert workflow.count("if: ${{ inputs.mode == 'publish_public_dataset' }}") == 1
+    assert "if: ${{ inputs.mode == 'publish_public_dataset' || inputs.mode == 'verify_existing_publication' }}" in workflow
+    assert "if: ${{ inputs.mode == 'verify_existing_publication' }}" in workflow
+    assert workflow.count("HF_TOKEN: ${{ secrets.HF_TOKEN }}") == 1
     assert workflow.index("Verify exact owner-approved ZIP bytes") < workflow.index("PUBLIC owner-approved dataset upload")
     assert "--confirm-rights --confirm-publication" in workflow
     assert "actions: read" in workflow
