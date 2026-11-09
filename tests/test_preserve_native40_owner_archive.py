@@ -125,11 +125,10 @@ def test_missing_original_and_wrong_filename_do_not_create_backup(tmp_path):
 
 def test_changed_archive_after_initial_verification_is_blocked(tmp_path, monkeypatch):
     source, original, calls = fake_native_archive(tmp_path, monkeypatch)
-    expected = hashlib.sha256(original).hexdigest()
     def mutate_on_hash(path):
         if Path(path) == source:
             source.write_bytes(source.read_bytes() + b"CHANGED_POST_CHECK")
-        return expected
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
     monkeypatch.setattr(backup, "_digest", mutate_on_hash)
     with pytest.raises(ValueError, match="Original archive hash mismatches"):
         backup.preserve_native40_archive(source, tmp_path / "private")
