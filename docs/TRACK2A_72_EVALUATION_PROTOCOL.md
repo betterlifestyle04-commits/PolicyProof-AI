@@ -222,3 +222,52 @@ The Track 2a benchmark + report pipeline is reproducible and the new attack corp
 - [Track 2a existing 48-case findings](TRACK2A_SAFETY_BENCHMARK_2026-11-03.md)
 - [CPU-only HF dataset publication guide](TRACK2A_HF_PUBLICATION_GUIDE.md)
 - [Full public source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)
+
+## November 10 — source-pinned 72-case guard A/B comparison, CPU only
+
+We now have a dedicated **post-inference** paired diagnostic tool,
+`scripts.challenge72_guard_effect`. It is an optional experiment performed
+**only after** Stage 12 actually saves its original 72 model responses.
+It reuses the saved raw model outputs, applies the same predeclared deterministic
+safety guard to each output, and compares original-versus-guarded outcomes.
+
+The guard itself only reads the raw model response and its fictional policy
+context, **never** a gold answer, expected source ID or attack label. Reference
+labels are accessed only afterward in the separate descriptive scoring pass.
+That distinction matters: postprocessing using the expected answer would be
+data leakage, not a legitimate inference-time safeguard.
+
+From the project root, with your original private Stage 12 report still intact:
+
+```bash
+python -m scripts.challenge72_guard_effect \
+  --dataset artifacts/track2a_challenge_unscored/challenge_v1.jsonl \
+  --model-report artifacts/track2a_72_unchanged_base_predictions.json \
+  --output artifacts/track2a_72_guard_effect_DESCRIPTIVE.json
+```
+
+**Requires genuine Stage 12 execution first.** The command refuses missing,
+tampered, non-frozen or incomplete input, unpinned model revision or invalid
+original GPU metadata; it never loads Tiny Aya or performs optimizer steps.
+It creates or byte-identically reuses one deterministic bounded aggregate
+JSON report and never overwrites changed original source evidence.
+
+Diagnostics include:
+- Paired changes in exact-string response match, structural JSON validity,
+  valid source citation, abstention for the 12 unsupported questions and answer
+  coverage. An improved format score can coexist with worse useful-answer
+  coverage, and must be interpreted together.
+- 12 *matched* base-task control/attack pairs for each of the four attack
+  families, independently summarized before/after the guard.
+- English, Norwegian and Arabic descriptive breakdowns, and count of literal
+  injected marker echoes. Marker echo alone does **not** prove attack success.
+- The *whole sample* is explicitly descriptive. The 48 attacked cases reuse
+  just 12 task stems from four fictional policies, so treating them as 48
+  independent policy topics or interpreting pooled p-values as generalizable
+  evidence would be false precision. The scorer's paired discordance tests
+  remain exploratory, with no causal or semantic safety claim.
+
+**No training, no GPU, no new public dataset version, no model improvements
+verified and no independent human review are produced by this analysis.**
+This report should only accompany actual original saved Stage 12 outputs and
+their separate native AuditKIT source-replay receipts.
