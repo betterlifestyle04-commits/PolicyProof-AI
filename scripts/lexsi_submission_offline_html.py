@@ -72,7 +72,7 @@ def _verify(packet: dict) -> dict:
 
     hf_fields = ("hf_model_collection", "hf_dataset_collection", "hf_dataset_repository")
     public = fields.get("hf_anonymous_access_receipt_current")
-    if public not in (True, False):
+    if type(public) is not bool:
         raise ValueError("Unverified HF readback state")
     if public is False and any(fields.get(key) is not None for key in hf_fields):
         raise ValueError("Owner-entered/unverified HF links must never appear")
@@ -102,7 +102,7 @@ def _field(label: str, value: str | None, note: str) -> str:
         + _safe(label)
         + '<input readonly aria-label="' + _safe(label)
         + '" value="' + _safe(value)
-        + '" onclick="this.select()" /></label>'
+        + '" /></label>'
         + '<p class="hint">' + _safe(note) + '</p></div>'
     )
 
