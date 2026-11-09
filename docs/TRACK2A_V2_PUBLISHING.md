@@ -139,3 +139,51 @@ The code has synthetic local stub tests for SHA pinning, honest staging, anti-ov
 ## Strong public readback binding
 
 After a real, consented upload the verifier fetches **every** file named by the publicly hosted checksum manifest at the repository's pinned Git SHA, checks that the public repo contains no unrelated undeclared assets (except `.gitattributes`), and enforces the exact v2 public-file inventory. The publisher refuses to save a success receipt unless the public source ZIP claim matches the original owner-approved 64-character SHA-256 **and** the public 40-character Git revision matches the upload commit. The Hub SDK compatibility checks in CI are offline; they are not a substitute for a genuine anonymous network run after the owner publishes.
+
+
+## Already uploaded but original GitHub Actions run FAILED after upload? (Nov 9)
+
+**Do not rerun `publish_public_dataset`** just because GitHub marks the full
+job red. Uploading the dataset and creating the collection happen **before**
+the independent final anonymous-file readback. In the original workflow, Hugging
+Face's snapshot cache may return symlinks to immutable blobs; the JSON reader
+incorrectly rejected these even after checking the published file checksum.
+This has been corrected without allowing symlinks in owner-controlled
+manifests or receipts.
+
+Recovery is **read-only**, needs **no Hugging Face token** and never creates
+a dataset or collection:
+
+1. Independently open the actual published **dataset and collection** while
+   signed out; confirm ownership and review public release rights.
+2. Open the
+   [Owner-verified Track 2a dataset workflow](../.github/workflows/owner-track2a-hf-dataset.yml)
+   and choose `verify_existing_publication` on `main`.
+3. Supply the original source CI run, exact inspected original ZIP SHA256,
+   `cc-by-4.0` (or the actual approved license), the **already existing**
+   `owner/dataset-name`, select `use_existing`, and supply the **already
+   existing** `owner/collection-slug`.
+4. Leave **both publication/rights confirmation boxes unchecked**, because
+   recovery does not authorize any new remote write.
+5. Run the workflow and open the **owner-handoff summary**. On success, save
+   `policyproof-track2a-public-dataset-READONLY-RECOVERY-NOT-SUBMITTED`.
+   It confirms the original ZIP source pin, all 14 content hashes from the
+   15-file published release, declared CC license, saved 48 base responses,
+   72 still-unscored challenge cases, exact public dataset revision and
+   publicly visible collection membership. The command never reads HF_TOKEN.
+
+Local/private alternative (requires Internet and huggingface_hub):
+
+```bash
+python -m scripts.verify_existing_track2a_dataset \
+  --repo-id shalnark01/policyproof-track2a-benchmark \
+  --collection-slug shalnark01/policyproof-ai-multilingual-safety-datasets \
+  --expected-source-sha256 ac4ac8e87ddc1a189ad1a0f76ffb4461bdca2ff113fe3a03a8db4bb8fa6db7c4 \
+  --license cc-by-4.0
+```
+
+This is **dataset-only proof**. It does not verify a model collection, a
+trained adapter, independent license ownership, or official Lexsi submission.
+The full release gate still needs a public relevant model collection and a
+fresh matching full anonymous-access receipt; do not mark the original failed
+publishing run as successful or manually fabricate its missing receipt.
