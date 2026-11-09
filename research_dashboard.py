@@ -884,6 +884,79 @@ elif page == "Judge verification":
     from scripts.track2a_readiness import readiness as track2a_evidence_readiness
     track1_gate = evaluate_readiness(ROOT)
     track2a_gate = track2a_evidence_readiness(ROOT)
+    st.markdown("#### Official Lexsi submission — owner-only form handoff")
+    st.markdown(
+        "[Open organizer's actual submission form]"
+        "(https://hackathon.lexsi.ai/submission/)"
+        " · [Read the official-form owner handoff]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
+        "blob/main/docs/LEXSI_OWNER_FORM_HANDOFF.md)"
+    )
+    st.caption(
+        "The official deadline is November 14, 2026, end of day AoE. "
+        "The form requires a private registration email, an abstract UNDER "
+        "500 words, separate public/ungated HF model and dataset collections, "
+        "a reproducible write-up/repository, track and model/toolkit details. "
+        "Neither this page nor its local source checks can submit the form."
+    )
+    try:
+        from scripts.lexsi_submission_handoff import handoff as lexsi_form_handoff
+        owner_packet = lexsi_form_handoff(ROOT)
+        fields = owner_packet["form_fields"]
+        st.info(
+            "Owner form preflight: " + owner_packet["status"]
+            + ". Historical abstract word count: "
+            + str(fields["abstract_word_count"])
+            + " / 499 maximum."
+        )
+        if fields["abstract_text"] is not None:
+            st.code(fields["abstract_text"], language=None)
+            st.caption(
+                "Copy-ready HISTORICAL Track 2a draft; the owner must verify "
+                "every current claim and link before pasting it. This does "
+                "not certify model improvement or official submission."
+            )
+        else:
+            st.error(
+                "The historical abstract is STALE after newer saved research "
+                "or public collection evidence. Do not paste an outdated claim."
+            )
+        st.dataframe(
+            [
+                {
+                    "Official item": "HF model collection",
+                    "Verified link": fields["hf_model_collection"] or "MISSING",
+                },
+                {
+                    "Official item": "HF dataset collection",
+                    "Verified link": fields["hf_dataset_collection"] or "MISSING",
+                },
+                {
+                    "Official item": "Registration email",
+                    "Verified link": "PRIVATE — enter only inside organizer form",
+                },
+                {
+                    "Official item": "GitHub reproducibility write-up",
+                    "Verified link": fields["writeup_or_article"]
+                    + " (external readback not performed)",
+                },
+            ], hide_index=True, width="stretch",
+        )
+        st.caption(
+            "Remaining owner actions: "
+            + " · ".join(owner_packet["required_actions"])
+        )
+        st.download_button(
+            "Download owner Lexsi form DRAFT (JSON; NOT SUBMITTED)",
+            data=json.dumps(owner_packet, indent=2, ensure_ascii=False),
+            file_name="policyproof_lexsi_track2a_form_draft_UNSUBMITTED.json",
+            mime="application/json",
+        )
+    except (ValueError, OSError, TypeError, KeyError, RecursionError):
+        st.error(
+            "Owner form preflight cannot verify local source or abstract "
+            "consistency. Refusing a copy-ready form until this is resolved."
+        )
     st.markdown("#### Download source-verifiable Lexsi judge evidence (UNSUBMITTED)")
     st.caption(
         "Each successful main-branch native CuratorKIT/AuditKIT CI job builds a "
