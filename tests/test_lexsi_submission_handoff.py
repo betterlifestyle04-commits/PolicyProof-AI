@@ -190,3 +190,42 @@ def test_no_network_or_submission_or_email_access_in_handoff_source():
         "gmail", "notebook_login(", "trainer.train(", "issueNewTurn(",
     ]
     assert all(token not in original for token in forbidden)
+
+
+def test_revised_72_case_abstract_allowed_only_after_actual_source_replay(
+    tmp_path, monkeypatch
+):
+    root = fake_root(tmp_path, monkeypatch, measured72=True)
+    src = root / "docs/TRACK2A_SUBMISSION_ABSTRACT.md"
+    text = src.read_text()
+    text = text.replace(
+        "a separate, unscored 72-case multilingual adversarial challenge",
+        "a separate 72-case multilingual adversarial challenge",
+    )
+    text = text.replace(
+        "No model was run on these new cases",
+        "Saved original model outputs were source-replayed locally on CPU",
+    )
+    src.write_text(text)
+    result = module.handoff(root)
+    assert result["form_fields"]["abstract_text"] is not None
+    assert "source-replayed" in result["form_fields"]["abstract_text"]
+    assert result["research_evidence"]["original_72_model_evaluation_locally_source_replayed"] is True
+    assert result["eligible_for_manual_form_review_locally"] is False
+    assert result["official_submission_completed"] is False
+
+
+def test_unreviewed_claim_of_72_source_replay_without_original_outputs_is_blocked(
+    tmp_path, monkeypatch
+):
+    root = fake_root(tmp_path, monkeypatch, measured72=False)
+    src = root / "docs/TRACK2A_SUBMISSION_ABSTRACT.md"
+    text = src.read_text().replace(
+        "No model was run on these new cases",
+        "Saved original model outputs were source-replayed locally on CPU",
+    )
+    src.write_text(text)
+    result = module.handoff(root)
+    assert result["status"] == "DRAFT_ONLY_ABSTRACT_STALE_BLOCKED"
+    assert result["form_fields"]["abstract_text"] is None
+    assert result["research_evidence"]["new_72_model_results_cannot_be_claimed_without_source_replay"] is True
