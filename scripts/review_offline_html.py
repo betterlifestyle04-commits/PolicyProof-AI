@@ -111,7 +111,7 @@ const answers = rows.map(function(){return {"evidence_support_yes_no":"","transl
 const fixedHeaders = headers.filter(function(h){return fields.indexOf(h)===-1 && h!=="review_notes";});
 let index = 0;
 let unsaved = false;
-let exportRequested = false;
+let saveOrigin = "blank";
 const byId = function(id){return document.getElementById(id);};
 const setText = function(id,text){byId(id).textContent=String(text);};
 const readable = {
@@ -125,8 +125,11 @@ function updateSaveStatus(){
  if(unsaved){
   el.textContent="UNSAVED PRIVATE JUDGMENTS — export a CSV before closing/reloading this tab. No automatic browser storage is used.";
   el.style.color="#a43f1d";
- }else if(exportRequested){
+  }else if(saveOrigin==="export"){
   el.textContent="CSV download requested. Check that the file really exists on your device; keep a private copy before leaving.";
+  el.style.color="#516476";
+ }else if(saveOrigin==="import"){
+  el.textContent="Private CSV restored. Any new vote or note must be exported before leaving this tab.";
   el.style.color="#516476";
  }else{
   el.textContent="No local votes yet. Export a CSV regularly; no private answers are stored by this page.";
@@ -227,7 +230,7 @@ function exportCSV(){
  const a=document.createElement("a");a.href=url;a.download="reviewer_"+immutable.reviewer+"_final_holdout.csv";
  document.body.appendChild(a);a.click();a.remove();
  setTimeout(function(){URL.revokeObjectURL(url);},1200);
- unsaved=false;exportRequested=true;updateSaveStatus();
+ unsaved=false;saveOrigin="export";updateSaveStatus();
  status("CSV download requested ("+n+"/180 verdicts). VERIFY it was saved on disk; no human review is certified.",false);
 }
 byId("export").addEventListener("click",exportCSV);
@@ -287,7 +290,7 @@ async function importCSV(file){
  }
  if(!confirm("Load "+file.name+"? This replaces any unsaved answers currently in this tab."))return;
  incoming.forEach(function(r,i){answers[i]=r;});
- unsaved=false;exportRequested=false;updateSaveStatus();
+ unsaved=false;saveOrigin="import";updateSaveStatus();
  index=0;byId("language").value="all";byId("view").value="all";paint();
  status("Loaded 60 original records from your private CSV. Review all votes before submitting.",false);
 }
