@@ -72,6 +72,26 @@ def main():
                 assert indexed[first]["evidence_support_yes_no"] == "yes"
                 assert indexed[first]["review_notes"].startswith("Synthetic UI test")
                 assert indexed[rows[1]["id"]]["evidence_support_yes_no"] == ""
+                # A malicious spreadsheet formula must never execute when
+                # the downloadable private review is opened as a CSV.
+                page.locator("#notes").fill("=" + "x" * 3999)
+                page.locator("#export").click()
+                expect(page.locator("#status")).to_contain_text(
+                    "Shorten it by at least one character"
+                )
+                page.locator("#notes").fill(
+                    '=HYPERLINK("https://example.invalid","click")'
+                )
+                with page.expect_download() as escaped_event:
+                    page.locator("#export").click()
+                escaped_csv = Path(scratch) / "formula_escaped_review.csv"
+                escaped_event.value.save_as(escaped_csv)
+                _, protected_rows = read_and_validate_review(
+                    escaped_csv, rows, digest,
+                )
+                assert protected_rows[first]["review_notes"].startswith(
+                    "'=HYPERLINK("
+                )
                 # Fresh browser state can restore saved work *only* from the
                 # user's original private CSV, never via network or server.
                 page.reload(wait_until="load")
