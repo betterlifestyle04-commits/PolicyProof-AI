@@ -66,7 +66,7 @@ uploading data, run:
 python -m scripts.lexsi_submission_offline_html
 ```
 
-Open \`artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html\` locally.
+Open `artifacts/lexsi_track2a_owner_form_offline_UNSUBMITTED.html` locally.
 The producer is strictly offline, output-allowlisted, and refuses to overwrite
 a previous file. Private registration email and HF token are never requested
 or embedded. Its browser page has a restrictive Content Security Policy and
@@ -77,7 +77,7 @@ A successful native-toolkit CI run also uploads this exact HTML inside the
 existing **owner form draft UNSUBMITTED** artifact alongside the JSON. The
 HTML renderer refuses inconsistent readiness, stale-but-exposed abstracts,
 self-reported publication completion and collection links lacking the source
-handoff's authenticated anonymous-access receipt. It does **not** independently
+handoff's fresh source-bound anonymous-access receipt. It does **not** independently
 verify external access by itself; that is done by the existing source-bound
 handoff/verifier upstream.
 
