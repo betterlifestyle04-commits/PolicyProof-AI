@@ -5,6 +5,17 @@ The existing 40-step model adaptation was run with a **direct PyTorch fallback o
 
 This new path is an **independent fresh-run experiment** using the official AlignTune TRL trainer. It cannot retroactively convert the earlier manual result into an official run.
 
+## November 9 — safer owner recovery after a native 40-step run
+
+[Stage 11 guided native AlignTune T4 Colab notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/11_native_aligntune_40step_t4.ipynb) now **separates the optimizer action from private backup/browser download**. All action switches still default OFF.
+
+- The optimizer cell first checks for an **existing original** `/content/policyproof_align_native40.zip`. When a complete ZIP exists, it checks that original ZIP **without calling `recover_train_save` or `trainer.train()` again**. If the native working directory already exists but the complete ZIP is missing, the cell blocks a second optimizer call and directs the owner to the existing read-only interruption audit.
+- The new **separate Stage 6 recovery cell** defaults to `SAVE_PRIVATE_DRIVE_BACKUP=False` and `DOWNLOAD_NATIVE40_ZIP=False`. Enable only the requested action. It can be rerun after a failed browser download **without retraining**.
+- For an authorized private backup, Stage 6 mounts the owner's private Google Drive using the secure Google prompt and invokes `scripts.preserve_native40_owner_archive.preserve_native40_archive`. The tool CPU-validates the exact original 40-step AlignTune adapter ZIP, copies it once to a hash-named private file, reads the copy back, revalidates adapter integrity, and refuses to replace altered, partial or symlinked backups. Google Drive may not immediately sync writes; keep a second original and the unedited Colab log.
+- A file hash and an internal `run_info.json` receipt still **do not independently prove GPU training took place**, that 40 optimizer steps executed, that a specific model SHA was loaded, or that model safety improved. These remain separate scientific proof requirements.
+
+**If a download dialog fails:** rerun **only Stage 6**, turn on `DOWNLOAD_NATIVE40_ZIP=True`, and preserve the ZIP. **If Colab disconnects after training without a verified backup, do not restart optimizer as a recovery attempt.** Inspect the original evidence (if any) with the Stage 8 read-only diagnostic, and preserve interrupted local receipts. Do not claim a successful native 40-step run until its genuine original ZIP and log have been checked.
+
 ## Official dependency and workflow
 
 AlignTune's [SFT guide](https://aligntune.lexsi.ai/user-guide/sft/) documents `create_sft_trainer(..., max_steps=..., backend="trl")`, `trainer.train()`, and `trainer.save_model()`. PolicyProof uses a previously inspected compatibility environment (AlignTune **0.1.28**, TRL **1.7.1**, BitsAndBytes **0.50.2**) to work around the prior BF16 GradScaler mismatch with T4 LoRA training.
@@ -18,7 +29,7 @@ AlignTune's [SFT guide](https://aligntune.lexsi.ai/user-guide/sft/) documents `c
 3. In step 3 upload **only** the original `policyproof_curatorkit_train_v1.zip` if prompted; the archive and all 78 training-only Alpaca rows must match SHA256 `4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c`. Sign into Hugging Face through its login prompt if needed, never by inserting tokens into a code cell.
 4. Confirm 252 4-bit layers, 288 trainable LoRA tensors, **3,833,856** trainable LoRA parameters and zero existing optimizer steps. Inspect the observed **loaded-model** revision independently from the Hub's remote SHA; missing observed hash remains flagged *UNVERIFIED*.
 5. Leave `RUN_NATIVE_TRAINING = False` while inspecting. Change it to **True** only when ready to spend GPU time and run step 5 **once**. The script validates the final **TRL SFTConfig**, with **`max_steps=40`, `fp16=False`, `bf16=False`**, and the separate output directory before calling the native `wrapper.train()`.
-6. If and only if the actual TRL trainer reaches exactly 40 completed optimizer steps, the notebook saves a LoRA adapter and metadata into `/content/policyproof_align_native40.zip`; it then checks archive integrity using the CPU-only verifier and downloads it. Keep the original ZIP and unedited Colab stdout/stderr logs. **Do not restart/resume the model or combine this with 10-step smoke or PyTorch fallback training in the same session.**
+6. If and only if the actual TRL trainer reaches exactly 40 completed optimizer steps, the notebook saves a LoRA adapter and metadata into `/content/policyproof_align_native40.zip`; it checks archive integrity using the CPU-only verifier. **Use the separate Stage 6 recovery cell** to download the original ZIP and, if explicitly approved, copy a checksum-verified backup to private Drive without retriggering training. Keep the unchanged original and Colab stdout/stderr logs. **Do not restart/resume the model or combine this with 10-step smoke or PyTorch fallback training in the same session.**
 
 The package uses `artifacts/align_qlora_native40` internally; the existing 10-step smoke uses `artifacts/align_qlora_smoke`. Both are non-overwriting and refuse stale output/checkpoints or preexisting ZIP files.
 
