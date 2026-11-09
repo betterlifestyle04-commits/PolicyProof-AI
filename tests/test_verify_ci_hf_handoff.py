@@ -120,8 +120,10 @@ def test_inspection_workflow_separates_unapproved_discovery_from_any_upload():
     workflow = (ROOT / ".github/workflows/owner-track2a-hf-dataset.yml").read_text()
     assert "required: false" in workflow
     assert "default: ''" in workflow
-    assert 'if mode == "publish_public_dataset" and not digest' in workflow
-    assert "first inspect and review the original" in workflow
+    assert 'if mode in ("preview_public_dataset", "publish_public_dataset") and not digest' in workflow
+    assert "first inspect the original" in workflow
+    assert "Do not supply rights/publication approvals for offline inspection or preview" in workflow
+    assert "OFFLINE PREVIEW" in workflow
     assert 'if [ -n "$OWNER_SHA256" ]; then' in workflow
     assert "handoff_args+=(--expected-sha256" in workflow
     assert "Retain safe inspection and measured SHA256" in workflow
