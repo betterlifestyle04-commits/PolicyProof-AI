@@ -98,6 +98,7 @@ def test_public_url_only_when_existing_handoff_has_anonymous_readback(
     "pretend_submission", "private_email", "stale_with_abstract",
     "wrong_schema", "unverified_hf", "wrong_count",
     "missing_owner_actions", "contradictory_status", "numeric_hf_flag",
+    "ready_without_hf", "malformed_verified_hf",
 ])
 def test_forged_local_handoff_is_rejected(tmp_path, monkeypatch, change):
     root = fake_root(tmp_path, monkeypatch)
@@ -122,6 +123,14 @@ def test_forged_local_handoff_is_rejected(tmp_path, monkeypatch, change):
         packet["eligible_for_manual_form_review_locally"] = True
     elif change == "numeric_hf_flag":
         packet["form_fields"]["hf_anonymous_access_receipt_current"] = 1
+    elif change == "ready_without_hf":
+        packet["status"] = "LOCAL_EVIDENCE_READY_MANUAL_FORM_REQUIRED"
+        packet["eligible_for_manual_form_review_locally"] = True
+    elif change == "malformed_verified_hf":
+        packet["form_fields"]["hf_anonymous_access_receipt_current"] = True
+        packet["form_fields"]["hf_model_collection"] = (
+            "https://huggingface.co/evil-but-not-a-collection"
+        )
     with pytest.raises(ValueError):
         render_owner_form_html(packet)
 
