@@ -1017,6 +1017,15 @@ elif page == "Judge verification":
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
         "actions/workflows/owner-track2a-hf-dataset.yml)"
     )
+    st.caption(
+        "NEW: after an inspect-only source hash discovery, select "
+        "preview_public_dataset in a separate manual run, provide the exact "
+        "owner-reviewed ZIP hash and a TENTATIVE dataset license, and leave "
+        "both publication approvals unchecked. Download the resulting "
+        "15-file public HF payload PREVIEW to inspect actual license text, "
+        "scope and file hashes before a different consented publish run. "
+        "Preview does not use HF_TOKEN or upload anything."
+    )
     st.markdown(
         "[Read the owner publishing guide]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/"
