@@ -1,6 +1,6 @@
 # Lexsi 2026 — owner-only submission-form handoff (Track 2a)
 
-**Status as of November 9, 2026: UNPUBLISHED DATA / UNVERIFIED COLLECTIONS / NOT SUBMITTED.** This is an offline form-preparation guide, never a submission receipt.
+**Status as of November 9, 2026: SYNTHETIC DATASET + DATASET COLLECTION PUBLIC / MODEL COLLECTION NOT VERIFIED / NOT SUBMITTED.** The public dataset is [shalnark01/policyproof-track2a-benchmark](https://huggingface.co/datasets/shalnark01/policyproof-track2a-benchmark) in the [PolicyProof safety-datasets collection](https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets). The new read-only pinned source checksum verification runs separately; neither a public link nor this handoff is an official submission receipt.
 
 ## Official organizer requirements — checked from [hackathon.lexsi.ai](https://hackathon.lexsi.ai/) on November 9
 
