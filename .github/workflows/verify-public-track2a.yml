@@ -1,0 +1,81 @@
+name: Verify already-public PolicyProof Track 2a dataset anonymously (NO UPLOAD)
+
+# Public, anonymous and READ-ONLY. Never use HF_TOKEN and never publish.
+# The original owner-authorized publication occurred on 2026-11-09.
+# Pin the original source ZIP and uploaded public commit; do not treat this
+# as a Lexsi submission or a verified model collection.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-public-track2a.yml
+      - scripts/verify_existing_track2a_dataset.py
+      - scripts/verify_hf_collections.py
+      - docs/hf_publication_manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: policyproof-real-public-hf-readonly-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-anonymously:
+    name: Pin and SHA-check existing public dataset, 48 + 72, collection (NO TOKEN)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install real SDK for unauthenticated READS only
+        run: |
+          python -m pip install 'huggingface_hub>=1.16,<2'
+          python -m scripts.check_hf_sdk_contract
+      - name: Verify 15 published source files, CC license, 48 + 72 scope, approved SHA and original HF commit
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_existing_track2a_dataset \
+            --repo-id shalnark01/policyproof-track2a-benchmark \
+            --collection-slug shalnark01/policyproof-ai-multilingual-safety-datasets \
+            --expected-source-sha256 ac4ac8e87ddc1a189ad1a0f76ffb4461bdca2ff113fe3a03a8db4bb8fa6db7c4 \
+            --expected-revision 7c93e5ec56bfdeb9c5349adb5a3b9fc1bf6c986d \
+            --license cc-by-4.0 \
+            --output artifacts/track2a_existing_dataset_readonly_receipt.json
+      - name: Check that successful dataset readback claims NO model collection or official submission
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          record = json.loads(Path("artifacts/track2a_existing_dataset_readonly_receipt.json").read_text())
+          assert record["status"] == "EXISTING_PUBLIC_DATASET_ANONYMOUSLY_VERIFIED_ONLY_NOT_SUBMITTED"
+          assert record["all_content_sha256_verified"] is True
+          assert record["dataset_public_commit_sha"] == "7c93e5ec56bfdeb9c5349adb5a3b9fc1bf6c986d"
+          assert record["approved_source_zip_sha256"] == "ac4ac8e87ddc1a189ad1a0f76ffb4461bdca2ff113fe3a03a8db4bb8fa6db7c4"
+          assert record["published_public_files"] == 15
+          assert record["source_prediction_cases_verified"] == 48
+          assert record["additional_unscored_challenge_cases_verified"] == 72
+          for flag in ("huggingface_token_used", "huggingface_write_performed",
+                       "public_model_collection_requirement_verified",
+                       "official_lexsi_submission_completed"):
+              assert record[flag] is False, flag
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("### EXISTING DATASET: ANONYMOUS SHA256 READBACK PASSED\n\n")
+              f.write("**Dataset:** " + record["public_dataset_repo"] + "\n\n")
+              f.write("**Dataset collection:** " + record["public_dataset_collection"] + "\n\n")
+              f.write("**Pinned remote commit:** \`" + record["dataset_public_commit_sha"] + "\`\n\n")
+              f.write("**15 files total, all 14 declared content hashes verified. 48 original saved predictions; 72 new UNSCORED challenge cases.**\n\n")
+              f.write("**READ ONLY: No HF_TOKEN, upload, collection creation, public model collection or official Lexsi submission.**\n")
+          PY
+      - name: Retain anonymous-only publication verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-HF-dataset-anonymous-source-VERIFIED-NOT-SUBMITTED
+          path: artifacts/track2a_existing_dataset_readonly_receipt.json
+          retention-days: 30
+          if-no-files-found: error
