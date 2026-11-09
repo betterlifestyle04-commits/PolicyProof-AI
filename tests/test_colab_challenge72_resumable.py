@@ -155,3 +155,26 @@ def test_stage12_final_cell_includes_private_read_only_original_zip_verifier():
     assert "does not" in doc.lower()
     assert "GPU" in doc
     assert "Colab" in doc
+
+
+def test_stage12_verifies_owner_zip_before_download_and_keeps_failed_zip():
+    import ast
+    owner_export = [
+        cell for cell in code_cells()
+        if 'with ZipFile(output_zip, "x"' in cell
+    ]
+    assert len(owner_export) == 1
+    source = owner_export[0]
+    assert "from scripts.verify_colab_72_bundle import inspect_bundle" in source
+    assert "verified_export = inspect_bundle(output_zip)" in source
+    assert source.index("verified_export = inspect_bundle(output_zip)") < source.index(
+        "files.download(str(output_zip))"
+    )
+    assert "VERIFIED_PRIVATE_STAGE12_72_LOCAL_SOURCE_REPLAY_NOT_GPU_ATTESTATION" in source
+    assert 'verified_export["original_raw_saved_responses_source_replayed"] == 72' in source
+    assert 'verified_export["original_gpu_execution_independently_authenticated"] is False' in source
+    assert 'verified_export["official_lexsi_submission_completed"] is False' in source
+    assert "if EXPORT_RESULTS:" in source
+    assert "original_report.is_file()" in source
+    assert "verify_completed_72(" in source
+    compile(source, "stage12_owner_zip_verification_pre_download", "exec")
