@@ -30,6 +30,12 @@ def _synthetic_bundle(tmp_path):
     _, original, dataset, model_report = evidence_sources(tmp_path)
     # The original report is a known ORACLE test fixture with fabricated
     # "is_real_model_result" metadata; never describe it as a GPU run.
+    # Stage 12 always records this explicit false declaration; normalize
+    # the older generic scorer fixture to the notebook's exact ZIP schema.
+    original["human_semantic_review_completed"] = False
+    model_report.write_text(
+        json.dumps(original, ensure_ascii=False), encoding="utf-8"
+    )
     result, receipt = score_saved_72(
         dataset, model_report, "artifacts/cpu_72_analysis", root=tmp_path
     )
