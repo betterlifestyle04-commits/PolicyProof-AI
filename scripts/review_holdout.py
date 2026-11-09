@@ -28,6 +28,16 @@ IDENTITY_FIELDS = (
 )
 HEADERS = (*IDENTITY_FIELDS, *REVIEW_FIELDS, "review_notes")
 REVIEWER_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,39}$")
+# Excel, LibreOffice and other spreadsheet programs may interpret even a
+# *quoted* CSV cell as a formula. Freeze the original source instead of
+# silently altering its exact benchmark bytes; reviewer notes may be escaped
+# in the HTML export with a leading literal apostrophe.
+SPREADSHEET_FORMULA = re.compile(r"^[\s\uFEFF]*[=+\-@]")
+
+
+def _spreadsheet_formula(value: str) -> bool:
+    return isinstance(value, str) and SPREADSHEET_FORMULA.match(value) is not None
+
 
 MAX_REVIEW_FILE_BYTES = 1_500_000
 
@@ -70,7 +80,7 @@ def make_review_pack(cases: list[dict], digest: str, reviewer_code: str) -> list
     check_reviewer_code(reviewer_code)
     if len(cases) != 60 or len({r["id"] for r in cases}) != 60:
         raise ValueError("Expected precisely 60 unique final holdout examples")
-    return [
+    packet = [
         {
             "case_id": row["id"],
             "dataset_sha256": digest,
@@ -87,6 +97,13 @@ def make_review_pack(cases: list[dict], digest: str, reviewer_code: str) -> list
         }
         for row in cases
     ]
+    for row in packet:
+        for field in IDENTITY_FIELDS:
+            if _spreadsheet_formula(row[field]):
+                raise ValueError(
+                    "Unsafe spreadsheet formula in frozen source field: " + field
+                )
+    return packet
 
 
 def write_review_csv(output: Path, rows: list[dict]) -> None:
@@ -102,6 +119,8 @@ def write_review_csv(output: Path, rows: list[dict]) -> None:
         not isinstance(r, dict) or set(r) != set(HEADERS) for r in rows
     ):
         raise ValueError("Invalid review packet fields")
+    if any(_spreadsheet_formula(v) for r in rows for v in r.values()):
+        raise ValueError("Unsafe spreadsheet formula in review CSV export")
     created = False
     try:
         with output.open("x", encoding="utf-8", newline="") as handle:
@@ -165,6 +184,8 @@ def read_and_validate_review(
                 )
         if record.get("review_notes") is None or len(record["review_notes"]) > 4000:
             raise ValueError(f"{path}: invalid review notes on {case_id}")
+        if _spreadsheet_formula(record["review_notes"]):
+            raise ValueError(f"{path}: unsafe spreadsheet formula in review notes on {case_id}")
         indexed[case_id] = record
     if set(indexed) != set(expected):
         raise ValueError(f"{path}: benchmark case coverage mismatch")
