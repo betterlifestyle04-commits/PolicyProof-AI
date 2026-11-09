@@ -68,6 +68,11 @@ def _abstract(root: Path) -> tuple[str, int, str]:
     folded = body.casefold()
     if not all(phrase in folded for phrase in _REQUIRED_HISTORICAL):
         raise ValueError("Track 2a abstract no longer preserves the source-limited original scope")
+    if not (
+        "no model was run on these new cases" in folded
+        or "source-replayed" in folded
+    ):
+        raise ValueError("72-case model status no longer bounded to saved source evidence")
     return body, count, sha256(src)
 
 
@@ -93,7 +98,9 @@ def handoff(root: Path = ROOT) -> dict:
     # qualifies. This two-sided check enables a truthful *revised* abstract.
     measured72 = track["new_model_evaluation_claimed_for_72_cases"] is True
     old_no_72_model_claim = "no model was run on these new cases" in body.casefold()
-    stale_72 = measured72 and old_no_72_model_claim
+    stale_72 = measured72 and (
+        old_no_72_model_claim or "unscored 72-case" in body.casefold()
+    )
     unsupported_72_claim = not measured72 and not old_no_72_model_claim
     stale_hf = public_hf and "still pending" in body.casefold()
     stale_abstract = stale_72 or stale_hf or unsupported_72_claim
