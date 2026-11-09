@@ -1,15 +1,15 @@
 {
   "project": "PolicyProof AI / Lexsi 2026",
-  "dataset_url": null,
+  "dataset_url": "https://huggingface.co/datasets/shalnark01/policyproof-track2a-benchmark",
   "adapter_url": null,
   "logs_url": null,
   "article_url": null,
   "external_access_verified": false,
   "submission_url": null,
   "submission_confirmation_verified": false,
-  "notes": "Fill only with actually published, judge-accessible HTTPS Hugging Face links. Never fabricate.",
+  "notes": "The public synthetic dataset and its public dataset collection were directly observed on 2026-11-09. A separate model collection remains missing. Owner-controlled verification flags remain false until a matching fresh anonymous source-integrity receipt exists; legal rights and Lexsi submission are separate.",
   "model_collection_url": null,
-  "dataset_collection_url": null,
+  "dataset_collection_url": "https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets",
   "public_items_ungated_verified": false,
   "abstract_word_count_verified": false,
   "official_submission_form_url": null

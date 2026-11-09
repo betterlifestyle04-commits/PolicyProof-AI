@@ -12,4 +12,4 @@ An additional deterministic output validator normalized incomplete JSON and conf
 
 We provide reproducible code, CuratorKIT and AuditKIT native receipts, source hashes, recorded model outputs, a public dashboard and detailed limitations. Data and labels were synthetic and previously inspected, the original model revision SHA was not recorded, and independent semantic grading remains outstanding. We do not claim real-world financial safety or model-weight improvements.
 
-Public Hugging Face collections and a completed Lexsi submission are still pending.
+The synthetic dataset and its public Hugging Face dataset collection now exist. A separate model collection and completed Lexsi submission are still pending.

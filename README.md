@@ -1,3 +1,15 @@
+## November 9, 2026 — real public Track 2a dataset and read-only recovery
+
+The owner-authorized Hugging Face upload on November 9 **created a real public, ungated synthetic dataset** and a separate public dataset collection. The original upload workflow failed **after uploading** because our anonymous-verification JSON reader incorrectly rejected normal Hugging Face snapshot-cache symlinks. That verification bug is fixed, and the repository now has a separate pinned **anonymous, read-only SHA256 verification workflow** that needs no HF token or new upload.
+
+- [Published synthetic benchmark: 48 historical saved base-model outputs + 72 UNSCORED adversarial challenges](https://huggingface.co/datasets/shalnark01/policyproof-track2a-benchmark)
+- [Public dataset collection](https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets)
+- [Automatic anonymous integrity check](.github/workflows/verify-public-track2a.yml) · [Read-only recovery instructions](docs/TRACK2A_V2_PUBLISHING.md)
+
+**Do not rerun the publisher for this already-existing release.** The dataset and its collection are real, but the separate relevant public **model collection** and the actual **Lexsi organizer submission** remain outstanding. The synthetic examples and deterministic safety guard do not establish a trained model, independent semantic correctness or real-world financial safety.
+
+---
+
 ## November 5 — read-only native training crash recovery audit
 
 The native training launcher now writes its `in_progress` receipt **before** calling AlignTune's optimizer. A hard Colab interruption therefore cannot leave a nonexistent receipt that is later mistaken for completion. A final local receipt write failure after successful ZIP publication is recorded separately, not as failed model training. The new [CPU-only read-only reconciliation tool](scripts/reconcile_native_training_evidence.py) and **Stage 11 Step 7** compare original local evidence with safe ZIP content without retraining or mutating files. Even a perfectly matched archive remains only internally consistent self-reported research evidence, not independently attested GPU execution. [Protocol](docs/NATIVE_ALIGNTUNE_40STEP_T4_2026-11-05.md).
