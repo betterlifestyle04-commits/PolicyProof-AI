@@ -37,7 +37,6 @@ _REQUIRED_HISTORICAL = (
     "8/48",
     "20/39",
     "72-case",
-    "no model was run on these new cases",
     "no independent semantic review",
     "not safetune steering or model fine-tuning",
 )
@@ -89,9 +88,15 @@ def handoff(root: Path = ROOT) -> dict:
     # The draft is intentionally historical and says NO 72-case model run
     # occurred; once actual saved 72 evidence is accepted, this claim is
     # obsolete and requires a new human-reviewed abstract before form paste.
-    stale_72 = track["new_model_evaluation_claimed_for_72_cases"] is True
+    # The historical 72-case no-inference claim is mandatory while the
+    # challenge is unscored, and forbidden once a fully saved 72-source replay
+    # qualifies. This two-sided check enables a truthful *revised* abstract.
+    measured72 = track["new_model_evaluation_claimed_for_72_cases"] is True
+    old_no_72_model_claim = "no model was run on these new cases" in body.casefold()
+    stale_72 = measured72 and old_no_72_model_claim
+    unsupported_72_claim = not measured72 and not old_no_72_model_claim
     stale_hf = public_hf and "still pending" in body.casefold()
-    stale_abstract = stale_72 or stale_hf
+    stale_abstract = stale_72 or stale_hf or unsupported_72_claim
     verified_model_collection = None
     verified_dataset_collection = None
     verified_dataset_repo = None
@@ -162,6 +167,7 @@ def handoff(root: Path = ROOT) -> dict:
                 saved72["cases"] == 72 and track["new_model_evaluation_claimed_for_72_cases"]
             ),
             "unscored_72_claim_must_not_be_pasted_if_new_results_exist": stale_72,
+            "new_72_model_results_cannot_be_claimed_without_source_replay": unsupported_72_claim,
             "native_aligntune_training_improvement_claimed": False,
             "independent_human_semantic_accuracy_verified": False,
         },
