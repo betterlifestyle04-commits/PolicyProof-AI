@@ -47,6 +47,7 @@ def test_all_license_gpu_score_export_switches_default_off():
         "MODEL_LICENSE_AND_COST_APPROVED",
         "RUN_ORIGINAL_72_GPU",
         "RUN_CPU_AUDITKIT",
+        "RUN_GUARD_COMPARISON",
         "EXPORT_RESULTS",
         "EXPORT_PARTIAL_BACKUP",
     ):
@@ -178,3 +179,21 @@ def test_stage12_verifies_owner_zip_before_download_and_keeps_failed_zip():
     assert "original_report.is_file()" in source
     assert "verify_completed_72(" in source
     compile(source, "stage12_owner_zip_verification_pre_download", "exec")
+
+def test_optional_cpu_guard_comparison_is_off_and_requires_completed_native_replay():
+    code = code_cells()
+    guards = [cell for cell in code if "audit_from_saved_files(" in cell]
+    assert len(guards) == 1
+    guarded = guards[0]
+    assert "if RUN_GUARD_COMPARISON:" in guarded
+    assert "checked_source = verify_completed_72(" in guarded
+    assert guarded.index("checked_source = verify_completed_72(") < guarded.index(
+        "paired_guard = audit_from_saved_files("
+    )
+    assert "VERIFIED_LOCAL_72_CASE_SOURCE_REPLAY" in guarded
+    assert "independent_semantic_quality_verified" in guarded
+    assert "new_gpu_inference_performed" in guarded
+    assert "trainer.train(" not in guarded and "torch.optim" not in guarded
+    assert not any("make_gold(" in cell for cell in code)
+    compile(guarded, "stage12_cpu_guard_analysis_no_gpu", "exec")
+
