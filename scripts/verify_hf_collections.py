@@ -47,9 +47,20 @@ def _no_duplicate_keys(pairs):
     return output
 
 
-def _read_json(path: Path, *, limit: int = MAX_CASE_BYTES):
+def _read_json(path: Path, *, limit: int = MAX_CASE_BYTES,
+               allow_verified_cache_symlink: bool = False):
+    """Parse bounded JSON with duplicate-key checks.
+
+    Locally supplied evidence (including the owner manifest and receipts)
+    MUST NOT be symlinked. Hugging Face's `hf_hub_download` normally returns
+    a snapshot cache symlink pointing at an immutable blob. ONLY the remote
+    readback path may accept that symlink, and ONLY after the same pinned
+    remote revision's bytes have passed the public SHA256 manifest check.
+    """
     path = Path(path)
-    if not path.is_file() or path.is_symlink() or path.stat().st_size > limit:
+    if (not path.is_file()
+        or (path.is_symlink() and not allow_verified_cache_symlink)
+        or path.stat().st_size > limit):
         raise ValueError("Missing, symlinked or oversized JSON evidence")
     try:
         return json.loads(
@@ -210,7 +221,7 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
             raise ValueError("Published file content differs from public SHA256 manifest: " + filename)
     scope = _read_json(_download_public(
         api, dataset, revision, "provenance/PUBLICATION_SCOPE.json"
-    ))
+    ), allow_verified_cache_symlink=True)
     if not isinstance(scope, dict) or (
         scope.get("selected_license") not in LICENSES
         or not isinstance(scope.get("original_archive_checksums_sha256"), str)
@@ -234,7 +245,7 @@ def _check_published_scope(api, dataset: str, revision: str) -> dict:
     baseline = _read_json(_download_public(
         api, dataset, revision,
         "evaluated_48/original_saved_tiny_aya_base_model_predictions.json"
-    ))
+    ), allow_verified_cache_symlink=True)
     if (not isinstance(baseline, dict) or baseline.get("is_finetuned") is not False
         or not isinstance(baseline.get("predictions"), list)
         or len(baseline["predictions"]) != 48):
