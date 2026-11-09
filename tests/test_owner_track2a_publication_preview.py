@@ -29,7 +29,7 @@ def test_exact_preview_rebuild_and_no_publication(tmp_path):
     with ZipFile(BytesIO(zipped)) as arc:
         assert set(arc.namelist()) == owner.PUBLIC_FILES
         assert arc.testzip() is None
-        assert arc.read("README.md").startswith(b"---\\nlicense: cc-by-4.0\\n")
+        assert arc.read("README.md").splitlines()[1] == b"license: cc-by-4.0"
         scope = json.loads(arc.read("provenance/PUBLICATION_SCOPE.json"))
         assert scope["approved_source_archive_sha256"] == digest
         assert scope["independent_human_review_completed"] is False
