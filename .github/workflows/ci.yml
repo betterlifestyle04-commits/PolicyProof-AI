@@ -126,10 +126,6 @@ jobs:
 
   torch-cpu:
     name: Training guard CPU tensors
-    # Avoid six parallel heavy runner starts and wasted PyTorch downloads.
-    # This job remains MANDATORY; a failed core suite blocks it and still
-    # produces an overall failed workflow rather than bypassing training guards.
-    needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
