@@ -102,6 +102,24 @@ def validate_notebook(path: Path) -> dict:
                 f"{path}: native 40-step run must default OFF and verify "
                 "curated training, loaded revision and saved artifact"
             )
+    if path.name == "12_track2a_72_drive_resumable_t4.ipynb":
+        code = "\n".join(
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        )
+        if (not re.search(r"(?m)^RUN_GUARD_COMPARISON\s*=\s*False\b", code)
+            or re.search(r"(?m)^RUN_GUARD_COMPARISON\s*=\s*(?:True|1)\b", code)
+            or "if RUN_GUARD_COMPARISON:" not in code
+            or "checked_source = verify_completed_72(" not in code
+            or "paired_guard = audit_from_saved_files(" not in code
+            or code.index("checked_source = verify_completed_72(") > code.index(
+                "paired_guard = audit_from_saved_files("
+            )):
+            raise ValueError(
+                f"{path}: Stage 12 optional guard analysis must stay OFF and "
+                "require complete original AuditKIT replay before CPU comparison"
+            )
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
