@@ -161,3 +161,17 @@ def test_private_offline_workbench_warns_before_discarding_unsaved_votes():
     assert "localStorage" not in html and "sessionStorage" not in html
     assert "indexedDB" not in html and "sendBeacon" not in html
     assert "fetch(" not in html and "XMLHttpRequest" not in html
+
+
+def test_offline_csv_has_formula_escape_and_4000_character_guard():
+    cases = read_jsonl(ROOT / "data/final_holdout_v1.jsonl")
+    html = render_offline_review(
+        cases, sha256(ROOT / "data/final_holdout_v1.jsonl"), "reviewer_01",
+    )
+    assert "function formulaRisk(s)" in html
+    assert r"/^[\s\uFEFF]*[=+\-@]/u.test(s)" in html
+    assert 'const safe=formulaRisk(s)?"\'"+s:s;' in html
+    assert "formulaRisk(s)&&s.length>=4000" in html
+    assert "Shorten it by at least one character" in html
+    assert "protective leading apostrophe" in html
+    assert "fetch(" not in html

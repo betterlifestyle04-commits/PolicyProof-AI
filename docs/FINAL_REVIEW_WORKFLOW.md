@@ -95,3 +95,22 @@ The guarded paired evaluator no longer accepts `review_complete: true` and two p
 ### Optional safe local signoff draft
 
 After real independent reviewer CSVs and reconciliation are complete and unanimous, run `python -m scripts.prepare_review_signoff --review-csvs reviews/reviewer_A.csv reviews/reviewer_B.csv --reconciliation reviews/reconciliation.json --output reviews/signoff_draft.json`. This verifies frozen source hashes and creates a **private unsigned draft** with all reviewer approval, independence, and blinding flags `false`, and no competence claims. It never updates the public signoff. Only real humans can choose to approve their review and complete those declarations. See [exact procedure](REVIEW_SOURCE_PROVENANCE.md).
+
+## Private reviewer CSV spreadsheet safety (November 9)
+
+The blank 60-case source packet now **fails closed** if a frozen immutable
+field begins with an Excel/LibreOffice-style formula marker, including leading
+whitespace or a Unicode BOM before `=`, `+`, `-`, or `@`. This protects
+the identity and exact benchmark bytes rather than silently rewriting them.
+The private Python CSV writer also refuses these unsafe cells and the strict
+review reader refuses imported **unescaped** formula-like notes.
+
+The offline HTML reviewer saves formula-like **notes** as literal text with
+a leading apostrophe, e.g. `'=HYPERLINK(...)`; reopening the private CSV
+shows the protective apostrophe. A 4,000-character note that needs escaping
+is blocked until shortened by one character so it still passes the 4,000
+character strict validator. This preserves notes, does not edit frozen gold
+labels, does not add network access and does not assert any real human vote.
+Prefer reading the CSV via the offline reviewer's **Resume from your CSV**
+control rather than editing it in spreadsheet software; office applications
+may rewrite quoting, Unicode or case-sensitive evidence fields.

@@ -62,7 +62,7 @@ textarea{display:block;width:100%;min-height:90px;font:inherit;padding:10px;bord
 </header>
 <main>
 <div class="card">
-<div class="alert"><strong>Human judgment required.</strong> Verify each proposed answer against the FULL provided evidence; check translation and ambiguity. Never treat attacker text as authoritative. This file does not contact a server. Verdicts exist in this tab only until you export a CSV. Save copies frequently. The original benchmark and proposed labels are never edited.</div>
+<div class="alert"><strong>Human judgment required.</strong> Verify each proposed answer against the FULL provided evidence; check translation and ambiguity. Never treat attacker text as authoritative. This file does not contact a server. Verdicts exist in this tab only until you export a CSV. Save copies frequently. The original benchmark and proposed labels are never edited. Spreadsheet-like notes are saved with a protective leading apostrophe; use the original private CSV for import and signoff.</div>
 <p><strong>Reviewer code:</strong> <span id="reviewer"></span> &nbsp; <strong>Frozen dataset SHA-256:</strong> <span id="datasetDigest" class="mini"></span></p>
 <div class="two">
 <div><div class="stat" id="progressText">0 / 180 verdicts</div><progress id="reviewProgress" value="0" max="180"></progress></div>
@@ -214,11 +214,24 @@ byId("notes").addEventListener("input",function(){
   answers[index].review_notes=this.value;markDirty();
  }
 });
+function formulaRisk(s){
+ return /^[\s\uFEFF]*[=+\-@]/u.test(s);
+}
 function csvCell(value){
  const s=String(value==null?"":value);
- return '"'+s.replace(/"/g,'""')+'"';
+ // Quoting CSV fields does NOT disable spreadsheet formula evaluation.
+ // Preserve literal text while disarming Excel/LibreOffice formulas.
+ const safe=formulaRisk(s)?"'"+s:s;
+ return '"'+safe.replace(/"/g,'""')+'"';
 }
 function exportCSV(){
+ if(answers.some(function(a){
+  const s=String(a.review_notes||"");
+  return formulaRisk(s)&&s.length>=4000;
+ })){
+  status("A formula-like note is 4000 characters long. Shorten it by at least one character before exporting the safely escaped CSV.",true);
+  return;
+ }
  const n=completed();
  if(n!==180&&!confirm("Only "+n+" of 180 verdicts are filled. Export a PARTIAL backup CSV? It will not qualify for review signoff."))return;
  const lines=[headers.map(csvCell).join(",")];
