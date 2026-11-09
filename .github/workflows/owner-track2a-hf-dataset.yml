@@ -26,6 +26,7 @@ on:
           - inspect_only
           - preview_public_dataset
           - publish_public_dataset
+          - verify_existing_publication
       license:
         description: 'Owner-selected DATASET license (does not cover gated model weights)'
         required: true
@@ -108,12 +109,12 @@ jobs:
               raise SystemExit("This owner action is allowed on the protected main branch only")
           if not RUN.fullmatch(os.environ["SOURCE_RUN"]):
               raise SystemExit("Only numeric approved source CI run IDs are allowed")
-          if mode not in ("inspect_only", "preview_public_dataset", "publish_public_dataset"):
+          if mode not in ("inspect_only", "preview_public_dataset", "publish_public_dataset", "verify_existing_publication"):
               raise SystemExit("Unknown owner action")
           digest = os.environ["OWNER_SHA256"]
           if digest and not re.fullmatch(r"[0-9a-f]{64}", digest):
               raise SystemExit("Any supplied original ZIP SHA256 must be lowercase 64-hex")
-          if mode in ("preview_public_dataset", "publish_public_dataset") and not digest:
+          if mode in ("preview_public_dataset", "publish_public_dataset", "verify_existing_publication") and not digest:
               raise SystemExit(
                   "PREVIEW / PUBLIC UPLOAD BLOCKED: first inspect the original "
                   "ZIP, then manually type its exact 64-character digest"
@@ -134,6 +135,18 @@ jobs:
                       "INSPECTION_ONLY: optional SHA may be empty; calculate and "
                       "report original CI ZIP digest without any Hugging Face token"
                   )
+          elif mode == "verify_existing_publication":
+              from scripts.verify_hf_collections import HF_COLLECTION
+              if rights == "true" or publication == "true":
+                  raise SystemExit("Read-only recovery MUST NOT authorize a new publication")
+              if license_id not in LICENSES:
+                  raise SystemExit("Existing published dataset requires its exact declared license")
+              if not HF_REPO.fullmatch(os.environ["HF_REPO_ID"]):
+                  raise SystemExit("Read-only recovery needs actual owner/dataset repo ID")
+              if (os.environ["COLLECTION_MODE"] != "use_existing"
+                  or not HF_COLLECTION.fullmatch(os.environ["COLLECTION_SLUG"])):
+                  raise SystemExit("Read-only recovery needs use_existing and exact public collection slug")
+              print("READ-ONLY RECOVERY: anonymous dataset and collection verification; no HF token, upload or new collection")
           else:
               if rights != "true" or publication != "true":
                   raise SystemExit("Real publication requires BOTH independent owner approvals")
@@ -293,11 +306,52 @@ jobs:
             artifacts/owner_preview_independent_readback.json
           retention-days: 14
           if-no-files-found: error
-      - name: Install official Hugging Face API SDK (publication only)
-        if: ${{ inputs.mode == 'publish_public_dataset' }}
+      - name: Install official Hugging Face API SDK (publication or read-only recovery)
+        if: ${{ inputs.mode == 'publish_public_dataset' || inputs.mode == 'verify_existing_publication' }}
         run: |
           python -m pip install 'huggingface_hub>=1.16,<2'
           python -m scripts.check_hf_sdk_contract
+      - name: READ-ONLY recovery of previously uploaded public dataset (NO TOKEN / NO UPLOAD)
+        if: ${{ inputs.mode == 'verify_existing_publication' }}
+        env:
+          OWNER_SHA256: ${{ inputs.approved_archive_sha256 }}
+          SELECTED_LICENSE: ${{ inputs.license }}
+          HF_REPO_ID: ${{ inputs.hf_repo_id }}
+          COLLECTION_SLUG: ${{ inputs.collection_slug }}
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_existing_track2a_dataset \
+            --repo-id "$HF_REPO_ID" \
+            --collection-slug "$COLLECTION_SLUG" \
+            --expected-source-sha256 "$OWNER_SHA256" \
+            --license "$SELECTED_LICENSE" \
+            --output artifacts/track2a_existing_dataset_readonly_receipt.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads(Path("artifacts/track2a_existing_dataset_readonly_receipt.json").read_text())
+          assert r["status"] == "EXISTING_PUBLIC_DATASET_ANONYMOUSLY_VERIFIED_ONLY_NOT_SUBMITTED"
+          assert r["all_content_sha256_verified"] is True
+          assert r["huggingface_token_used"] is False
+          assert r["huggingface_write_performed"] is False
+          assert r["public_model_collection_requirement_verified"] is False
+          assert r["official_lexsi_submission_completed"] is False
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
+              f.write("### EXISTING DATASET VERIFIED ANONYMOUSLY — NO NEW PUBLICATION\n\n")
+              f.write("**Dataset:** " + r["public_dataset_repo"] + "\n\n")
+              f.write("**Dataset collection:** " + r["public_dataset_collection"] + "\n\n")
+              f.write("**Pinned remote commit:** " + r["dataset_public_commit_sha"] + "\n\n")
+              f.write("**15 published source files checked against 14 hashes and the approved original CI ZIP**\n\n")
+              f.write("**This action did not use HF_TOKEN, upload, create a collection, or submit to Lexsi.**\n")
+          PY
+      - name: Retain private owner read-only recovery receipt for already public dataset
+        if: ${{ inputs.mode == 'verify_existing_publication' && success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-track2a-public-dataset-READONLY-RECOVERY-NOT-SUBMITTED
+          path: artifacts/track2a_existing_dataset_readonly_receipt.json
+          retention-days: 30
+          if-no-files-found: error
       - name: PUBLIC owner-approved dataset upload and independent anonymous readback
         if: ${{ inputs.mode == 'publish_public_dataset' }}
         env:

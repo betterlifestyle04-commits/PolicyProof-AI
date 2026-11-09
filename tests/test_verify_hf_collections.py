@@ -345,3 +345,53 @@ def test_receipt_requires_audit_of_full_public_inventory(tmp_path):
     valid["public_checksum_manifest_sha256"] = "FAKE"
     receipt.write_text(json.dumps(valid))
     assert receipt_is_current(receipt, manifest) is False
+
+
+def test_public_pinned_hf_cache_symlinks_accepted_only_after_checksums(tmp_path):
+    """Real hf_hub_download returns snapshots/<revision>/<file> symlinks.
+
+    The verified remote JSON cache snapshot may be symlinked, but an owner's
+    local supplied manifest, receipt, or arbitrary JSON file may not be.
+    """
+    from scripts.verify_hf_collections import _read_json
+    original = AnonymousFakeAPI(tmp_path)
+    class WithCacheSnapshots:
+        def __getattr__(self, key):
+            return getattr(original, key)
+        def hf_hub_download(self, **kwargs):
+            raw = Path(original.hf_hub_download(**kwargs))
+            if kwargs["filename"] not in (
+                "provenance/PUBLICATION_SCOPE.json",
+                "evaluated_48/original_saved_tiny_aya_base_model_predictions.json",
+            ):
+                return str(raw)
+            link = tmp_path / "snapshots" / kwargs["filename"]
+            link.parent.mkdir(parents=True, exist_ok=True)
+            if not link.exists() and not link.is_symlink():
+                link.symlink_to(raw)
+            return str(link)
+
+    api = WithCacheSnapshots()
+    manifest = manifest_file(tmp_path)
+    # A genuinely checksum-matched readback accepts cache symlinks.
+    report = verify_anonymous_access(manifest, api=api)
+    assert report["public_baseline_cases"] == 48
+    assert report["public_unscored_challenge_cases"] == 72
+    assert report["all_declared_public_files_sha256_verified"] is True
+    cache = tmp_path / "snapshots/provenance/PUBLICATION_SCOPE.json"
+    assert cache.is_symlink()
+    with pytest.raises(ValueError, match="symlinked"):
+        _read_json(cache)
+    # A symlinked local/owner manifest remains forbidden.
+    local = tmp_path / "symlink-manifest.json"
+    local.symlink_to(manifest)
+    with pytest.raises(ValueError, match="symlinked"):
+        _read_json(local)
+
+
+def test_bad_remote_cache_symlink_bytes_still_fail_sha256(tmp_path):
+    original = AnonymousFakeAPI(tmp_path)
+    original.missing_file = None
+    original.bad_public_scope = True
+    with pytest.raises(ValueError):
+        verify_anonymous_access(manifest_file(tmp_path), api=original)

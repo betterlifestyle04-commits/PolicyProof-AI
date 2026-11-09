@@ -230,16 +230,38 @@ def publish_after_approval(
         allow_existing=allow_existing_repo,
         api=api, anonymous_api=anonymous_api,
     )
-    with tempfile.TemporaryDirectory(prefix="policyproof_hf_public_check_") as scratch:
-        manifest = Path(scratch) / "manifest.json"
-        manifest.write_text(json.dumps({
-            "dataset_url": receipt["public_dataset_repo"],
-            "dataset_collection_url": receipt["public_dataset_collection"],
-            "model_collection_url": None,
-        }), encoding="utf-8")
-        # Stronger than upload receipt: anonymous file content hashes, licenses,
-        # metadata and both 48/72 published splits are checked.
-        verified = verify_anonymous_access(manifest, api=anonymous_api, dataset_only=True)
+    try:
+        with tempfile.TemporaryDirectory(prefix="policyproof_hf_public_check_") as scratch:
+            manifest = Path(scratch) / "manifest.json"
+            manifest.write_text(json.dumps({
+                "dataset_url": receipt["public_dataset_repo"],
+                "dataset_collection_url": receipt["public_dataset_collection"],
+                "model_collection_url": None,
+            }), encoding="utf-8")
+            # Stronger than upload receipt: anonymous file content hashes,
+            # license, source ZIP claim and both published splits. HF snapshot
+            # cache symlinks are expected and only accepted after hash checks.
+            verified = verify_anonymous_access(
+                manifest, api=anonymous_api, dataset_only=True
+            )
+    except Exception:
+        # The upload+collection transaction ALREADY occurred. Never hide its
+        # public destinations behind the failing post-upload readback or
+        # encourage another create_new run, which would collide with the
+        # already-created repository or create unwanted extra collections.
+        print(json.dumps({
+            "status": "PUBLIC_DATASET_AND_COLLECTION_EXIST_POSTUPLOAD_READBACK_FAILED",
+            "public_dataset_repo": receipt["public_dataset_repo"],
+            "public_dataset_collection": receipt["public_dataset_collection"],
+            "uploaded_commit_sha": receipt.get("commit_sha"),
+            "recommended_action": (
+                "DO NOT RERUN PUBLISH. Run the separate anonymous "
+                "verify_existing_publication read-only recovery workflow."
+            ),
+            "huggingface_token_included": False,
+            "official_lexsi_submission_completed": False,
+        }, indent=2), flush=True)
+        raise
     verified_commit = next(
         (x["revision"] for x in verified["dataset_repositories"] if x["id"] == repo_id),
         None,
