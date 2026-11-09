@@ -3,7 +3,7 @@
 **Public source:** https://github.com/betterlifestyle04-commits/PolicyProof-AI
 **Live read-only judge demo:** https://policyproof-ai-observatory.onrender.com (Render free tier; startup may be slow after idle). The deployment is an observatory of saved outputs, not a live trained language model.  
 **Official hackathon:** https://hackathon.lexsi.ai  
-**Track status:** Track 1 fine-tuning attempt **unfinished**. Track 2a **actual CPU benchmark/toolkit chain completed**; official HF publication and submission pending.
+**Track status (Nov 9):** Track 1 fine-tuning attempt **unfinished**. Track 2a **actual CPU benchmark/toolkit chain completed**. The synthetic [dataset](https://huggingface.co/datasets/shalnark01/policyproof-track2a-benchmark) and [dataset collection](https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets) are public, but the separately required public model collection and official Lexsi submission remain pending. A distinct pinned, anonymous SHA256 verification job checks dataset provenance without a token; do not treat publication alone as proof of legal rights or scientific validity.
 
 ## November 9: official Lexsi form-preparation handoff (NOT submitted)
 
