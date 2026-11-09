@@ -262,6 +262,35 @@ jobs:
                         "official_lexsi_submission_verified"):
               assert result[check] is False
           PY
+      - name: Build owner Lexsi Track 2a form handoff draft (NO EMAIL / NO FORM SUBMISSION)
+        run: |
+          python -m scripts.lexsi_submission_handoff --output \
+            artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          packet = json.loads(
+              Path("artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json").read_text()
+          )
+          assert packet["official_form_url"] == "https://hackathon.lexsi.ai/submission/"
+          assert packet["status"] == "DRAFT_ONLY_MISSING_PUBLICATION_OR_RESEARCH"
+          assert packet["form_fields"]["abstract_under_500_words"] is True
+          assert packet["form_fields"]["hf_model_collection"] is None
+          assert packet["form_fields"]["hf_dataset_collection"] is None
+          assert packet["registered_email"] is None
+          assert packet["research_evidence"]["original_48_saved_predictions_and_toolchain_source_replayed"] is True
+          assert packet["research_evidence"]["original_72_model_evaluation_locally_source_replayed"] is False
+          assert packet["official_submission_completed"] is False
+          assert packet["organizer_confirmation_verified"] is False
+          assert packet["external_network_used"] is False
+          PY
+      - name: Retain bounded owner Lexsi submission draft (UNSUBMITTED)
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-lexsi-track2a-owner-form-draft-UNSUBMITTED
+          path: artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json
+          retention-days: 30
+          if-no-files-found: error
       - name: Retain reproducible judge evidence ZIP and verification (UNSUBMITTED)
         uses: actions/upload-artifact@v4
         with:

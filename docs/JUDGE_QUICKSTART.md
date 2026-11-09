@@ -5,6 +5,14 @@
 **Official hackathon:** https://hackathon.lexsi.ai  
 **Track status:** Track 1 fine-tuning attempt **unfinished**. Track 2a **actual CPU benchmark/toolkit chain completed**; official HF publication and submission pending.
 
+## November 9: official Lexsi form-preparation handoff (NOT submitted)
+
+Open the [verified official submission page](https://hackathon.lexsi.ai/submission/) to enter the form **yourself**. The organizer requires your registered email (never store it in a public artifact), a strictly under-500-word abstract, distinct public/ungated Hugging Face model and dataset collections, a reproducible write-up/README, source code/notebooks and the model/toolkit/track/problem statement. Deadline: **November 14, 2026, end of day AoE**.
+
+The new CPU-only command `python -m scripts.lexsi_submission_handoff` prepares a bounded copy/paste **draft** with a word-count check and local source-linked Track 2a readiness. Verified HF collection URLs remain **null** until the separate anonymous remote-access receipt passes. The original 72-case historical abstract is **blocked** if newer saved original responses make its old unscored claim false; a revised abstract cannot claim new evaluation without source replay. The real registration email, actual license rights and organizer confirmation remain **manual tasks**. No website login, model call, HF publishing or official form submission occurs.
+
+A successful native-toolkit main CI run retains a separate downloadable artifact named `policyproof-lexsi-track2a-owner-form-draft-UNSUBMITTED`. Open the live **Judge verification** tab for the human-readable abstract and missing-field checklist. See [owner form handoff](LEXSI_OWNER_FORM_HANDOFF.md). **Neither the dashboard nor the CI artifact is an official submission receipt.**
+
 ## NEW: one verifiable source-evidence bundle for the judges (November 8)
 
 A successful **main-branch** CuratorKIT/AuditKIT CI run produces `policyproof-lexsi-judge-evidence-UNSUBMITTED`, a downloadable artifact with the exact ZIP `policyproof_lexsi_judge_evidence_UNSUBMITTED.zip` and `judge_packet_verification.json`. The ZIP contains an **allowlisted** 48-original-response / 72-curated-but-unscored research handoff, SHA256SUMS, a manifest and a `START_HERE.txt` explaining exactly what was and was not done.
