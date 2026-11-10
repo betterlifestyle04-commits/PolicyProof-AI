@@ -229,3 +229,29 @@ def test_unreviewed_claim_of_72_source_replay_without_original_outputs_is_blocke
     assert result["status"] == "DRAFT_ONLY_ABSTRACT_STALE_BLOCKED"
     assert result["form_fields"]["abstract_text"] is None
     assert result["research_evidence"]["new_72_model_results_cannot_be_claimed_without_source_replay"] is True
+
+
+def test_new_owner_native40_result_blocks_historical_abstract_from_form_copy(tmp_path, monkeypatch):
+    root = fake_root(tmp_path, monkeypatch, scientific=True)
+    report = root / module.NEW_NATIVE40_REPORT
+    report.write_text(
+        "Private owner-supplied native AlignTune paired dev48 results: "
+        "abstention 4/9 to 2/9, supported exact 0/39; no safety improvement."
+    )
+    packet = module.handoff(root)
+    assert packet["status"] == "DRAFT_ONLY_ABSTRACT_STALE_BLOCKED"
+    assert packet["form_fields"]["abstract_text"] is None
+    assert packet["research_evidence"]["native40_private_paired_dev48_report_present"] is True
+    assert packet["research_evidence"]["historical_abstract_blocked_by_new_native40_results"] is True
+    assert packet["research_evidence"]["native_aligntune_training_improvement_claimed"] is False
+    assert packet["official_submission_completed"] is False
+
+
+def test_new_owner_results_cannot_create_fictitious_public_model_collection(tmp_path, monkeypatch):
+    root = fake_root(tmp_path, monkeypatch, scientific=True, public=False)
+    report = root / module.NEW_NATIVE40_REPORT
+    report.write_text("Only owner-supplied private native40 outputs, never public model weights")
+    packet = module.handoff(root)
+    assert packet["form_fields"]["hf_model_collection"] is None
+    assert packet["form_fields"]["hf_dataset_collection"] is None
+    assert packet["eligible_for_manual_form_review_locally"] is False
