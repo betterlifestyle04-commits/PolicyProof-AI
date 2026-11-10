@@ -38,7 +38,7 @@ st.title("PolicyProof AI")
 st.caption("LEXSI 2026  /  MULTILINGUAL AI SAFETY RESEARCH  /  PROTOTYPE")
 st.warning("Experimental research only. A saved adapter and development-pair results passed internal integrity checks, but factual improvement, independent GPU execution and real-world safety are NOT verified. All policies and questions are fictional.")
 
-pages = ["Research overview", "Dataset explorer", "Evaluation runs", "Paired model evidence", "Safety benchmark", "Output guard experiment", "Try the output guard", "Final benchmark review", "Judge verification", "Protocol & next steps"]
+pages = ["Research overview", "Native40 research findings", "Dataset explorer", "Evaluation runs", "Paired model evidence", "Safety benchmark", "Output guard experiment", "Try the output guard", "Final benchmark review", "Judge verification", "Protocol & next steps"]
 page = st.sidebar.radio("Explore", pages)
 st.sidebar.markdown("[GitHub source](https://github.com/betterlifestyle04-commits/PolicyProof-AI)")
 st.sidebar.caption("For educational research only. No banking advice.")
@@ -60,6 +60,78 @@ if page == "Research overview":
     st.info("Software fixture verification is not the same as model performance. Only actual model-produced predictions can be used for research claims.")
     with st.expander("Dataset manifest and provenance"):
         st.json(manifest or {"status": "not generated"})
+
+elif page == "Native40 research findings":
+    st.subheader("Native AlignTune 40-step experiment — measured strengths and safety regressions")
+    st.caption(
+        "November 11, 2026 · 48 matched synthetic DEVELOPMENT cases, "
+        "already inspected · No fresh GPU or human semantic review in this view"
+    )
+    st.warning(
+        "The adapter improved JSON syntax, NOT verified factual accuracy or "
+        "model-level safety. Correct unsupported-question abstentions fell "
+        "from 4/9 to 2/9. A citation ID matching a policy does not prove "
+        "the answer is entailed by that policy."
+    )
+    metrics = [
+        ("Valid JSON", "14/48", "48/48", "+34", "higher"),
+        ("Expected source ID", "31/39", "39/39", "+8", "higher"),
+        ("Supported exact text", "0/39", "0/39", "0", "higher"),
+        ("Unsupported abstentions", "4/9", "2/9", "-2", "higher"),
+        ("Unsupported claims", "5/9", "7/9", "+2", "lower"),
+    ]
+    left, middle, right = st.columns(3)
+    left.metric("Original Tiny Aya: valid JSON", "14/48")
+    middle.metric("Native AlignTune: valid JSON", "48/48", "+34 cases")
+    right.metric("Native AlignTune: unsupported abstentions", "2/9", "-2 vs base")
+    st.markdown("#### The paired development results")
+    st.dataframe(
+        [
+            {"Metric": label, "Unchanged base": base,
+             "Native AlignTune": tuned, "Change": delta,
+             "Desired direction": direction}
+            for label, base, tuned, delta, direction in metrics
+        ],
+        hide_index=True, use_container_width=True,
+    )
+    st.markdown("#### Fresh strict gold audit (no model rerun)")
+    st.success(
+        "All 96 ORIGINAL saved responses were re-scored from raw text "
+        "against the exact frozen 48-case gold dataset. Every saved per-case "
+        "strict score was reproduced. This checks scorer reproducibility "
+        "only; it is NOT human semantic judgment."
+    )
+    st.markdown(
+        "**Research:** [Fresh raw-to-gold methodology]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md)"
+        " · [Judge overview]"
+        "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/JUDGES_START_HERE.md)"
+    )
+    st.markdown("#### Disjoint sources, and why 0/39 is not a semantic accuracy rate")
+    st.caption(
+        "78 original synthetic training examples; 48 development cases; "
+        "72 separate adversarial challenge examples; 60 private, unsigned "
+        "human-review candidates. The last three are never adapter-training data."
+    )
+    st.info(
+        "The supported-answer metric is strict exact-string matching. "
+        "Correct paraphrases can fail. The 39/39 expected source IDs in "
+        "the tuned arm also do not establish evidence entailment. "
+        "A genuinely qualified, blinded multilingual human review is "
+        "prepared but NOT completed."
+    )
+    st.markdown(
+        "**Public artifacts:** [Dataset collection]"
+        "(https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets-6af24cc5b3c20ac76f6ceef5)"
+        " · [Model collection]"
+        "(https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caacac578d29e1c66c6)"
+    )
+    st.caption(
+        "The upstream Tiny Aya base requires separate gated authorization; "
+        "the published artifact is adapter-only. The original GPU execution "
+        "and loaded training-time base revision are not independently attested. "
+        "The official Lexsi form submission is still unconfirmed."
+    )
 
 elif page == "Dataset explorer":
     st.subheader("Evidence and evaluation questions")
