@@ -1,3 +1,11 @@
+## November 10 — native AlignTune 40-step: measured dev48 trade-off (NO safety improvement claim)
+
+The owner supplied a **private**, source-pinned paired 48-case development ZIP of original Tiny Aya and the native AlignTune 40-step adapter. Its original bundle SHA256 is `e0319c83fbb87ef8570ca0c42caf68bea4a4fef1f8ae320bbe11e9a7c1761c68`; all 4 archive files, embedded SHA256s and 48 matched response IDs were internally checked. **Results on previously inspected synthetic development data:** valid JSON improved **14/48→48/48**, expected raw source ID in answerable cases **31/39→39/39**, but supported-answer exact matches stayed **0/39**, while correct unsupported-case abstentions **fell 4/9→2/9** and unsupported claims **rose 5/9→7/9**. Both additional unsupported claims were in Arabic in this small sample.
+
+**Decision: do not claim improved model safety or semantic correctness.** This adapter is privately saved research evidence, not a publicly verified safety improvement. The original training-time model SHA and GPU execution are not externally attested, and no independent human semantic review is complete. The public synthetic benchmark remains unchanged. Read the [aggregate-only paired native40 research report](docs/TRACK2A_NATIVE40_DEV48_OBSERVED_PRIVATE_RESULTS_2026-11-10.md). **Historical submission abstract and the earlier “model improvement not evaluated” paragraph below are now superseded for this private development experiment.**
+
+---
+
 ## November 10 — original native AlignTune 40-step adapter verified privately
 
 The owner uploaded the original private `policyproof_align_native40.zip`, SHA256
