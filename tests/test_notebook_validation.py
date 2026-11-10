@@ -118,3 +118,14 @@ def test_native40_notebook_cannot_bypass_text_only_sdk_environment_preflight(tmp
     with pytest.raises(ValueError, match="native 40-step run must default OFF"):
         validate_notebook(target)
 
+def test_native40_stage3_mentions_gated_model_approval_and_secure_login():
+    notebook = json.loads(
+        (Path(__file__).resolve().parents[1] /
+         "notebooks/11_native_aligntune_40step_t4.ipynb").read_text()
+    )
+    text = "".join(notebook["cells"][5]["source"])
+    assert "gated" in text.lower()
+    assert "accept the model access conditions" in text
+    assert "notebook_login(skip_if_logged_in=False)" in text
+    assert "config.json" in text and "token=True" in text
+
