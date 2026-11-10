@@ -56,6 +56,7 @@ def test_official_submission_draft_has_valid_under_500_word_text():
     assert digest == sha256(ABSTRACT)
     assert not text.startswith("# PolicyProof")
     assert module.OFFICIAL_FORM == "https://hackathon.lexsi.ai/submission/"
+    assert module.handoff(ROOT)["official_submission_deadline"] == "2026-11-15 11:59 PM AoE"
 
 
 def test_no_public_collections_means_draft_only_no_fake_urls_email_or_submission(
