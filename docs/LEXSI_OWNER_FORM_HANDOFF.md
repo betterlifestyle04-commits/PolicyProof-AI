@@ -7,7 +7,7 @@
 
 ## Official organizer requirements — checked from [hackathon.lexsi.ai](https://hackathon.lexsi.ai/) on November 9
 
-The [official submission page](https://hackathon.lexsi.ai/submission/) links to the organizer's live form. The published deadline is **November 14, 2026, end of day Anywhere on Earth (AoE)**; aim to submit earlier to leave time for corrections and confirmation. The organizer asks for:
+The [official submission page](https://hackathon.lexsi.ai/submission/) links to the organizer's live form. The published deadline is **November 15, 2026, 11:59 PM Anywhere on Earth (AoE)**; aim to submit earlier to leave time for corrections and confirmation. The organizer asks for:
 
 1. The exact registration email, entered by the owner **in the official form**, not in this public code or an artifact.
 2. An abstract **under 500 words**.

@@ -2,7 +2,7 @@
 
 OFFICIAL SOURCE (checked 2026-11-09): https://hackathon.lexsi.ai/
 Submission form: https://hackathon.lexsi.ai/submission/
-Deadline: 2026-11-14 end-of-day Anywhere on Earth (AoE).
+Deadline: 2026-11-15 11:59 PM Anywhere on Earth (AoE) (live organizer site 2026-11-10).
 
 This script DOES NOT log in, browse the form, infer a registration email, train
 a model, upload to Hugging Face, approve licensing, or submit anything.
@@ -161,7 +161,7 @@ def handoff(root: Path = ROOT) -> dict:
             if stale_abstract else
             "DRAFT_ONLY_MISSING_PUBLICATION_OR_RESEARCH"
         ),
-        "official_submission_deadline": "2026-11-14 end-of-day AoE",
+        "official_submission_deadline": "2026-11-15 11:59 PM AoE",
         "official_form_url": OFFICIAL_FORM,
         "official_form_opened_by_script": False,
         "registered_email": None,
