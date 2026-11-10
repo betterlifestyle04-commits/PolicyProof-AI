@@ -126,7 +126,7 @@ def test_native40_gpu_is_never_enabled_in_committed_notebook():
     assert "policyproof_native40_dev48_paired_gpu_results.zip" in code
     assert "native40_dev48_paired_base.json" in code
     assert "native40_dev48_paired_tuned.json" in code
-    assert "dev48_paired_base.json\"" not in code
+    assert 'ROOT/"artifacts/dev48_paired_base.json"' not in code
     assert "verify_tiny_aya_gated_access()" in code
     assert "train_existing_t4(" not in code
     assert "trainer.train(" not in code
