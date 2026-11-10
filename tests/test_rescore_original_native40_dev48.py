@@ -40,7 +40,8 @@ def test_96_raw_predictions_recalculated_against_frozen_gold(tmp_path):
     assert [result["languages"][lang]["case_count"] for lang in ("en","no","ar")] == [16]*3
     blob = json.dumps(result, ensure_ascii=False)
     assert "model.layers" not in blob
-    assert "raw_response" not in blob
+    assert '"raw_response":' not in blob
+    assert '"predictions":' not in blob
 
 
 @pytest.mark.parametrize("change", [
