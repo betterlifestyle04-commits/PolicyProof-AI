@@ -58,7 +58,12 @@ def check_dev_rows(data: Path) -> tuple[list[dict], str]:
     return rows, DEV_SHA
 
 
-def check_training_zip(archive: Path, trusted_zip_sha: str) -> dict:
+def check_training_zip(
+    archive: Path, trusted_zip_sha: str, *,
+    expected_backend: str = "manual_torch_extended_fallback",
+) -> dict:
+    if expected_backend not in {"manual_torch_extended_fallback", "aligntune_wrapper"}:
+        raise ValueError("Unsupported expected training backend")
     archive = Path(archive)
     if not isinstance(trusted_zip_sha, str) or not SHA.fullmatch(trusted_zip_sha):
         raise ValueError("Require exact user-verified 64-hex original archive SHA256")
@@ -68,19 +73,30 @@ def check_training_zip(archive: Path, trusted_zip_sha: str) -> dict:
         raise ValueError("Training ZIP does not match the owner's pinned SHA256")
     report = inspect_training_archive(archive)
     if (report["archive_sha256"] != trusted_zip_sha
-        or report.get("backend") != "manual_torch_extended_fallback"
+        or report.get("backend") != expected_backend
         or report.get("optimizer_steps_self_reported") != 40
         or report.get("expected_tiny_aya_lora_geometry") is not True
         or report.get("file_hashes_match") is not True):
-        raise ValueError("Original 40-step extended PEFT archive was not verified")
+        raise ValueError("Original 40-step PEFT archive was not verified for requested backend")
     # Reads only a known, fixed small metadata member. The full ZIP was
     # structurally checked and its size bounded by the archive validator.
     with zipfile.ZipFile(archive) as z:
         receipt = json.loads(z.read("run_info.json"))
-    revision = receipt.get("model_revision")
+    revision = receipt.get("model_revision", receipt.get("base_revision"))
     if not isinstance(revision, str) or not REVISION.fullmatch(revision):
-        raise ValueError("Extended adapter lacks a full claimed HF base revision")
-    if receipt.get("performance_improvement_verified") is not False:
+        raise ValueError("Adapter lacks a full claimed HF base revision")
+    if expected_backend == "aligntune_wrapper":
+        if (report.get("native_aligntune_40step_receipt_checked") is not True
+            or receipt.get("trainer_backend") != "aligntune_wrapper"
+            or receipt.get("kind") != "40-step native AlignTune QLoRA trial"
+            or receipt.get("aligntune_trainer_completed") is not True
+            or receipt.get("independent_gpu_execution_attested") is not False
+            or receipt.get("claims_improved_safety") is not False
+            or receipt.get("loaded_revision_independently_verified") is not False):
+            raise ValueError(
+                "Native AlignTune source lacks verified receipt shape or truthful disclaimers"
+            )
+    elif receipt.get("performance_improvement_verified") is not False:
         raise ValueError("Unwarranted improvement claim in adapter receipt")
     return {
         "archive_sha256": trusted_zip_sha,
@@ -93,9 +109,12 @@ def check_training_zip(archive: Path, trusted_zip_sha: str) -> dict:
     }
 
 
-def preflight(root: Path, archive: Path, trusted_zip_sha: str) -> dict:
+def preflight(root: Path, archive: Path, trusted_zip_sha: str, *,
+              expected_backend: str = "manual_torch_extended_fallback") -> dict:
     rows, data_sha = check_dev_rows(Path(root) / DEV_REL)
-    adapter = check_training_zip(archive, trusted_zip_sha)
+    adapter = check_training_zip(
+        archive, trusted_zip_sha, expected_backend=expected_backend
+    )
     return {
         "status": "DEV48_GPU_EVALUATION_PREPARED_NOT_EXECUTED",
         "cases": len(rows),
@@ -241,9 +260,12 @@ def read_validated_report(
 
 def audit_existing(
     root: Path, archive: Path, trusted_zip_sha: str,
-    base_file: Path, tuned_file: Path, paired_file: Path,
+    base_file: Path, tuned_file: Path, paired_file: Path, *,
+    expected_backend: str = "manual_torch_extended_fallback",
 ) -> dict:
-    evidence = preflight(root, archive, trusted_zip_sha)
+    evidence = preflight(
+        root, archive, trusted_zip_sha, expected_backend=expected_backend
+    )
     rows, data_sha = check_dev_rows(Path(root)/DEV_REL)
     revision = evidence["training_zip"]["model_revision_claimed"]
     adapter_sha = evidence["training_zip"]["adapter_sha256"]
@@ -264,6 +286,7 @@ def audit_existing(
         "is_model_improvement_semantically_verified":False,
         "base_model_revision_loaded_on_inference":revision,
         "training_zip_sha256":trusted_zip_sha,
+        "training_backend_declared":evidence["training_zip"]["backend"],
         "training_loaded_revision_independently_verified":
             evidence["training_zip"]["loaded_model_revision_verified_from_training"],
         "generation_config":dict(GENERATION),
@@ -283,8 +306,11 @@ def execute_pair(
     root: Path, archive: Path, trusted_zip_sha: str,
     base_file: Path, tuned_file: Path, paired_file: Path,
     *, resume_base: bool = False,
+    expected_backend: str = "manual_torch_extended_fallback",
 ) -> dict:
-    evidence = preflight(root, archive, trusted_zip_sha)
+    evidence = preflight(
+        root, archive, trusted_zip_sha, expected_backend=expected_backend
+    )
     base_file,tuned_file,paired_file = map(Path,(base_file,tuned_file,paired_file))
     if len({p.resolve() for p in (base_file,tuned_file,paired_file)}) != 3:
         raise ValueError("Three independent output paths are mandatory")
@@ -335,7 +361,10 @@ def execute_pair(
     if sha256(Path(root)/DEV_REL) != data_sha:
         raise ValueError("Development cases changed during tuned inference")
     write_evidence_once(tuned_file,tuned)
-    return audit_existing(root,archive,trusted_zip_sha,base_file,tuned_file,paired_file)
+    return audit_existing(
+        root, archive, trusted_zip_sha, base_file, tuned_file, paired_file,
+        expected_backend=expected_backend,
+    )
 
 
 def create_results_bundle(
@@ -413,6 +442,9 @@ def main():
     p.add_argument("--root",type=Path,default=ROOT)
     p.add_argument("--archive",type=Path,required=True)
     p.add_argument("--expected-archive-sha256",required=True)
+    p.add_argument("--adapter-backend", default="manual_torch_extended_fallback",
+                   choices=["manual_torch_extended_fallback", "aligntune_wrapper"],
+                   help="Explicit native-vs-fallback provenance; never auto-detect as a successful trial")
     p.add_argument("--execute",action="store_true")
     p.add_argument("--confirm-gpu-inference",action="store_true")
     p.add_argument("--resume-base",action="store_true")
@@ -435,12 +467,15 @@ def main():
         summary=create_results_bundle(args.base,args.tuned,args.paired,args.bundle)
     elif args.audit_existing:
         summary=audit_existing(args.root,args.archive,args.expected_archive_sha256,
-                               args.base,args.tuned,args.paired)
+                               args.base,args.tuned,args.paired,
+                               expected_backend=args.adapter_backend)
     elif args.execute:
         summary=execute_pair(args.root,args.archive,args.expected_archive_sha256,
-                             args.base,args.tuned,args.paired,resume_base=args.resume_base)
+                             args.base,args.tuned,args.paired,resume_base=args.resume_base,
+                             expected_backend=args.adapter_backend)
     else:
-        summary=preflight(args.root,args.archive,args.expected_archive_sha256)
+        summary=preflight(args.root,args.archive,args.expected_archive_sha256,
+                          expected_backend=args.adapter_backend)
     print(json.dumps(summary,indent=2,ensure_ascii=False,allow_nan=False))
 
 

@@ -147,3 +147,27 @@ python -m scripts.verify_curator_archive artifacts/policyproof_curatorkit_train_
 
 **Never train on the frozen 72-case adversarial evaluation, final-60 holdout, or original 48-case evaluation examples.** If Stage 11 has already started training in its current Colab runtime, do not rerun the optimizer to replace a ZIP; use its read-only interruption audit.
 
+## November 10 — owner native40 adapter received and paired evaluation prepared
+
+The owner uploaded the original private native40 ZIP. SHA256:
+dcefc5b0babf708aa1b48ac0349ddb3bc4745405c72e9636c5860d7719d8f0e9.
+Offline CPU inspection confirmed exactly 3 members, valid stored hashes,
+288 BF16 LoRA tensors, 3,833,856 nonzero adapter elements and no NaN/Inf.
+
+The native AlignTune receipt self-reports 40 optimizer steps on Tesla T4 using
+the original 78 CuratorKIT training examples. The loaded training-time
+Tiny Aya revision could not be independently observed; the ZIP alone cannot
+attest real GPU execution or semantic safety improvement.
+
+Use [Stage 13 native40 paired dev48 evaluation](../notebooks/13_native40_dev48_pair_t4.ipynb)
+in a fresh authorized Colab T4 runtime. This is a separate original-vs-native
+adapter comparison, **OFF by default**. It requires the exact ZIP hash above,
+explicit native AlignTune backend, and authenticated gated Tiny Aya config
+download. Only the original 48-case previously inspected development set is
+used; the 60-case final candidate and 72-case challenge stay separate.
+
+This notebook creates private, write-once results named
+policyproof_native40_dev48_paired_gpu_results.zip. Do not mix the native40 ZIP
+with the earlier notebook 06, which is deliberately pinned to a distinct manual
+PyTorch fallback adapter. Do not rerun training or publish private weights.
+
