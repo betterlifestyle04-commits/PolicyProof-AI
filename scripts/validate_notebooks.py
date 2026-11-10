@@ -123,6 +123,26 @@ def validate_notebook(path: Path) -> dict:
                 f"{path}: Stage 12 optional guard analysis must stay OFF and "
                 "require complete original AuditKIT replay before CPU comparison"
             )
+    if path.name == "13_native40_dev48_pair_t4.ipynb":
+        code_cells = [
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        ]
+        all_code = "\n".join(code_cells)
+        if (not {"RUN_DEV48_GPU_EVAL", "RUN_CPU_AUDIT_RECOVERY"}.issubset(opt_in_flags)
+            or sum("assert_live_pinned_snapshot_inference()" in s for s in code_cells) < 2
+            or not any(
+                "assert_live_pinned_snapshot_inference()" in s
+                and "execute_pair(" in s
+                and s.index("assert_live_pinned_snapshot_inference()") < s.index("execute_pair(")
+                for s in code_cells
+            )
+            or "expected_backend='aligntune_wrapper'" not in all_code
+            or "_stale_imports_at_checkout" not in all_code):
+            raise ValueError(
+                f"{path}: Stage 13 must fail fast on stale imported code before GPU execution"
+            )
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
