@@ -1,3 +1,11 @@
+## November 11 independent strict-score follow-up (supersedes earlier scope limitation)
+
+A **new source-bound audit** has now directly recomputed **all 96 original raw private response strings against the exact frozen 48-case gold dataset**, using the published deterministic scoring rules. Every saved per-case binary score and subgroup label exactly matched the fresh calculation. This is stronger than the November 10 archive-only score-consistency audit described above. Full methods, source pins, paired switch counts and exploratory exact statistics: [November 11 native40 fresh gold-rescoring report](NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md).
+
+**Unchanged scientific boundary:** No independent human semantic review of paraphrase accuracy, citation entailment or safety was performed. The 48 cases are previously inspected synthetic development, not a blind final sample. The original LoRA **is now public** in the [public adapter-only model repo](https://huggingface.co/shalnark01/policyproof-ai-native40-align-2026), under the owner-released noncommercial model card, and its [model collection is public](https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caacac578d29e1c66c6). The raw original Stage 13 predictions remain private. The original model's upstream Tiny Aya base weights were not republished. Official Lexsi submission has not been confirmed.
+
+---
+
 # Original native AlignTune 40-step paired development results — 10 November 2026
 
 **Evidence state:** Owner-uploaded private Stage 13 paired-result ZIP received and structurally checked on 2026-11-10. Exactly 48 matched base and native-AlignTune adapter predictions per arm; original model outputs and private weights **NOT** published. This is a previously inspected **synthetic development** comparison, not a blind final test. **No semantic answer quality, overall safety benefit, original GPU execution, or training-time model revision has been independently attested.**
