@@ -1,3 +1,20 @@
+# URGENT NOVEMBER 10 UPDATE — Public release ALREADY completed: DO NOT republish
+
+**The original Stage 14 Section 6 returned a `CalledProcessError` only after its upload and collection-creation operations had successfully created the remote resources.** The anonymous Hugging Face API now shows:
+
+- Public ungated model adapter: https://huggingface.co/shalnark01/policyproof-ai-native40-align-2026
+- Actual public model collection: https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caac578d29e1c66c6
+- Public dataset collection: https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets-6af24cc5b3c20ac76f6ceef5
+- Exact model weight SHA256 as published in the public LFS metadata: `ba985c1966050764a5220e87ea581a9bd482ba87b055fee4a1e363643f1cc92e`, identical to the source ZIP.
+
+The already-published model has five intended source-derived files and no gated original Tiny Aya base weights. **Do not rerun the old publication command, do not delete or replace this model repo, and do not upload the source ZIP again.**
+
+**Recovery:** Open the latest [Stage 14](../notebooks/14_owner_native40_hf_release.ipynb), run Section 1 to refresh repo source in a fresh session, then go straight to **Section 7**, which runs `verify_existing_release()` anonymously on the live public model. No Hugging Face login, rights flags, GPU or ZIP upload is necessary for read-only verification. Alternatively check GitHub's [anonymous model verifier workflow](../.github/workflows/verify-public-native40.yml) after merge. Confirm all 5 file SHA256s. Then proceed directly to the official [Lexsi form](https://hackathon.lexsi.ai/submission/) with the real model and dataset collection URLs.
+
+**The earlier Step B instructions below applied only before publication and are SUPERSEDED. They are retained as historical provenance and must not be followed again.** The owner's license/release-rights responsibility remains independent of technical access. No official Lexsi organizer submission is verified.
+
+---
+
 # Lexsi 2026 owner publication — one private adapter, one public model collection
 
 **Status of this file: instruction sheet; publication has not occurred.** Deadline for first-stage Lexsi submission: **15 November 2026, 11:59 PM Anywhere on Earth**. Read [official organizer rules](https://hackathon.lexsi.ai/) and our [research write-up](LEXSI_TRACK2A_FINAL_WRITEUP.md).
