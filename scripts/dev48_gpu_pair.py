@@ -77,7 +77,7 @@ def check_training_zip(
         or report.get("optimizer_steps_self_reported") != 40
         or report.get("expected_tiny_aya_lora_geometry") is not True
         or report.get("file_hashes_match") is not True):
-        raise ValueError("Original 40-step PEFT archive does not match requested backend")
+        raise ValueError("Original 40-step PEFT archive was not verified for requested backend")
     # Reads only a known, fixed small metadata member. The full ZIP was
     # structurally checked and its size bounded by the archive validator.
     with zipfile.ZipFile(archive) as z:
