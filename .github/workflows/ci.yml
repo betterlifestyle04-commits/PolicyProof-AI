@@ -300,8 +300,11 @@ jobs:
               Path("artifacts/lexsi_track2a_form_draft_UNSUBMITTED.json").read_text()
           )
           assert packet["official_form_url"] == "https://hackathon.lexsi.ai/submission/"
-          assert packet["status"] == "DRAFT_ONLY_MISSING_PUBLICATION_OR_RESEARCH"
+          assert packet["status"] == "DRAFT_ONLY_ABSTRACT_STALE_BLOCKED"
           assert packet["form_fields"]["abstract_under_500_words"] is True
+          assert packet["form_fields"]["abstract_text"] is None
+          assert packet["research_evidence"]["native40_private_paired_dev48_report_present"] is True
+          assert packet["research_evidence"]["historical_abstract_blocked_by_new_native40_results"] is True
           assert packet["form_fields"]["hf_model_collection"] is None
           assert packet["form_fields"]["hf_dataset_collection"] is None
           assert packet["registered_email"] is None

@@ -22,6 +22,7 @@ from scripts.track2a_readiness import readiness
 from scripts.verify_hf_collections import validate_manifest
 
 ABSTRACT_FILE = "docs/TRACK2A_SUBMISSION_ABSTRACT.md"
+NEW_NATIVE40_REPORT = "docs/TRACK2A_NATIVE40_DEV48_OBSERVED_PRIVATE_RESULTS_2026-11-10.md"
 HF_MANIFEST = "docs/hf_publication_manifest.json"
 OFFICIAL_FORM = "https://hackathon.lexsi.ai/submission/"
 REPO = "https://github.com/betterlifestyle04-commits/PolicyProof-AI"
@@ -103,7 +104,22 @@ def handoff(root: Path = ROOT) -> dict:
     )
     unsupported_72_claim = not measured72 and not old_no_72_model_claim
     stale_hf = public_hf and "still pending" in body.casefold()
-    stale_abstract = stale_72 or stale_hf or unsupported_72_claim
+    native_report = root / NEW_NATIVE40_REPORT
+    native40_source_received = (
+        native_report.is_file() and not native_report.is_symlink()
+        and 0 < native_report.stat().st_size < 200_000
+    )
+    # A newer, source-hashed private evaluation cannot safely be pasted into
+    # an old abstract that says no model tuning/evaluation was performed.
+    # This flag deliberately BLOCKS form copying; it never infers that public
+    # model weights or external GPU attestations exist.
+    stale_native40 = native40_source_received and not (
+        "native aligntune" in body.casefold()
+        and "4/9" in body and "2/9" in body
+        and "0/39" in body
+        and "no safety" in body.casefold()
+    )
+    stale_abstract = stale_72 or stale_hf or unsupported_72_claim or stale_native40
     verified_model_collection = None
     verified_dataset_collection = None
     verified_dataset_repo = None
@@ -122,7 +138,10 @@ def handoff(root: Path = ROOT) -> dict:
     if track["conflicting_optional_evidence_blocks_release"]:
         missing.append("Remove or independently repair invalid optional 72-case source evidence")
     if stale_abstract:
-        missing.append("Rewrite and source-check abstract for newly accepted 72-case or HF evidence")
+        missing.append(
+            "Rewrite and source-check abstract for the privately observed native40 "
+            "paired evaluation, newly accepted 72-case results and public HF state"
+        )
     if not public_hf:
         missing.append("Owner-authorized public, ungated HF model and dataset collections with fresh anonymous readback")
     # The registration email is always a private human-entered value; never
@@ -176,6 +195,8 @@ def handoff(root: Path = ROOT) -> dict:
             "unscored_72_claim_must_not_be_pasted_if_new_results_exist": stale_72,
             "new_72_model_results_cannot_be_claimed_without_source_replay": unsupported_72_claim,
             "native_aligntune_training_improvement_claimed": False,
+            "native40_private_paired_dev48_report_present": native40_source_received,
+            "historical_abstract_blocked_by_new_native40_results": stale_native40,
             "independent_human_semantic_accuracy_verified": False,
         },
         "required_actions": missing,
