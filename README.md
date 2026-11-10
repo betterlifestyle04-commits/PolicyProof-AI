@@ -1,3 +1,11 @@
+## November 10 — PUBLIC native40 Hugging Face release located after false-negative Colab exit
+
+**The owner's Stage 14 Section 6 succeeded in creating both public Hugging Face resources before the command returned a nonzero status. DO NOT PUBLISH AGAIN.** The public, ungated [native AlignTune adapter repository](https://huggingface.co/shalnark01/policyproof-ai-native40-align-2026) is listed in the [public model collection](https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caac578d29e1c66c6). The public HF API confirms adapter weights LFS SHA256 `ba985c1966050764a5220e87ea581a9bd482ba87b055fee4a1e363643f1cc92e`, matching the original private adapter. It lists exactly five published release files, plus Hugging Face's `.gitattributes`, without original gated base weights.
+
+A separate [read-only verification workflow](.github/workflows/verify-public-native40.yml) now checks all published file SHA256s and collection membership using **no token, no publication action**, plus a [revised Stage 14 Colab notebook](notebooks/14_owner_native40_hf_release.ipynb) with the original publish section locked. The [publication manifest](docs/hf_publication_manifest.json) now includes the two real collection URLs. **Official Lexsi submission is STILL NOT DONE; registered owner email and form confirmation remain outstanding.** Independent legal rights and semantic correctness have not been adjudicated.
+
+---
+
 ## November 10 — final Track 2a handoff: adapter-only HF model release prepared, NOT published
 
 **Research is source-checked. Submission is NOT complete.** Track 2 already uses **CuratorKIT + AuditKIT** (with supplemental native AlignTune), and the current original 40-step adapter ZIP is pinned. To resolve the outstanding public Hugging Face model-collection requirement, we prepared an **owner-review-only** adapter release kit and CPU Colab notebook, with original-source SHA, honest CC BY-NC / Cohere AUP disclosures and a prominently documented negative abstention outcome. The workflow defaults to **preview mode**, never includes gated base weights or original raw private predictions, and requires the owner's explicit legal/publication approvals before any HF write.

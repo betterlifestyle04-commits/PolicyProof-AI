@@ -1,16 +1,16 @@
 {
   "project": "PolicyProof AI / Lexsi 2026",
   "dataset_url": "https://huggingface.co/datasets/shalnark01/policyproof-track2a-benchmark",
-  "adapter_url": null,
+  "adapter_url": "https://huggingface.co/shalnark01/policyproof-ai-native40-align-2026",
   "logs_url": null,
-  "article_url": null,
+  "article_url": "https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/LEXSI_TRACK2A_FINAL_WRITEUP.md",
   "external_access_verified": false,
   "submission_url": null,
   "submission_confirmation_verified": false,
-  "notes": "The public synthetic dataset and its public dataset collection were directly observed on 2026-11-09. A separate model collection remains missing. Owner-controlled verification flags remain false until a matching fresh anonymous source-integrity receipt exists; legal rights and Lexsi submission are separate.",
-  "model_collection_url": null,
-  "dataset_collection_url": "https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets",
+  "notes": "On 2026-11-10 an anonymous Hugging Face API inspection confirmed a PUBLIC, UNGATED original native40 adapter model repository with the matching 7,705,824-byte safetensors LFS SHA256 and a PUBLIC model collection containing that model. Owner Section 6 returned a nonzero subprocess exit after the remote release operations; do not publish again. New read-only full-file SHA verification is a separate check. Base Tiny Aya remains gated. License rights are owner assertions, not independently adjudicated. Lexsi form submission NOT verified.",
+  "model_collection_url": "https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caacac578d29e1c66c6",
+  "dataset_collection_url": "https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets-6af24cc5b3c20ac76f6ceef5",
   "public_items_ungated_verified": false,
   "abstract_word_count_verified": false,
-  "official_submission_form_url": null
+  "official_submission_form_url": "https://hackathon.lexsi.ai/submission/"
 }
