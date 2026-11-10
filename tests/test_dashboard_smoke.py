@@ -11,6 +11,7 @@ from streamlit.testing.v1 import AppTest
 
 @pytest.mark.parametrize("page", [
     "Research overview",
+    "Native40 research findings",
     "Dataset explorer",
     "Evaluation runs",
     "Paired model evidence",
@@ -244,3 +245,19 @@ def test_review_dashboard_points_to_private_reconciliation_file():
     values = [x.value for x in app.code]
     assert any("reviews/reconciliation.json" in x for x in values)
     assert not any("artifacts/human_review_reconciliation.json" in x for x in values)
+
+
+def test_native40_research_page_exposes_strictly_verified_but_negative_safety_result():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Native40 research findings").run()
+    assert not app.exception, str(app.exception)
+    assert any("Native AlignTune 40-step experiment" in x.value for x in app.subheader)
+    assert any("Correct unsupported-question abstentions fell" in x.value
+               for x in app.warning)
+    assert any("All 96 ORIGINAL saved responses were re-scored" in x.value
+               for x in app.success)
+    assert any("blinded multilingual human review" in x.value
+               for x in app.info)
+    assert any(x.label == "Native AlignTune: valid JSON" for x in app.metric)
+    assert not any("semantic safety verified" in x.value.lower() for x in app.markdown)
