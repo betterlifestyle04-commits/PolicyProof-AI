@@ -174,6 +174,33 @@ jobs:
           assert report["training_semantics_independently_verified"] is False
           print(json.dumps(report, indent=2))
           PY
+      - name: Build original 78-example CuratorKIT training transfer ZIP (NO GPU / NO MODEL)
+        run: |
+          python -m scripts.build_native_train_owner_zip \
+            --source artifacts/curator_train_dual_export \
+            --output artifacts/policyproof_curatorkit_train_v1.zip
+          python - <<'PY'
+          from pathlib import Path
+          from scripts.verify_curator_archive import check_zip
+          from scripts.restore_colab_session import EXPECTED_SHA
+          from zipfile import ZipFile
+          from hashlib import sha256
+          p=Path("artifacts/policyproof_curatorkit_train_v1.zip")
+          checked=check_zip(p)
+          assert checked["status"] == "pass" and checked["row_count"] == 78
+          with ZipFile(p) as z:
+              assert sha256(z.read("sft_alpaca.jsonl")).hexdigest() == EXPECTED_SHA
+              assert "adapter/adapter_model.safetensors" not in z.namelist()
+              assert not any("challenge72" in n or "holdout" in n for n in z.namelist())
+          print("OWNER TRAINING DATA ZIP VERIFIED; no GPU/model work performed")
+          PY
+      - name: Retain original 78-example owner-only training input for native T4 Colab
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-native-align-original-78-CuratorKIT-INPUT-NOT-MODEL
+          path: artifacts/policyproof_curatorkit_train_v1.zip
+          retention-days: 30
+          if-no-files-found: error
       - name: Actual CuratorKIT curation followed by AuditKIT evaluation of saved base-model outputs
         run: python -m scripts.track2a_chain --output-dir artifacts/track2a_safety
       - name: Verify curation and report files exist
