@@ -467,12 +467,15 @@ def main():
         summary=create_results_bundle(args.base,args.tuned,args.paired,args.bundle)
     elif args.audit_existing:
         summary=audit_existing(args.root,args.archive,args.expected_archive_sha256,
-                               args.base,args.tuned,args.paired)
+                               args.base,args.tuned,args.paired,
+                               expected_backend=args.adapter_backend)
     elif args.execute:
         summary=execute_pair(args.root,args.archive,args.expected_archive_sha256,
-                             args.base,args.tuned,args.paired,resume_base=args.resume_base)
+                             args.base,args.tuned,args.paired,resume_base=args.resume_base,
+                             expected_backend=args.adapter_backend)
     else:
-        summary=preflight(args.root,args.archive,args.expected_archive_sha256)
+        summary=preflight(args.root,args.archive,args.expected_archive_sha256,
+                          expected_backend=args.adapter_backend)
     print(json.dumps(summary,indent=2,ensure_ascii=False,allow_nan=False))
 
 
