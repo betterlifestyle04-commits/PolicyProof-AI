@@ -1,3 +1,13 @@
+## NOVEMBER 10 — RELEASE STATUS CORRECTED AFTER COLAB ERROR
+
+The first owner publication command returned a `CalledProcessError` **after** both public Hugging Face resources were created. Read-only HF API checks confirmed the public ungated original native adapter model and **the corresponding public model collection with the correct model**. The adapter's public LFS SHA256 equals the original owner ZIP's adapter tensor SHA. The [publication manifest](hf_publication_manifest.json) is updated with the exact URLs. Do **not** rerun the old Stage 14 publication.
+
+**Your remaining personal steps:** (1) optionally inspect the tokenless [read-only verification](../notebooks/14_owner_native40_hf_release.ipynb) Section 7 or GitHub Action; (2) verify publication terms/release rights; (3) complete the [official Lexsi form](https://hackathon.lexsi.ai/submission/) with the registered email, [real public model collection](https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caac578d29e1c66c6), [public dataset collection](https://huggingface.co/collections/shalnark01/policyproof-ai-multilingual-safety-datasets-6af24cc5b3c20ac76f6ceef5), [final write-up](LEXSI_TRACK2A_FINAL_WRITEUP.md) and [under-500-word abstract](LEXSI_TRACK2A_ABSTRACT_AFTER_PUBLIC_MODEL_RELEASE.md); (4) retain the actual organizer confirmation. **No more training, dataset upload or model publication is required.**
+
+**The pre-publication instructions below are historical and superseded by this section.** Official form delivery has NOT been confirmed.
+
+---
+
 # Lexsi Track 2a — Final owner checklist and form fields
 
 **As of 10 November 2026: this document is a delivery checklist, not a submission receipt.** Official deadline: **15 November 2026, 11:59 PM Anywhere on Earth (AoE)**. See [Lexsi official rules](https://hackathon.lexsi.ai/). The official initial submission does **not** require a video or slides; these are requested of shortlisted teams after 16 November. The latest valid submission before the deadline counts.
