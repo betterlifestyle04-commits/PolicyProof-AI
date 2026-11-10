@@ -1,3 +1,11 @@
+## November 11 — original 96-response strict gold rescoring passed (no new GPU)
+
+The owner's original 48-case base-versus-native40 response ZIP was independently **re-scored from all 96 raw saved responses against the exact frozen gold**, rather than merely re-summing archived scores. **Every original per-case strict score reproduced exactly.** Valid JSON improved **14/48→48/48**, but supported-answer exact matches remained **0/39** and correct unsupported abstentions **regressed 4/9→2/9**. This is published-rubric reproducibility, **not human semantic review, real-world safety certification or GPU attestation**. See [fresh gold-based research audit](docs/NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md) and [Stage 15 reviewer notebook](notebooks/15_native40_fresh_gold_rescore_and_blind_human_review.ipynb).
+
+A separate **private blinded human-review packet** can be generated without exposing model A/B identities, answerability labels or gold answers. Human votes have NOT been collected. [Reviewer instructions](docs/NATIVE40_DEV48_HUMAN_REVIEW_HANDOFF.md). The original 40-step adapter and both public HF collections remain unchanged; **Lexsi official submission is not confirmed**.
+
+---
+
 ## November 10 — PUBLIC native40 Hugging Face release located after false-negative Colab exit
 
 **The owner's Stage 14 Section 6 succeeded in creating both public Hugging Face resources before the command returned a nonzero status. DO NOT PUBLISH AGAIN.** The public, ungated [native AlignTune adapter repository](https://huggingface.co/shalnark01/policyproof-ai-native40-align-2026) is listed in the [public model collection](https://huggingface.co/collections/shalnark01/policyproof-ai-lexsi-track-2-model-and-adapter-research-6af39caac578d29e1c66c6). The public HF API confirms adapter weights LFS SHA256 `ba985c1966050764a5220e87ea581a9bd482ba87b055fee4a1e363643f1cc92e`, matching the original private adapter. It lists exactly five published release files, plus Hugging Face's `.gitattributes`, without original gated base weights.
