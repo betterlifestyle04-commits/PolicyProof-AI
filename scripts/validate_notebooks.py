@@ -156,6 +156,8 @@ def validate_notebook(path: Path) -> dict:
             "AGGREGATE_RESEARCH_RELEASE_RIGHTS_APPROVED = False",
             "owner_approved()",
             "policyproof_align_native40.zip",
+            "from scripts.verify_existing_native40_public_model import verify_existing_release",
+            "PUBLIC_NATIVE40_ALREADY_EXISTS",
             "dcefc5b0babf708aa1b48ac0349ddb3bc4745405c72e9636c5860d7719d8f0e9",
         ):
             if required not in code:
@@ -163,10 +165,11 @@ def validate_notebook(path: Path) -> dict:
         if (re.search(r"(?m)^\s*RUN_PUBLIC_HF_RELEASE\s*=\s*True\b", code)
             or re.search(r"(?m)^\s*PUBLIC_ADAPTER_RELEASE_APPROVED\s*=\s*True\b", code)
             or "if RUN_PUBLIC_HF_RELEASE:" not in code
-            or "--approve-license" not in code
-            or "--approve-public" not in code
-            or "--approve-outputs" not in code):
-            raise ValueError(f"{path}: public release must stay OFF and require explicit rights consent")
+            or "raise RuntimeError(" not in code
+            or "public_receipt=verify_existing_release()" not in code
+            or "publication_attempted_in_this_check" not in code
+            or "subprocess.run([sys.executable,'-m','scripts.owner_native40_hf_release',\n        'publish'" in code):
+            raise ValueError(f"{path}: already-public native40 release must remain locked; only anonymous readback is permitted")
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
