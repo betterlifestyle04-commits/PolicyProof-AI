@@ -153,3 +153,41 @@ print("Chat-template compat layer reloaded:",
 Then rerun Section 6 using `RUN_DEV48_GPU_EVAL = True`, `RESUME_SAVED_BASE = False` **only if all three files are absent**. If a complete original base file is present but both tuned/paired files are absent, inspect it first and use `RESUME_SAVED_BASE = True`. If tuned or paired files exist, stop and inspect those records rather than overwriting them.
 
 The notebook's old source cell still works after reloading because it reimports the updated `execute_pair` from the now-current `scripts.dev48_gpu_pair`. The imported function uses the newly reloaded shared tokenizer handler. **The source update is not an execution of model inference.** Only the explicit Section 6 toggle starts GPU work. The already-inspected development split is not a blind holdout.
+
+## November 10 — repaired pinned model revision verification for Stage 13
+
+The owner’s Stage 13 base-model pass downloaded the gated Tiny Aya Global
+model successfully (all 290 weight tensors loaded) but stopped **before the
+first completed dev48 report** because `model.config._commit_hash` was absent.
+That optional Transformers metadata field is not consistently exposed by all
+loading configurations. The original fail-closed behavior was intentional,
+but required a safer alternative rather than accepting the requested SHA alone.
+
+The paired inference loader now obtains an **authenticated immutable Hugging
+Face snapshot** at the expected 40-hex revision using
+`snapshot_download(repo_id="CohereLabs/tiny-aya-global", revision=expected,
+token=True, ...)`. It checks the exact cache path
+`models--CohereLabs--tiny-aya-global/snapshots/<commit>`, small config files,
+and a bounded safetensors index with all shard files present. Both the
+tokenizer and **each** original/adapted model are then loaded with
+`from_pretrained(str(checked_snapshot), local_files_only=True)`. Therefore,
+inference weights come from the **same pinned HF snapshot** instead of relying
+solely on a sometimes-empty model config property.
+
+A *different* nonempty `model.config._commit_hash` still causes immediate
+failure; a missing value is permitted **only** with a checked immutable source
+directory. GPU evidence records which verification route was used and
+explicitly records that this is **not external GPU attestation** and **does not
+retroactively prove which model revision was loaded during training**.
+
+**Owner recovery:** Open the latest
+[Stage 13 Colab notebook](../notebooks/13_native40_dev48_pair_t4.ipynb),
+run Sections 1–5 against the exact original native40 ZIP, then run Section 6
+with `RUN_DEV48_GPU_EVAL=True` and `RESUME_SAVED_BASE=False` **only if
+no complete base report exists yet**. The failed run stopped at provenance
+verification before generating outputs, so ordinarily there is no base JSON.
+Inspect the actual notebook file paths first; if a full base report exists,
+stop and use explicit resume mode instead of overwriting it. No new training
+or new adapter is required. This is a previously inspected **development**
+comparison, not a final blind or semantically reviewed benchmark.
+
