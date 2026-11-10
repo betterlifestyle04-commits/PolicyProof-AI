@@ -209,20 +209,97 @@ def normalize_chat_template_batch(encoded, torch, device):
     return input_ids.to(device), mask.to(device)
 
 
-def verify_loaded_model_revision(model, expected: str) -> str:
-    """Fail closed unless the *loaded* HF model config reports the pinned Git SHA.
+def check_pinned_snapshot_path(snapshot: str | Path, expected: str) -> Path:
+    """Verify exact Hugging Face *model* cache revision and complete weights.
 
-    A requested from_pretrained(revision=...) argument or a separate model_info
-    lookup is not evidence of the actually loaded base-model revision.
+    Returned by an authenticated snapshot_download at an immutable 40-hex
+    commit, NOT a user-supplied local_dir. A snapshot path is source binding
+    within this run, NOT cryptographic attestation of GPU execution or of the
+    original model revision used months earlier for adapter training.
+    """
+    if not isinstance(expected, str) or not REVISION.fullmatch(expected):
+        raise ValueError("Expected full pinned Tiny Aya Git commit SHA")
+    path = Path(snapshot).absolute()
+    if (path.name != expected or path.parent.name != "snapshots"
+        or path.parent.parent.name != "models--CohereLabs--tiny-aya-global"
+        or path.is_symlink() or not path.is_dir()):
+        raise RuntimeError("HF model snapshot not bound to the exact Tiny Aya commit")
+    for relative in ("config.json", "tokenizer_config.json"):
+        item = path / relative
+        if not item.is_file() or not 0 < item.stat().st_size <= 5_000_000:
+            raise RuntimeError("Pinned HF model snapshot missing " + relative)
+    # Tiny Aya publishes sharded safetensors, but support a single weight file.
+    index = path / "model.safetensors.index.json"
+    if index.is_file():
+        if not 0 < index.stat().st_size <= 10_000_000:
+            raise RuntimeError("Invalid HF model safetensors index size")
+        try:
+            record = json.loads(index.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeError) as exc:
+            raise RuntimeError("Invalid pinned safetensors index") from exc
+        mapping = record.get("weight_map") if isinstance(record, dict) else None
+        if not isinstance(mapping, dict) or not mapping or len(mapping) > 10000:
+            raise RuntimeError("Pinned safetensors index lacks a bounded weight map")
+        shards = set(mapping.values())
+        if (not 0 < len(shards) <= 30
+            or not all(isinstance(name, str) and re.fullmatch(
+                r"[A-Za-z0-9._-]+\\.safetensors", name
+            ) and name not in (".", "..") for name in shards)):
+            raise RuntimeError("Unsafe safetensors shard names in pinned model index")
+        for name in shards:
+            item = path / name
+            if not item.is_file() or item.stat().st_size == 0:
+                raise RuntimeError("Pinned model snapshot has missing safetensors shard")
+    elif not (path / "model.safetensors").is_file():
+        raise RuntimeError("Pinned HF model snapshot has no safetensors weights")
+    return path
+
+
+def obtain_pinned_model_snapshot(expected: str, *, downloader=None) -> Path:
+    """Get authenticated immutable Tiny Aya snapshot, avoiding missing config SHA.
+
+    This is invoked ONLY inside an explicit GPU evaluation action. No token is
+    printed or saved in project files. Hugging Face's standard cached snapshot
+    downloads preserve exact commit directories and skip already cached blobs.
+    """
+    if not isinstance(expected, str) or not REVISION.fullmatch(expected):
+        raise ValueError("Require exact 40-hex base-model commit")
+    if downloader is None:
+        from huggingface_hub import snapshot_download
+        downloader = snapshot_download
+    source = downloader(
+        repo_id=MODEL_ID, revision=expected, token=True,
+        allow_patterns=[
+            "*.json", "*.safetensors", "*.model", "*.txt",
+            "*.jinja", "*.tiktoken",
+        ],
+    )
+    return check_pinned_snapshot_path(source, expected)
+
+
+def verify_loaded_model_revision(model, expected: str, *,
+                                 pinned_snapshot: str | Path | None = None) -> str:
+    """Require directly reported commit OR confirmed pinned local load source.
+
+    Transformers sometimes leaves model.config._commit_hash unset even when
+    from_pretrained is loading the correct weights. Accept that case ONLY when
+    the caller has loaded the model explicitly from a previously checked,
+    authenticated HF snapshot at the exact immutable revision. Do NOT use a
+    mere model_info() lookup or requested revision as evidence.
     """
     if not isinstance(expected, str) or not REVISION.fullmatch(expected):
         raise ValueError("Requested Tiny Aya base-model revision is not a full Git SHA")
     observed = getattr(getattr(model, "config", None), "_commit_hash", None)
-    if not isinstance(observed, str) or not REVISION.fullmatch(observed):
+    if observed is not None:
+        if not isinstance(observed, str) or not REVISION.fullmatch(observed):
+            raise RuntimeError("Loaded Tiny Aya model reported malformed commit SHA")
+        if observed != expected:
+            raise RuntimeError("Loaded Tiny Aya base-model revision does not match pinned SHA")
+        return observed
+    if pinned_snapshot is None:
         raise RuntimeError("Loaded Tiny Aya model did not expose an observed commit SHA")
-    if observed != expected:
-        raise RuntimeError("Loaded Tiny Aya base-model revision does not match pinned SHA")
-    return observed
+    check_pinned_snapshot_path(pinned_snapshot, expected)
+    return expected
 
 
 def verify_adapter_still_unchanged(adapter: Path, receipt: dict) -> None:
@@ -257,19 +334,31 @@ def _predict_on_gpu(rows: list[dict], revision: str,
     if not torch.cuda.is_available():
         raise RuntimeError("GPU execution requested, but CUDA is unavailable")
     device = torch.device("cuda:0")
+    # Source binding is the same for both the original and adapted passes.
+    # A model.config._commit_hash alone may be absent in Transformers v5,
+    # so load both tokenizer and model from this authenticated, commit-named
+    # HF cache snapshot instead of relying on missing model-object metadata.
+    snapshot = obtain_pinned_model_snapshot(revision)
     tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_ID, revision=revision, trust_remote_code=False
+        str(snapshot), local_files_only=True, trust_remote_code=False
     )
     cfg = BitsAndBytesConfig(load_in_4bit=True)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID, revision=revision, trust_remote_code=False,
+        str(snapshot), local_files_only=True, trust_remote_code=False,
         quantization_config=cfg, device_map={"": 0},
         torch_dtype=torch.float16,
     )
     predictions = {}
     try:
         # Check the loaded object, not only the request passed to HF.
-        observed = verify_loaded_model_revision(model, revision)
+        observed = verify_loaded_model_revision(
+            model, revision, pinned_snapshot=snapshot
+        )
+        revision_method = (
+            "loaded_model_config_commit_sha"
+            if getattr(model.config, "_commit_hash", None) is not None
+            else "authenticated_pinned_hf_snapshot_source"
+        )
         if adapter_directory is not None:
             from peft import PeftModel
             model = PeftModel.from_pretrained(
@@ -308,6 +397,8 @@ def _predict_on_gpu(rows: list[dict], revision: str,
                 progress_callback(row, raw, {
                     "loaded_model_revision_observed": observed,
                     "loaded_model_revision_verified": True,
+                    "loaded_model_revision_verification_method": revision_method,
+                    "loaded_revision_independently_gpu_attested": False,
                     "gpu": torch.cuda.get_device_name(0),
                     "torch_version": torch.__version__,
                     "transformers_model_backend": "AutoModelForCausalLM",
@@ -324,6 +415,8 @@ def _predict_on_gpu(rows: list[dict], revision: str,
         "quantization": "bnb_4bit",
         "loaded_model_revision_observed": observed,
         "loaded_model_revision_verified": True,
+        "loaded_model_revision_verification_method": revision_method,
+        "loaded_revision_independently_gpu_attested": False,
     }
 
 
