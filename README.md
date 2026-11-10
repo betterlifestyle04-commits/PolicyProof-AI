@@ -1,3 +1,23 @@
+## November 10 — original native AlignTune 40-step adapter verified privately
+
+The owner uploaded the original private `policyproof_align_native40.zip`, SHA256
+`dcefc5b0babf708aa1b48ac0349ddb3bc4745405c72e9636c5860d7719d8f0e9`.
+Offline CPU checks confirmed three ZIP members, matching content hashes,
+288 BF16 LoRA tensors, 3,833,856 nonzero adapter elements and no NaN/Inf
+values. The receipt self-reports 40 native AlignTune optimizer steps on a T4;
+the exact training-time loaded Tiny Aya model revision remains **unobserved**,
+and model improvement has not been evaluated.
+
+Use the separate [native40 paired dev48 evaluation notebook](notebooks/13_native40_dev48_pair_t4.ipynb),
+NOT the older notebook 06 pinned to a different manual PyTorch adapter. It
+accepts only this native40 source SHA and native AlignTune backend, performs
+two fresh same-revision original-vs-adapter GPU inference passes on the
+previously inspected **48-case development set**, and is OFF by default.
+The 72 adversarial challenge and blind 60 candidate are not used for training
+or evaluation in this notebook. No trained model weights were added to GitHub.
+
+---
+
 ## November 10 — original 72-case results privately received and source-scored
 
 An owner-supplied **private six-file Stage 12 archive** now contains 72 original saved Tiny Aya base-model responses and a pinned native AuditKIT 1.1.3 score receipt. A separate CPU recomputation reproduced the archived sample, language and attack-family score counts exactly. The saved source metadata identifies a Tesla T4, but **independent GPU attestation and human semantic review remain outstanding**.
