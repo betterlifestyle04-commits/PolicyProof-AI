@@ -1,0 +1,72 @@
+name: Verify ALREADY-published native40 HF model and collection anonymously (NO UPLOAD)
+
+# This workflow NEVER uses HF_TOKEN and NEVER creates/uploads/deletes HF files.
+# Original uploader returned nonzero after public repo and collection existed.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/verify-public-native40.yml
+      - scripts/verify_existing_native40_public_model.py
+      - docs/hf_publication_manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: policyproof-existing-native40-public-hf-anonymous-readback
+  cancel-in-progress: false
+
+jobs:
+  verify-native40:
+    name: Source-pinned public HF model + collection hashes (ANONYMOUS, NO UPLOAD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install unauthenticated Hugging Face SDK only
+        run: |
+          python -m pip install 'huggingface_hub>=1.16,<2'
+          python -m scripts.check_hf_sdk_contract
+      - name: Public source-pinned adapter, ALL 5 file hashes and collection readback
+        run: |
+          set -euo pipefail
+          python -m scripts.verify_existing_native40_public_model \
+            --output artifacts/hf_public_native40_verified.json
+      - name: Confirm exact release and ZERO publication or official submission claimed
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          x = json.loads(Path("artifacts/hf_public_native40_verified.json").read_text())
+          assert x["status"] == "PUBLIC_NATIVE40_MODEL_AND_COLLECTION_ANONYMOUSLY_VERIFIED_NO_UPLOAD"
+          assert x["public_ungated_model_verified"] is True
+          assert x["all_public_files_sha256_verified"] is True
+          assert x["public_collection_contains_expected_model"] is True
+          assert x["public_file_count"] == 5
+          assert x["original_owner_zip_sha256"] == "dcefc5b0babf708aa1b48ac0349ddb3bc4745405c72e9636c5860d7719d8f0e9"
+          for key in ("publication_attempted_in_this_check", "authentication_token_used",
+                      "license_rights_independently_approved",
+                      "model_semantic_safety_improvement_verified",
+                      "official_lexsi_submission_verified"):
+              assert x[key] is False, key
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as out:
+              out.write("## Existing native40 model: PUBLIC and SHA256-VERIFIED (NO UPLOAD)\n\n")
+              out.write("Model: " + x["model_repo_url"] + "\n\n")
+              out.write("Model collection: " + x["model_collection_url"] + "\n\n")
+              out.write("Pinned model commit: " + x["model_revision"] + "\n\n")
+              out.write("All 5 public original files checked with SHA256. No write token, no HF upload, no official Lexsi form submission.\n")
+          PY
+      - name: Retain read-only verification receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: policyproof-native40-ALREADY-PUBLIC-anonymous-hash-readback-NOT-SUBMITTED
+          path: artifacts/hf_public_native40_verified.json
+          retention-days: 30
+          if-no-files-found: error
