@@ -28,7 +28,7 @@ def test_source_checked_unsubmitted_form_is_readable_and_contains_no_secrets(
     assert "Hugging Face model collection" in html
     assert "Hugging Face dataset collection" in html
     assert "MISSING — DO NOT INVENT A LINK" in html
-    assert "2026-11-14 end-of-day AoE" in html
+    assert "2026-11-15 11:59 PM AoE" in html
     assert "https://hackathon.lexsi.ai/submission/" in html
     assert packet["form_fields"]["abstract_source_sha256"] in html
     assert "registered_email" not in html
