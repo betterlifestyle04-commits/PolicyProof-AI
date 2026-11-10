@@ -1,3 +1,11 @@
+## 11 NOVEMBER — Scientific audit upgraded; optional blinded review ready
+
+A fresh **raw-prediction-to-frozen-gold** recalculation independently reproduced all 96 archived strict scores: [research audit](NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md). This does **not** establish semantic answer correctness; original model outputs can be correct paraphrases that exact matching rejects. A [private blinded human-review packet](NATIVE40_DEV48_HUMAN_REVIEW_HANDOFF.md) and [Stage 15 Colab](../notebooks/15_native40_fresh_gold_rescore_and_blind_human_review.ipynb) are available if you can recruit **genuine qualified independent reviewers** before the deadline. Do not fake review or retrain on the frozen sets.
+
+**This optional review is NOT needed to submit an honest Track 2a benchmark with documented failure modes.** Public model/dataset collections are technically verified; the official Lexsi form and owner's publication-rights responsibility remain. Do not delay a first valid submission merely to claim uncompleted reviews.
+
+---
+
 ## NOVEMBER 10 — RELEASE STATUS CORRECTED AFTER COLAB ERROR
 
 The first owner publication command returned a `CalledProcessError` **after** both public Hugging Face resources were created. Read-only HF API checks confirmed the public ungated original native adapter model and **the corresponding public model collection with the correct model**. The adapter's public LFS SHA256 equals the original owner ZIP's adapter tensor SHA. The [publication manifest](hf_publication_manifest.json) is updated with the exact URLs. Do **not** rerun the old Stage 14 publication.
