@@ -143,6 +143,30 @@ def validate_notebook(path: Path) -> dict:
             raise ValueError(
                 f"{path}: Stage 13 must fail fast on stale imported code before GPU execution"
             )
+    if path.name == "14_owner_native40_hf_release.ipynb":
+        code = "\n".join(
+            "".join(cell["source"]) if isinstance(cell["source"], list)
+            else cell["source"]
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+        )
+        for required in (
+            "RUN_PUBLIC_HF_RELEASE = False",
+            "PUBLIC_ADAPTER_RELEASE_APPROVED = False",
+            "UPSTREAM_LICENSE_AND_COHERE_AUP_REVIEWED = False",
+            "AGGREGATE_RESEARCH_RELEASE_RIGHTS_APPROVED = False",
+            "owner_approved()",
+            "policyproof_align_native40.zip",
+            "dcefc5b0babf708aa1b48ac0349ddb3bc4745405c72e9636c5860d7719d8f0e9",
+        ):
+            if required not in code:
+                raise ValueError(f"{path}: owner-only HF release cannot run without exact guard: {required}")
+        if (re.search(r"(?m)^\s*RUN_PUBLIC_HF_RELEASE\s*=\s*True\b", code)
+            or re.search(r"(?m)^\s*PUBLIC_ADAPTER_RELEASE_APPROVED\s*=\s*True\b", code)
+            or "if RUN_PUBLIC_HF_RELEASE:" not in code
+            or "--approve-license" not in code
+            or "--approve-public" not in code
+            or "--approve-outputs" not in code):
+            raise ValueError(f"{path}: public release must stay OFF and require explicit rights consent")
     if path.name in ("03_aligntune_qlora_t4.ipynb", "04_kaggle_gpu_fallback.ipynb"):
         if not {"RUN_TRAINING", "RUN_EXTENDED_TRAINING"}.issubset(opt_in_flags):
             raise ValueError(f"{path}: smoke and extended training must both default OFF")
