@@ -97,7 +97,10 @@ def validate_notebook(path: Path) -> dict:
             or 'EXPECTED_SHA' not in notebook_code
             or "optimizer_steps=40" not in notebook_code
             or "loaded_revision_evidence=loaded_revision" not in notebook_code
-            or "cpu_receipt = inspect_training_archive(output_zip)" not in notebook_code):
+            or "cpu_receipt = inspect_training_archive(output_zip)" not in notebook_code
+            or "from scripts.colab_native_align_env import verify_text_only_native_env" not in notebook_code
+            or "env_report = verify_text_only_native_env()" not in notebook_code
+            or "TRAINING_ENV_READY: TRUE" not in notebook_code):
             raise ValueError(
                 f"{path}: native 40-step run must default OFF and verify "
                 "curated training, loaded revision and saved artifact"

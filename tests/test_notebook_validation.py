@@ -103,3 +103,18 @@ def test_native40_notebook_cannot_remove_artifact_verification(tmp_path):
     target.write_text(json.dumps(notebook))
     with pytest.raises(ValueError, match="native 40-step run must default OFF"):
         validate_notebook(target)
+
+def test_native40_notebook_cannot_bypass_text_only_sdk_environment_preflight(tmp_path):
+    origin = Path(__file__).resolve().parents[1] / "notebooks/11_native_aligntune_40step_t4.ipynb"
+    notebook = json.loads(origin.read_text())
+    for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            cell["source"] = "".join(cell["source"]).replace(
+                "env_report = verify_text_only_native_env()",
+                "env_report = {'status': 'faked'}",
+            )
+    target = tmp_path / "11_native_aligntune_40step_t4.ipynb"
+    target.write_text(json.dumps(notebook))
+    with pytest.raises(ValueError, match="native 40-step run must default OFF"):
+        validate_notebook(target)
+

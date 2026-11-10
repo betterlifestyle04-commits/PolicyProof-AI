@@ -5,6 +5,20 @@ The existing 40-step model adaptation was run with a **direct PyTorch fallback o
 
 This new path is an **independent fresh-run experiment** using the official AlignTune TRL trainer. It cannot retroactively convert the earlier manual result into an official run.
 
+## November 10 — Colab 2026.10 Python 3.13 / torchvision import repair
+
+An owner T4 Colab attempt reached Stage 11 Step 2 but failed **before model loading or optimizer execution**. The deepest traceback was `partially initialized module 'torchvision' ... has no attribute 'extension'`, followed by a **misleading** `BloomPreTrainedModel` import error from Transformers. The project trains a **text-only** Tiny Aya language model; torchvision is not required by the Stage 11 training path. A partially initialized optional vision module can poison lazy Transformers imports even when AlignTune, TRL and BNB package metadata show installed versions.
+
+The notebook's **Step 2** now uses `scripts.colab_native_align_env.verify_text_only_native_env`. It:
+1. installs exact AlignTune 0.1.28, TRL 1.7.1 and BitsAndBytes 0.50.2 (only when absent or mismatched), **without replacing torch**;
+2. uninstalls optional **torchvision only** so Transformers does not load a broken vision extension during text-only initialization;
+3. **requires a full Colab runtime restart** after any pip install or uninstall, because failing lazy Python module imports cannot be safely reset in place;
+4. then verifies the entire native import chain in a **fresh subprocess**, including `BloomPreTrainedModel`, before reporting `TRAINING_ENV_READY: TRUE`. It does not load model weights or run training.
+
+**Exact owner recovery:** Open a **fresh** Stage 11 from GitHub `main`, select T4, run Section 1 then Section 2. If you see `RESTART THE RUNTIME`, use **Runtime → Restart session** and rerun **Sections 1–2 only** (no extra optimizer). If import preflight still fails, choose **Runtime → Change runtime type → Runtime Version 2026.07** (Python 3.12) with T4, and start again. Google Colab officially lists this previous runtime as available; actual account availability can vary. The 78-row ZIP is uploaded only in Section 3, after the environment passes.
+
+**Do not install a standalone BloomPreTrainedModel package, reinstall random versions of torch/torchvision, or run the training cell as a workaround.** A verified import and zero optimizer steps must precede any owner-authorized native 40-step run.
+
 ## November 9 — safer owner recovery after a native 40-step run
 
 [Stage 11 guided native AlignTune T4 Colab notebook](https://colab.research.google.com/github/betterlifestyle04-commits/PolicyProof-AI/blob/main/notebooks/11_native_aligntune_40step_t4.ipynb) now **separates the optimizer action from private backup/browser download**. All action switches still default OFF.
