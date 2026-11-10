@@ -191,3 +191,37 @@ stop and use explicit resume mode instead of overwriting it. No new training
 or new adapter is required. This is a previously inspected **development**
 comparison, not a final blind or semantically reviewed benchmark.
 
+## November 10 — Stage 13 repeat provenance error due to stale Colab imports
+
+An owner T4 session pulled the new authenticated HF snapshot code, loaded all
+290 Tiny Aya tensor files, but still reported the **old**
+`Loaded Tiny Aya model did not expose an observed commit SHA` error. The
+traceback showed a **new source-file line** (`path = Path(snapshot).absolute()`)
+while executing the **old in-memory Python function**. This demonstrates a
+stale Colab `sys.modules` import after a GitHub source update, not a new
+failure of the actual downloaded model or original adapter.
+
+**Do not reload individual modules ad hoc:** `scripts.dev48_gpu_pair` imported
+the original `_predict_on_gpu` function object via a `from ... import` and
+could retain that stale object even if `scripts.frozen_pair_inference` alone
+were reloaded. Instead use **Runtime → Restart session**, not factory reset.
+Rerun the latest Stage 13 Sections **1–5**, including approved Hugging Face
+auth. Inspect the existing three private result files before Section 6; if no
+complete base JSON exists, run Section 6 with
+`RUN_DEV48_GPU_EVAL=True`, `RESUME_SAVED_BASE=False`.
+If a complete original base JSON exists, do not overwrite or repeat it;
+use the notebook's explicit recovery logic.
+
+New `scripts.check_native40_live_code.assert_live_pinned_snapshot_inference`
+inspects the actual **live function code objects**, confirming that the
+predictor calls `obtain_pinned_model_snapshot`, supports
+`pinned_snapshot` provenance verification, and is **identical** to the
+function referenced by the dev48 runner. This check is invoked in both
+Section 4 and Section 6 **before loading multi-GB weights**. A changed Git
+checkout containing previously imported inference modules also stops early
+in Section 1. Any stale-code error requires a normal session restart, not
+training or downloaded-weight replacement.
+
+The adapter ZIP and original training are unchanged. This is a provenance
+preflight repair, not a new model improvement result.
+
