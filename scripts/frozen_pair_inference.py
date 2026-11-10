@@ -243,7 +243,7 @@ def check_pinned_snapshot_path(snapshot: str | Path, expected: str) -> Path:
         shards = set(mapping.values())
         if (not 0 < len(shards) <= 30
             or not all(isinstance(name, str) and re.fullmatch(
-                r"[A-Za-z0-9._-]+\\.safetensors", name
+                r"[A-Za-z0-9._-]+\.safetensors", name
             ) and name not in (".", "..") for name in shards)):
             raise RuntimeError("Unsafe safetensors shard names in pinned model index")
         for name in shards:
