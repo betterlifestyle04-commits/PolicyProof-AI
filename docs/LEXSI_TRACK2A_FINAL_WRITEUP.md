@@ -1,3 +1,5 @@
+> **Research provenance update — 11 November 2026:** A new CPU-only offline check has [recomputed the strict scores from all 96 original saved Stage 13 raw responses against frozen gold](NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md); the original score rows all matched. This is **not** an independent human assessment of answer meaning or source entailment. The adapter-only HF model repository and separate model collection are now public, but the upstream Tiny Aya base remains gated and the **organizer submission is still not confirmed**. Earlier historical paragraphs below describing the LoRA as private refer to its pre-publication state and should not be used as current status. The owner-only [blinded semantic-review workflow](NATIVE40_DEV48_HUMAN_REVIEW_HANDOFF.md) is prepared, not completed.
+
 # PolicyProof AI — Multilingual evidence-grounding and safety failure analysis
 
 **Lexsi Labs AI Safety and Alignment Hackathon 2026 — Track 2a, adversarial and multilingual safety benchmark (research write-up).**
