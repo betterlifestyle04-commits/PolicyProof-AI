@@ -94,3 +94,23 @@ The no-AMP/preflight tests deliberately simulate AlignTune's `train.extra_params
 Run independent 48-case base-vs-trained evaluation **without using it to train**, then the separate human-blinded semantic review. The 60-case candidate final set remains held back until independent gold-label review is completed. The final paired inference, HF collection publication, license check, organizer approval and official submission still require separate evidence. Merely completing 40 steps or achieving a schema metric is not proof that PolicyProof AI learned to reason about the fictional policy text accurately.
 
 **Remaining blocker:** We cannot execute the remote Colab T4 from GitHub Actions and therefore this new path is still **untested end-to-end on GPU**. If it fails on Colab, retain the complete error and failure receipt, and diagnose the real trainer rather than relabeling the old manual fallback. This research pipeline must not be used as a production financial-answer authority.
+
+## November 10 — original 78-example training ZIP now produced by verified CI
+
+The Stage 11 native40 Colab notebook requires the **original** `policyproof_curatorkit_train_v1.zip`. To avoid asking the owner to find an old attachment or accidentally use the 72-case challenge, the CI job `Real CuratorKIT then AuditKIT safety benchmark (CPU)` now builds it from fresh **official CuratorKIT 0.1.22** exports, verifies both Alpaca and ShareGPT views, validates the unchanged **78-row training-data SHA256 `4b14eb262b52eaba00794f070a4e69ae543bd2d13d060d2d06e4832c1a84294c`**, and independently validates the sealed ZIP with `scripts.verify_curator_archive.check_zip`.
+
+**Download:** On the latest successful [main GitHub Actions run](https://github.com/betterlifestyle04-commits/PolicyProof-AI/actions/workflows/ci.yml), find **Artifacts → `policyproof-native-align-original-78-CuratorKIT-INPUT-NOT-MODEL`**. GitHub downloads an *outer Actions artifact ZIP*; extract the single `policyproof_curatorkit_train_v1.zip` from it. Upload **that inner ZIP**, unchanged, when Stage 11's **Step 3** secure Colab upload prompt requests it.
+
+The inner ZIP contains only the original CuratorKIT source-derived training export files; no adapter, model weights, GPU results, reviewer notes, 48-case evaluation, 60-case holdout or 72-case challenge. It is **training input**, not a trained model or research result. Weights still need legitimate Tiny Aya access and license approval in the owner's fresh GPU runtime. The GitHub runner never downloads a gated model, accesses owner HF tokens, or performs optimizer steps.
+
+For a reproducible local CPU-only rebuild from a checked-out project with CuratorKIT 0.1.22 installed:
+
+```bash
+python -m scripts.prepare
+python -m scripts.run_curator --output artifacts/curator_train_dual_export
+python -m scripts.build_native_train_owner_zip
+python -m scripts.verify_curator_archive artifacts/policyproof_curatorkit_train_v1.zip
+```
+
+**Never train on the frozen 72-case adversarial evaluation, final-60 holdout, or original 48-case evaluation examples.** If Stage 11 has already started training in its current Colab runtime, do not rerun the optimizer to replace a ZIP; use its read-only interruption audit.
+
