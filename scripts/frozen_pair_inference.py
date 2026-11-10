@@ -292,7 +292,7 @@ def verify_loaded_model_revision(model, expected: str, *,
     observed = getattr(getattr(model, "config", None), "_commit_hash", None)
     if observed is not None:
         if not isinstance(observed, str) or not REVISION.fullmatch(observed):
-            raise RuntimeError("Loaded Tiny Aya model reported malformed commit SHA")
+            raise RuntimeError("Loaded Tiny Aya model did not expose a valid observed commit SHA (malformed)")
         if observed != expected:
             raise RuntimeError("Loaded Tiny Aya base-model revision does not match pinned SHA")
         return observed
