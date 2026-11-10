@@ -29,8 +29,8 @@ def test_96_raw_predictions_recalculated_against_frozen_gold(tmp_path):
     assert result["all_original_saved_case_scores_exactly_reproduced"] is True
     assert result["metrics"]["schema_valid"]["raw_before"] == 48
     assert result["metrics"]["schema_valid"]["raw_after"] == 48
-    assert result["metrics"]["unsupported_abstention"]["raw_before"] == 9
-    assert result["metrics"]["unsupported_abstention"]["raw_after"] == 9
+    assert result["metrics"]["unsupported_abstention_correct"]["raw_before"] == 9
+    assert result["metrics"]["unsupported_abstention_correct"]["raw_after"] == 9
     assert result["metrics"]["supported_answer_exact"]["raw_before"] == 39
     assert result["metrics"]["supported_answer_exact"]["raw_after"] == 39
     assert result["metrics"]["schema_valid"]["exploratory_exact_mcnemar_p_unrounded"] == 1.0
