@@ -1,3 +1,5 @@
+**For Lexsi judges: [Start here — research findings, public model/dataset collections, and reproducibility](docs/JUDGES_START_HERE.md).**
+
 ## November 11 — original 96-response strict gold rescoring passed (no new GPU)
 
 The owner's original 48-case base-versus-native40 response ZIP was independently **re-scored from all 96 raw saved responses against the exact frozen gold**, rather than merely re-summing archived scores. **Every original per-case strict score reproduced exactly.** Valid JSON improved **14/48→48/48**, but supported-answer exact matches remained **0/39** and correct unsupported abstentions **regressed 4/9→2/9**. This is published-rubric reproducibility, **not human semantic review, real-world safety certification or GPU attestation**. See [fresh gold-based research audit](docs/NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md) and [Stage 15 reviewer notebook](notebooks/15_native40_fresh_gold_rescore_and_blind_human_review.ipynb).
