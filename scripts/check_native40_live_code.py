@@ -37,7 +37,7 @@ def assert_live_pinned_snapshot_inference(*, frozen_module=None,
         "pinned_snapshot" not in inspect.signature(verifier).parameters
         or "check_pinned_snapshot_path" not in verifier.__code__.co_names
         or "obtain_pinned_model_snapshot" not in predictor.__code__.co_names
-        or "pinned_snapshot" not in predictor.__code__.co_names
+        or "verify_loaded_model_revision" not in predictor.__code__.co_names
         or dev_predictor is not predictor
     ):
         raise RuntimeError(FAILURE_GUIDANCE)
