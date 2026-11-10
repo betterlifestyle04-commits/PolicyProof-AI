@@ -121,10 +121,21 @@ class AnonymousFakeAPI:
         return str(result)
 
 
-def test_default_manifest_not_yet_published():
-    # Genuine current project still has no HF collection links.
-    with pytest.raises(ValueError):
-        validate_manifest(ROOT / "docs/hf_publication_manifest.json")
+def test_default_manifest_contains_new_real_public_model_links_not_self_certified():
+    # The owner completed an actual public model+collection release. Link
+    # syntax alone must NOT assert remote verification or official submission.
+    manifest = validate_manifest(ROOT / "docs/hf_publication_manifest.json")
+    assert manifest["model_collection_slug"].endswith(
+        "6af39caacac578d29e1c66c6"
+    )
+    assert manifest["dataset_collection_slug"].endswith(
+        "6af24cc5b3c20ac76f6ceef5"
+    )
+    assert manifest["owner_supplied_verification_flags_ignored"] is True
+    assert not receipt_is_current(
+        ROOT / "artifacts/not_a_real_anonymous_receipt.json",
+        ROOT / "docs/hf_publication_manifest.json"
+    )
 
 
 def test_offline_no_network_by_default():
@@ -133,7 +144,7 @@ def test_offline_no_network_by_default():
         cwd=ROOT, capture_output=True, text=True, timeout=30,
     )
     assert done.returncode == 0
-    assert "WAITING_FOR_REAL_PUBLIC_HF_LINKS" in done.stdout
+    assert "URL_FORMAT_ONLY_UNVERIFIED" in done.stdout
     assert '"network_used": false' in done.stdout
     assert '"publication_performed": false' in done.stdout
 
