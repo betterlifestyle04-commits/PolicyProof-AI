@@ -191,17 +191,29 @@ def test_owner_approved_publication_has_no_gated_base_files(fake_original,tmp_pa
             calls.append("anon_collection")
             assert kwargs["token"] is False
             return SimpleNamespace(items=[SimpleNamespace(item_id=owner_repo)])
+    payload = release.build_release_bytes(fake_original)
+    def anon_download(**kwargs):
+        assert kwargs["token"] is False
+        assert kwargs["repo_id"] == owner_repo
+        assert kwargs["repo_type"] == "model"
+        filename = kwargs["filename"]
+        candidate = tmp_path / filename
+        candidate.write_bytes(payload[filename])
+        calls.append("anon_file")
+        return str(candidate)
     result=release.publish_owner_approved(
         fake_original,namespace="shalnark01",
         confirmed_source_sha256=release.ORIGINAL_SHA,
         approve_public=True,approve_license=True,approve_outputs=True,
         api=API(),anonymous_api=Anonymous(),
+        anonymous_downloader=anon_download,
     )
     assert result["status"] == "PUBLIC_ADAPTER_REPO_AND_MODEL_COLLECTION_ANONYMOUSLY_VERIFIED"
     assert result["model_repo_url"]=="https://huggingface.co/"+owner_repo
     assert result["owner_official_Lexsi_submission_done"] is False
     assert calls==[
-        "whoami","repo","upload","collection","add","anon_model","anon_collection"
+        "whoami","repo","upload","collection","add","anon_model",
+        *["anon_file"]*len(release.PUBLIC_MEMBERS), "anon_collection"
     ]
 
 
