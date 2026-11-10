@@ -5,6 +5,25 @@ The existing 40-step model adaptation was run with a **direct PyTorch fallback o
 
 This new path is an **independent fresh-run experiment** using the official AlignTune TRL trainer. It cannot retroactively convert the earlier manual result into an official run.
 
+## November 10 — Stage 11 gated Tiny Aya model 401 after successful data restore
+
+The owner successfully installed/verified the native imports and restored the exact 78-row original CuratorKIT input, but model loading failed with `401 Unauthorized / GatedRepoError` for `CohereLabs/tiny-aya-global/config.json`. This is **not** a CuratorKIT data failure, AlignTune dependency issue, or training result. Tiny Aya Global requires individual Hugging Face model access consent; public metadata can expose `model_info().sha` even when the actual model file is restricted.
+
+**Fix:** The owner must open https://huggingface.co/CohereLabs/tiny-aya-global, sign into the **same account** they intend to use in Colab, and accept/request the gated model terms (wait for approval if required). Hugging Face's normal access rules require a token attached to that approved user for scripts. Never paste that token in GitHub, ChatGPT, logs or notebook source.
+
+The native Stage 11 `restore_interactive` now runs `verify_tiny_aya_gated_access()` after the source-data audit and before calling `wrapper.setup_model()`. It uses an existing local login or asks via the secure `notebook_login(skip_if_logged_in=False)` widget, requires `model_info(..., token=True)` to return a 40-hex model revision, and **tests downloading only gated `config.json` with `token=True`** before loading large model weights. A second 401 fails early with an actionable permission message. There is no attempt to bypass the gate, leak credentials, or use the unapproved model.
+
+In the **existing Colab T4 session** (do not factory reset), after authorizing access in the browser:
+
+```python
+from huggingface_hub import notebook_login
+notebook_login(skip_if_logged_in=False)
+```
+
+Use the secure widget with the approved account's read-capable token; do not share the token. Then rerun Stage 11 Section 1 (fetch latest repo fix) and Section 3, with Section 2 only if packages changed. If the training ZIP is already restored in `artifacts/verified_curator_train`, Section 3 re-verifies it and does not ask for another upload. **Only if Section 3 completes and Section 4 reports zero optimizer steps** should the owner consider turning on native training.
+
+The preceding `torchaudio` C++-extension mismatch warning is *separate*; do not reinstall torch as a reaction to the model 401. If the T4 model load later fails after valid gated access, diagnose that new traceback separately.
+
 ## November 10 — Colab 2026.10 Python 3.13 / torchvision import repair
 
 An owner T4 Colab attempt reached Stage 11 Step 2 but failed **before model loading or optimizer execution**. The deepest traceback was `partially initialized module 'torchvision' ... has no attribute 'extension'`, followed by a **misleading** `BloomPreTrainedModel` import error from Transformers. The project trains a **text-only** Tiny Aya language model; torchvision is not required by the Stage 11 training path. A partially initialized optional vision module can poison lazy Transformers imports even when AlignTune, TRL and BNB package metadata show installed versions.
