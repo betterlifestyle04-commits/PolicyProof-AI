@@ -142,14 +142,17 @@ def main():
                 page.goto(owner_page.as_uri(), wait_until="load")
                 expect(page.locator("h1")).to_contain_text("Lexsi owner form handoff")
                 expect(page.locator(".state")).to_contain_text("DRAFT ONLY")
-                expect(page.locator("#abstract")).to_contain_text(
-                    "48 previously saved Tiny Aya"
+                # A newer private native40 result invalidates the historical
+                # abstract. It must NOT be offered as copyable form content.
+                expect(page.locator(".state")).to_contain_text(
+                    "DRAFT_ONLY_ABSTRACT_STALE_BLOCKED"
                 )
+                assert page.locator("#abstract").count() == 0
                 expect(page.get_by_text("MISSING — DO NOT INVENT A LINK").first).to_be_visible()
                 assert page.locator("script,form").count() == 0
                 assert network_requests == [], "Offline owner handoff accessed network"
                 page.screenshot(path=str(OUTPUT / "offline_lexsi_owner_handoff.png"), full_page=True)
-                print("CHROMIUM OFFLINE LEXSI FORM SUCCESS: historical source, blocked HF links, zero network", flush=True)
+                print("CHROMIUM OFFLINE LEXSI FORM SUCCESS: stale abstract blocked, HF links blocked, zero network", flush=True)
             except Exception:
                 page.screenshot(path=str(OUTPUT / "offline_review_failure.png"), full_page=True)
                 raise
