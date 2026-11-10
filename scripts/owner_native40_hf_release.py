@@ -215,7 +215,8 @@ def publish_owner_approved(
     archive_path: Path, *, namespace: str,
     confirmed_source_sha256: str, approve_public: bool,
     approve_license: bool, approve_outputs: bool,
-    api=None, anonymous_api=None, card_path: Path | None = None,
+    api=None, anonymous_api=None, anonymous_downloader=None,
+    card_path: Path | None = None,
 ) -> dict:
     """Explicit owner-only path; no publish without independent legal review.
 
@@ -278,8 +279,18 @@ def publish_owner_approved(
     if getattr(info, "private", None) is not False or getattr(info, "gated", False):
         raise RuntimeError("Model repository not confirmed public and ungated")
     names = {v.rfilename for v in (getattr(info, "siblings", None) or [])}
-    if names != PUBLIC_MEMBERS:
+    if (not PUBLIC_MEMBERS.issubset(names)
+        or names - PUBLIC_MEMBERS - {".gitattributes"}):
         raise RuntimeError("Anonymous model repo file list differs from release manifest")
+    if anonymous_downloader is None:
+        from huggingface_hub import hf_hub_download
+        anonymous_downloader = hf_hub_download
+    for filename, original in sorted(release.items()):
+        file_path = Path(anonymous_downloader(
+            repo_id=repo_id, filename=filename, repo_type="model", token=False,
+        ))
+        if not file_path.is_file() or sha_bytes(file_path.read_bytes()) != sha_bytes(original):
+            raise RuntimeError("Anonymous model repo file SHA256 mismatch: " + filename)
     collection_public = anonymous_api.get_collection(collection.slug, token=False)
     items = getattr(collection_public, "items", None) or []
     if not any(getattr(item, "item_id", None) == repo_id for item in items):
