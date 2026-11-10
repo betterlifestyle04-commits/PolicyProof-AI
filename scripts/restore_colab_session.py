@@ -191,6 +191,80 @@ def restore_model_and_data(curated_dir: str | Path, *,
     return wrapper, details
 
 
+
+TINY_AYA_MODEL_ID = "CohereLabs/tiny-aya-global"
+
+
+def verify_tiny_aya_gated_access(*, get_token_fn=None, notebook_login_fn=None,
+                                 model_info_fn=None, download_fn=None) -> str:
+    """Check ACTUAL gated config.json retrieval before loading model weights.
+
+    Public model_info() exposes a revision even to unapproved visitors; it
+    is NOT proof that this Colab runtime can download the gated model. Require
+    an authenticated token, source revision, and explicit gated config.json
+    readback before calling wrapper.setup_model() (which loads full weights).
+    The token is never printed, returned, committed or saved in our repo.
+    """
+    if any(fn is None for fn in (
+        get_token_fn, notebook_login_fn, model_info_fn, download_fn,
+    )):
+        from huggingface_hub import (
+            get_token, notebook_login, model_info, hf_hub_download,
+        )
+        get_token_fn = get_token_fn or get_token
+        notebook_login_fn = notebook_login_fn or notebook_login
+        model_info_fn = model_info_fn or model_info
+        download_fn = download_fn or hf_hub_download
+
+    token = get_token_fn()
+    if not isinstance(token, str) or not token.strip():
+        print(
+            "Tiny Aya is gated. First visit https://huggingface.co/"
+            + TINY_AYA_MODEL_ID + " in the SAME Hugging Face account and "
+            "accept the model's terms. Then use the secure Hugging Face "
+            "notebook login widget (never put a token in notebook source)."
+        )
+        notebook_login_fn(skip_if_logged_in=False)
+        token = get_token_fn()
+        if not isinstance(token, str) or not token.strip():
+            raise PermissionError(
+                "No Hugging Face account token was saved by secure notebook "
+                "login. Complete the widget then rerun Stage 11 Section 3."
+            )
+
+    try:
+        # Intentionally token=True, not merely a publicly visible model-info
+        # request; reject a session with an unauthenticated public-only view.
+        info = model_info_fn(TINY_AYA_MODEL_ID, token=True)
+        revision = getattr(info, "sha", None)
+        validate_requested_revision(revision)
+        if not revision:
+            raise ValueError("Gated Tiny Aya model returned no pinned revision")
+        # This retrieves ONLY the small config.json, not multi-GB weights.
+        config = Path(download_fn(
+            repo_id=TINY_AYA_MODEL_ID, filename="config.json",
+            revision=revision, token=True,
+        ))
+        if not config.is_file() or config.stat().st_size == 0:
+            raise ValueError("Authenticated Tiny Aya config.json readback missing")
+    except Exception as exc:
+        raise PermissionError(
+            "Cannot retrieve gated Tiny Aya config.json with the current "
+            "Hugging Face login. Open https://huggingface.co/"
+            + TINY_AYA_MODEL_ID
+            + ", accept the access terms, and verify that your account "
+            "is approved. In Colab, run notebook_login(skip_if_logged_in=False) "
+            "to log into THAT same account using a token with gated-model "
+            "read access, then rerun ONLY Stage 11 Section 3. Do not "
+            "share your token, reinstall BloomPreTrainedModel, or start "
+            "training to bypass this access check."
+        ) from exc
+    print(
+        "GATED_TINY_AYA_CONFIG_ACCESS_VERIFIED: TRUE — revision",
+        revision, "(only config.json fetched, no model weights or training)"
+    )
+    return revision
+
 def restore_interactive(root: str | Path = "/content/PolicyProof-AI"):
     """Colab UI helper: upload ZIP if missing, authenticate, load and verify.
 
@@ -198,7 +272,6 @@ def restore_interactive(root: str | Path = "/content/PolicyProof-AI"):
     NEVER starts training or evaluates any held-out dataset.
     """
     import torch
-    from huggingface_hub import model_info, notebook_login
     from scripts.check_align_config import check_train_data
 
     root = Path(root)
@@ -224,14 +297,9 @@ def restore_interactive(root: str | Path = "/content/PolicyProof-AI"):
     if not torch.cuda.is_available():
         raise RuntimeError("No CUDA GPU; select the Colab T4 accelerator first")
 
-    try:
-        revision = model_info("CohereLabs/tiny-aya-global").sha
-    except Exception:
-        print("Approve the gated Tiny Aya model with Hugging Face if prompted.")
-        notebook_login()
-        revision = model_info("CohereLabs/tiny-aya-global").sha
-    if not isinstance(revision, str) or not re.fullmatch(r"[a-f0-9]{40}", revision):
-        raise RuntimeError("Could not confirm model revision")
+    # A public metadata SHA does not establish gated model-file access.
+    # Demand an explicit authorized config download before huge weights load.
+    revision = verify_tiny_aya_gated_access()
     wrapper, report = restore_model_and_data(curated, expected_revision=revision)
     print("MODEL RESTORED:", report["rows"], "rows;",
           report["4bit_layers"], "4-bit layers;",
