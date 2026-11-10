@@ -1,3 +1,18 @@
+## November 10 — final Track 2a handoff: adapter-only HF model release prepared, NOT published
+
+**Research is source-checked. Submission is NOT complete.** Track 2 already uses **CuratorKIT + AuditKIT** (with supplemental native AlignTune), and the current original 40-step adapter ZIP is pinned. To resolve the outstanding public Hugging Face model-collection requirement, we prepared an **owner-review-only** adapter release kit and CPU Colab notebook, with original-source SHA, honest CC BY-NC / Cohere AUP disclosures and a prominently documented negative abstention outcome. The workflow defaults to **preview mode**, never includes gated base weights or original raw private predictions, and requires the owner's explicit legal/publication approvals before any HF write.
+
+- [Final research write-up](docs/LEXSI_TRACK2A_FINAL_WRITEUP.md)
+- [Step-by-step owner delivery checklist and form fields](docs/LEXSI_FINAL_DELIVERY_CHECKLIST.md)
+- [Stage 14: explicit-consent HF adapter publication notebook](notebooks/14_owner_native40_hf_release.ipynb)
+- [Adapter-only model card](docs/HF_NATIVE40_ADAPTER_MODEL_CARD.md)
+- [Owner legal, login, preview and anonymous publication verification guide](docs/LEXSI_HF_NATIVE40_OWNER_PUBLICATION.md)
+- [Under-500-word abstract usable ONLY AFTER the model collection is actually public](docs/LEXSI_TRACK2A_ABSTRACT_AFTER_PUBLIC_MODEL_RELEASE.md)
+
+**Not yet done:** owner release-rights approval, public adapter/model collection verification, final registered-email Lexsi form submission and its receipt. **Deadline: 15 November 2026, 11:59 PM AoE.** These are not automatically completed by CI.
+
+---
+
 ## November 10 — native AlignTune 40-step: measured dev48 trade-off (NO safety improvement claim)
 
 The owner supplied a **private**, source-pinned paired 48-case development ZIP of original Tiny Aya and the native AlignTune 40-step adapter. Its original bundle SHA256 is `e0319c83fbb87ef8570ca0c42caf68bea4a4fef1f8ae320bbe11e9a7c1761c68`; all 4 archive files, embedded SHA256s and 48 matched response IDs were internally checked. **Results on previously inspected synthetic development data:** valid JSON improved **14/48→48/48**, expected raw source ID in answerable cases **31/39→39/39**, but supported-answer exact matches stayed **0/39**, while correct unsupported-case abstentions **fell 4/9→2/9** and unsupported claims **rose 5/9→7/9**. Both additional unsupported claims were in Arabic in this small sample.
