@@ -1,3 +1,13 @@
+## November 10 — original 72-case results privately received and source-scored
+
+An owner-supplied **private six-file Stage 12 archive** now contains 72 original saved Tiny Aya base-model responses and a pinned native AuditKIT 1.1.3 score receipt. A separate CPU recomputation reproduced the archived sample, language and attack-family score counts exactly. The saved source metadata identifies a Tesla T4, but **independent GPU attestation and human semantic review remain outstanding**.
+
+**Original synthetic-reference findings:** 11/72 strict exact matches; 58/72 schema-valid; 6/12 canonical unsupported abstentions. A deterministic postprocessing guard increased schema validity to 72/72 and unsupported abstentions to 11/12 while **not improving supported-answer exact matches (5/60 both ways)** and reducing accepted answer coverage from 37 to 29 cases. **The owner archive remains private.** The existing public challenge dataset remains the original *unscored* version, and the previously drafted submission abstract is now out of date.
+
+[Source SHA256s, full aggregate measurements and reproducibility boundaries](docs/TRACK2A_72_OBSERVED_PRIVATE_SOURCE_RESULTS_2026-11-10.md).
+
+---
+
 ## November 10 — matched attack-family comparison for eventual 72-case GPU results
 
 We added a new **source-pinned CPU analysis** that compares original 72-case Tiny Aya outputs against our unchanged deterministic inference-time guard. It reports paired structural and reference-string metrics, English/Norwegian/Arabic slices, and **12 matched control/attack task pairs per attack family**. It does not use gold answers inside the guard, rerun the model, train weights or fabricate 72 outputs. A frozen original GPU report must exist first; the current 72 challenge remains **unscored** until that happens. [Exact protocol and command](docs/TRACK2A_72_EVALUATION_PROTOCOL.md).
