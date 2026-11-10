@@ -1,6 +1,6 @@
 # How to evaluate the new 72-case Track 2a challenge — only with actual model outputs
 
-**Current state:** 72 multilingual adversarial cases have been structurally curated, but **no model outputs exist for these new cases**. This document is a future inference/evaluation protocol. It is not a claim of a completed experiment. The original 48-case results are separate.
+**Updated 10 November 2026:** A private owner-supplied Stage 12 archive now contains 72 saved original Tiny Aya base-model outputs and a local AuditKIT 1.1.3 replay receipt. The original file hashes and all strict score groups have been independently recomputed from the uploaded source, but **GPU provenance and human semantic correctness have not been independently authenticated**. Read the [aggregate-only observed results and guard comparison](TRACK2A_72_OBSERVED_PRIVATE_SOURCE_RESULTS_2026-11-10.md). The previous version of this document described the *pre-run* unscored state. The public Hugging Face synthetic dataset remains its original unscored release; this private evidence is not a new public dataset version. The 48-case baseline results remain separate.
 
 ## Why measure this set?
 
