@@ -1,3 +1,13 @@
+## November 11 — SOLO Track 2a improvement: source-currency risk and nuanced abstention (NO HUMAN VOTES)
+
+**The owner does not need outside reviewers to produce an honest Track 2a benchmark-and-report entry.** We added a deterministic, *non-oracle* English/Norwegian/Arabic [source-local currency consistency checker](scripts/currency_evidence_audit.py) and a [transparent AI-assisted exploratory case analysis](docs/NATIVE40_AI_ASSISTED_EXPLORATORY_CASE_ANALYSIS_2026-11-11.md). In the original saved native40 development outputs, the checker flags **two closely related Arabic answers citing an NOK policy but describing the fee as Swedish kronor**. The unmodified baseline had **0 flags among only 2 valid-shape responses**, versus **2 among 45** in the adapter; **these denominators are not comparable accuracy rates**. Neither a passed currency check nor a correct citation proves entailment.
+
+We also distinguish the strict metric's **noncanonical/contradictory abstention** from a factual mortgage-rate hallucination: one Arabic response said the rate was missing but attached a non-null source ID while `abstain=true`. The fixed benchmark still scores it as wrong; we do **not** retroactively invent a semantic verdict.
+
+The public [Native40 dashboard research page](https://policyproof-ai-observatory.onrender.com/) now includes this aggregate-only finding. **No new GPU call, published model mutation, independent human reviewer, synthetic vote or official Lexsi submission** was performed. The previously prepared two-reviewer kit remains optional and private; do not claim it was completed.
+
+---
+
 **For Lexsi judges: [Start here — research findings, public model/dataset collections, and reproducibility](docs/JUDGES_START_HERE.md).**
 
 ## November 11 — original 96-response strict gold rescoring passed (no new GPU)
