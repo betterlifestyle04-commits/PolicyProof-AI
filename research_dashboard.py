@@ -107,6 +107,53 @@ elif page == "Native40 research findings":
         " · [Judge overview]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/JUDGES_START_HERE.md)"
     )
+    st.markdown("#### Source currency consistency — Arabic NOK/SEK risk flags")
+    currency = load_json(DATA / "native40_currency_risk_original_aggregate_v1.json")
+    currency_verified_shape = (
+        isinstance(currency, dict)
+        and currency.get("schema") == "policyproof_original_native40_dev48_currency_triage_aggregate_v1"
+        and currency.get("source_original_private_zip_sha256")
+        == "e0319c83fbb87ef8570ca0c42caf68bea4a4fef1f8ae320bbe11e9a7c1761c68"
+        and currency.get("original_saved_48_case_paired_predictions") == 96
+        and currency.get("human_independent_review_performed") is False
+        and currency.get("model_safety_improvement_claimed") is False
+        and currency.get("raw_private_predictions_published") is False
+        and isinstance(currency.get("arms"), dict)
+        and currency["arms"].get("base", {}).get("explicit_currency_conflict_flags") == 0
+        and currency["arms"].get("tuned", {}).get("explicit_currency_conflict_flags") == 2
+        and currency["arms"]["base"].get(
+            "valid_supported_shape_eligible_for_currency_inspection") == 2
+        and currency["arms"]["tuned"].get(
+            "valid_supported_shape_eligible_for_currency_inspection") == 45
+    )
+    if currency_verified_shape:
+        c1, c2 = st.columns(2)
+        c1.metric("Base: explicit currency review flags", "0 / 2", help="Only 2 base outputs passed the required supported shape")
+        c2.metric("Adapter: explicit currency review flags", "2 / 45", help="Out of 45 shaped outputs; these are risk flags, not accuracy")
+        st.warning(
+            "Two Arabic answers cite a policy stating NOK 25 but describe "
+            "the currency as Swedish kronor (SEK). The 0/2 versus 2/45 "
+            "eligible-output denominators are NOT comparable model accuracy "
+            "rates: most base outputs failed the required JSON shape. "
+            "Currency flags are source-local lexical triage, NOT human semantic verification."
+        )
+        st.markdown(
+            "**AI-assisted exploratory case analysis:** "
+            "[Methods, currency mismatch and nuanced abstention grading]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/"
+            "docs/NATIVE40_AI_ASSISTED_EXPLORATORY_CASE_ANALYSIS_2026-11-11.md)"
+        )
+        st.caption(
+            "One Arabic mortgage-rate answer expressed missing evidence but "
+            "used contradictory abstain/source JSON; its strict failure "
+            "must not be relabeled a fabricated mortgage rate. "
+            "No additional model training or human review was performed."
+        )
+    else:
+        st.info(
+            "Original source-bound currency triage summary is unavailable "
+            "or its evidence fields differ; no currency comparison is asserted."
+        )
     st.markdown("#### Disjoint sources, and why 0/39 is not a semantic accuracy rate")
     st.caption(
         "78 original synthetic training examples; 48 development cases; "
