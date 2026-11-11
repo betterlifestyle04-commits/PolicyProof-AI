@@ -261,3 +261,17 @@ def test_native40_research_page_exposes_strictly_verified_but_negative_safety_re
                for x in app.info)
     assert any(x.label == "Native AlignTune: valid JSON" for x in app.metric)
     assert not any("semantic safety verified" in x.value.lower() for x in app.markdown)
+
+
+def test_native40_currency_diagnostic_discloses_risk_not_independent_human_accuracy():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Native40 research findings").run()
+    assert not app.exception, str(app.exception)
+    assert any(x.label == "Base: explicit currency review flags" for x in app.metric)
+    assert any(x.label == "Adapter: explicit currency review flags" for x in app.metric)
+    assert any("Two Arabic answers cite a policy stating NOK 25" in x.value for x in app.warning)
+    assert any("NOT comparable model accuracy rates" in x.value for x in app.warning)
+    assert any("must not be relabeled a fabricated mortgage rate" in x.value
+               for x in app.caption)
+    assert any("AI-assisted exploratory case analysis" in x.value for x in app.markdown)
