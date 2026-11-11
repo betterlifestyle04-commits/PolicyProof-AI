@@ -275,3 +275,21 @@ def test_native40_currency_diagnostic_discloses_risk_not_independent_human_accur
     assert any("must not be relabeled a fabricated mortgage rate" in x.value
                for x in app.caption)
     assert any("AI-assisted exploratory case analysis" in x.value for x in app.markdown)
+
+
+def test_output_guard_playground_flags_wrong_currency_even_with_right_amount_and_source():
+    dashboard = Path(__file__).resolve().parents[1] / "research_dashboard.py"
+    app = AppTest.from_file(str(dashboard), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Try the output guard").run()
+    assert not app.exception, str(app.exception)
+    example = next(x for x in app.selectbox if x.label == "Try an example")
+    assert "Wrong currency despite cited amount" in example.options
+    example.set_value("Wrong currency despite cited amount").run()
+    assert not app.exception, str(app.exception)
+    validate = next(x for x in app.button if x.label == "Validate response")
+    validate.click().run()
+    assert not app.exception, str(app.exception)
+    assert any("Currency unit mismatch needs review" in x.value for x in app.error)
+    assert any("SEK" in x.value and "NOK" in x.value for x in app.error)
+    assert any("not a human factual verdict" in x.value for x in app.error)
+    assert not any("Numeric evidence review needed" in x.value for x in app.error)
