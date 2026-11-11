@@ -1,3 +1,13 @@
+## Solo-builder route (updated 11 November): no external reviewer required
+
+The owner is working alone with an AI assistant and has no independent reviewers. **That is permitted: Lexsi teams can have one member, and Track 2a problem statement #2 accepts a benchmark dataset and report.** Our original strict 96-response score replay, source-pinned public HF collections, and [AI-assisted explicit-currency case analysis](NATIVE40_AI_ASSISTED_EXPLORATORY_CASE_ANALYSIS_2026-11-11.md) have all been prepared without fabricated human votes.
+
+**Do not spend the remaining days searching for reviewers or retraining on frozen examples.** The optional private reviewer packet is **NOT** required for a truthful first-stage Track 2a submission. Never claim independent human safety verification.
+
+Only remaining owner-only tasks: (1) confirm the noncommercial release rights and that the public URLs open under your account; (2) perform a brief view of the [judge overview](JUDGES_START_HERE.md) and [public demo](https://policyproof-ai-observatory.onrender.com/); (3) enter the exact registered email and checked real HF collection URLs in the [official Lexsi form](https://hackathon.lexsi.ai/submission/); (4) save the real organizer confirmation. **Do not submit until you choose to do so. Deadline 15 Nov 2026 11:59 PM AoE.**
+
+---
+
 ## 11 NOVEMBER — Scientific audit upgraded; optional blinded review ready
 
 A fresh **raw-prediction-to-frozen-gold** recalculation independently reproduced all 96 archived strict scores: [research audit](NATIVE40_FRESH_GOLD_RESCORE_2026-11-11.md). This does **not** establish semantic answer correctness; original model outputs can be correct paraphrases that exact matching rejects. A [private blinded human-review packet](NATIVE40_DEV48_HUMAN_REVIEW_HANDOFF.md) and [Stage 15 Colab](../notebooks/15_native40_fresh_gold_rescore_and_blind_human_review.ipynb) are available if you can recruit **genuine qualified independent reviewers** before the deadline. Do not fake review or retrain on the frozen sets.
