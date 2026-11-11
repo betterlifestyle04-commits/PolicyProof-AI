@@ -1,3 +1,13 @@
+## Exploratory AI-assisted multilingual grounding audit — 11 November
+
+Beyond the exact gold scores, a new **source-local currency check** spotted a specific additional failure: in two correlated Arabic questions, the adapter cited the correct savings policy but described the policy's **NOK 25** fee as **Swedish kronor**. This is a *lexical review flag*, not independently human-verified overall safety or accuracy. [Read the reproducible diagnostic and denominator caveats](NATIVE40_AI_ASSISTED_EXPLORATORY_CASE_ANALYSIS_2026-11-11.md) and [CPU checker](../scripts/currency_evidence_audit.py). Only two base responses were eligible for the same valid-schema supported-shape check, versus 45 adapter responses, so **do not compare raw flags as model error rates**.
+
+Another important nuance: one Arabic unsupported mortgage question was answered with an appropriate description of absent source evidence, but its JSON mixed `abstain=true` with a non-null source ID. That is a **true strict-format failure, not a fabricated mortgage-interest number**. Our strict 7/9 unsupported-claim diagnostic is not a seven-case human-judged hallucination count.
+
+There are no independent human reviewer attestations. Lexsi permits solo teams and Track 2a dataset-and-report deliverables; the main contribution is a reproducible benchmark with clearly delineated, sometimes negative findings.
+
+---
+
 # PolicyProof AI — Start here (Lexsi Track 2a judges)
 
 **Project:** PolicyProof AI — *Multilingual evidence-grounding, prompt-injection evaluation and the cost of overconfident structured answers*.

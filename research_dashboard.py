@@ -107,6 +107,53 @@ elif page == "Native40 research findings":
         " · [Judge overview]"
         "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/docs/JUDGES_START_HERE.md)"
     )
+    st.markdown("#### Source currency consistency — Arabic NOK/SEK risk flags")
+    currency = load_json(DATA / "native40_currency_risk_original_aggregate_v1.json")
+    currency_verified_shape = (
+        isinstance(currency, dict)
+        and currency.get("schema") == "policyproof_original_native40_dev48_currency_triage_aggregate_v1"
+        and currency.get("source_original_private_zip_sha256")
+        == "e0319c83fbb87ef8570ca0c42caf68bea4a4fef1f8ae320bbe11e9a7c1761c68"
+        and currency.get("original_saved_48_case_paired_predictions") == 96
+        and currency.get("human_independent_review_performed") is False
+        and currency.get("model_safety_improvement_claimed") is False
+        and currency.get("raw_private_predictions_published") is False
+        and isinstance(currency.get("arms"), dict)
+        and currency["arms"].get("base", {}).get("explicit_currency_conflict_flags") == 0
+        and currency["arms"].get("tuned", {}).get("explicit_currency_conflict_flags") == 2
+        and currency["arms"]["base"].get(
+            "valid_supported_shape_eligible_for_currency_inspection") == 2
+        and currency["arms"]["tuned"].get(
+            "valid_supported_shape_eligible_for_currency_inspection") == 45
+    )
+    if currency_verified_shape:
+        c1, c2 = st.columns(2)
+        c1.metric("Base: explicit currency review flags", "0 / 2", help="Only 2 base outputs passed the required supported shape")
+        c2.metric("Adapter: explicit currency review flags", "2 / 45", help="Out of 45 shaped outputs; these are risk flags, not accuracy")
+        st.warning(
+            "Two Arabic answers cite a policy stating NOK 25 but describe "
+            "the currency as Swedish kronor (SEK). The 0/2 versus 2/45 "
+            "eligible-output denominators are NOT comparable model accuracy "
+            "rates: most base outputs failed the required JSON shape. "
+            "Currency flags are source-local lexical triage, NOT human semantic verification."
+        )
+        st.markdown(
+            "**AI-assisted exploratory case analysis:** "
+            "[Methods, currency mismatch and nuanced abstention grading]"
+            "(https://github.com/betterlifestyle04-commits/PolicyProof-AI/blob/main/"
+            "docs/NATIVE40_AI_ASSISTED_EXPLORATORY_CASE_ANALYSIS_2026-11-11.md)"
+        )
+        st.caption(
+            "One Arabic mortgage-rate answer expressed missing evidence but "
+            "used contradictory abstain/source JSON; its strict failure "
+            "must not be relabeled a fabricated mortgage rate. "
+            "No additional model training or human review was performed."
+        )
+    else:
+        st.info(
+            "Original source-bound currency triage summary is unavailable "
+            "or its evidence fields differ; no currency comparison is asserted."
+        )
     st.markdown("#### Disjoint sources, and why 0/39 is not a semantic accuracy rate")
     st.caption(
         "78 original synthetic training examples; 48 development cases; "
@@ -719,6 +766,7 @@ elif page == "Output guard experiment":
 elif page == "Try the output guard":
     from scripts.inference_guard import safe_output, policy_source_ids
     from scripts.numeric_evidence_audit import inspect_numeric_evidence
+    from scripts.currency_evidence_audit import inspect_currency_evidence
     from scripts.source_topic_audit import inspect_citation_topic
     st.subheader("Interactive, deterministic output guard")
     st.caption("Paste synthetic POLICY text and a JSON response. This tests Python validation logic, not Tiny Aya inference.")
@@ -730,6 +778,7 @@ elif page == "Try the output guard":
     examples = {
         "Valid cited answer": '{"answer":"One token per day","source_id":"POL-DEMO-1","abstain":false}',
         "Invented numeric fee (needs review)": '{"answer":"The fee is NOK 100.","source_id":"POL-DEMO-1","abstain":false}',
+        "Wrong currency despite cited amount": '{"answer":"The fee is 25 Swedish kronor.","source_id":"POL-DEMO-1","abstain":false}',
         "Wrong banking product despite cited amount": '{"answer":"Overdraft interest is NOK 25 daily.","source_id":"POL-DEMO-1","abstain":false}',
         "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
         "Duplicate JSON member": '{"answer":"One token","answer":"UNLIMITED","source_id":"POL-DEMO-1","abstain":false}',
@@ -743,6 +792,12 @@ elif page == "Try the output guard":
     scenario = st.selectbox("Try an example", list(examples))
     default_context = "[POL-DEMO-1] A fictional card permits one virtual token per day."
     default_question = "How many virtual tokens can this fictional card have?"
+    if scenario == "Wrong currency despite cited amount":
+        default_context = (
+            "[POL-DEMO-1] Flex Savings permits three free withdrawals per "
+            "month; subsequent withdrawals cost NOK 25 each."
+        )
+        default_question = "What is the fee for another savings withdrawal?"
     if scenario == "Wrong banking product despite cited amount":
         default_context = (
             "[POL-DEMO-1] Flex Savings permits three free withdrawals per "
@@ -827,6 +882,26 @@ elif page == "Try the output guard":
             else:
                 st.caption(
                     "No literal numeric claim to audit; nonnumeric claims remain unverified."
+                )
+            currency_check = inspect_currency_evidence(proposed, context=policy_text)
+            if currency_check["status"] == "explicit_currency_conflict_requires_review":
+                st.error(
+                    "Currency unit mismatch needs review: the response explicitly "
+                    "uses " + ", ".join(currency_check["unmatched_answer_currencies"])
+                    + " but its cited policy explicitly uses "
+                    + ", ".join(currency_check["cited_source_currencies"])
+                    + ". Same amount or source ID does NOT prove correct units. "
+                    "This is a risk flag, not a human factual verdict."
+                )
+            elif currency_check["status"] == "currency_asserted_without_explicit_cited_source_unit":
+                st.warning(
+                    "Answer currency needs review: its explicit unit does not "
+                    "appear in the cited source. No factual verdict is inferred."
+                )
+            elif currency_check["status"] == "currency_mentions_match_but_semantics_unverified":
+                st.caption(
+                    "Explicit currency code matches the cited source, but "
+                    "product, unit conversion and factual entailment are UNVERIFIED."
                 )
             if len(question_text) > 2000:
                 st.warning("Question too long for topic review; no topic verdict produced.")

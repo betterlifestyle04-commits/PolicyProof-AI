@@ -1,0 +1,56 @@
+{
+  "schema": "policyproof_original_native40_dev48_currency_triage_aggregate_v1",
+  "status": "SOURCE_LOCAL_CURRENCY_REVIEW_FLAGS_ONLY_NOT_HUMAN_REVIEW",
+  "date_utc": "2026-11-11",
+  "source_original_private_zip_sha256": "e0319c83fbb87ef8570ca0c42caf68bea4a4fef1f8ae320bbe11e9a7c1761c68",
+  "source_original_adapter_tensor_sha256": "ba985c1966050764a5220e87ea581a9bd482ba87b055fee4a1e363643f1cc92e",
+  "gold_dataset_sha256": "d61e59557c62e486afc49e40e5d4daff0c8896429ac2b71d04936b07a49d3a4c",
+  "original_saved_48_case_paired_predictions": 96,
+  "gold_labels_used_to_flag_currency": false,
+  "used_only_explicit_currency_signals_in_cited_trusted_policy": true,
+  "arms": {
+    "base": {
+      "saved_predictions": 48,
+      "valid_supported_shape_eligible_for_currency_inspection": 2,
+      "explicit_currency_conflict_flags": 0,
+      "status_counts": {
+        "no_valid_supported_answer_to_check": 46,
+        "no_explicit_currency_in_answer": 1,
+        "currency_mentions_match_but_semantics_unverified": 1
+      }
+    },
+    "tuned": {
+      "saved_predictions": 48,
+      "valid_supported_shape_eligible_for_currency_inspection": 45,
+      "explicit_currency_conflict_flags": 2,
+      "status_counts": {
+        "no_valid_supported_answer_to_check": 3,
+        "no_explicit_currency_in_answer": 42,
+        "currency_mentions_match_but_semantics_unverified": 1,
+        "explicit_currency_conflict_requires_review": 2
+      },
+      "flagged_original_synthetic_case_ids_only": [
+        "POL-U003-ar-0",
+        "POL-U003-ar-1"
+      ],
+      "flagged_cited_currency": "NOK",
+      "flagged_response_currency": "SEK"
+    }
+  },
+  "method_scope": "Source-local lexical triage of the original saved response text with exactly the cited trusted policy; no semantic entailment analysis or independent model execution.",
+  "interpretive_note": "Zero baseline conflicts is not a comparative currency accuracy result because only two baseline responses had the fully valid supported shape eligible for this particular check.",
+  "owner_or_ai_assisted_exploration_only": true,
+  "human_independent_review_performed": false,
+  "formal_semantic_verdicts_generated": false,
+  "model_safety_improvement_claimed": false,
+  "new_gpu_inference_or_training": false,
+  "raw_private_predictions_published": false,
+  "limitations": [
+    "Explicit currency mentions alone can be quotations, negations or comparisons; flagging does not establish an incorrect answer.",
+    "Generic kroner and Arabic كرونة are ambiguous and therefore not classified.",
+    "Missing a currency flag does not prove that an answer is entailed by its cited evidence.",
+    "Development responses were inspected before this analysis. Do not treat this as a blind independent sample.",
+    "The two currency mismatches come from closely related Arabic question variants, not two independent banking policies.",
+    "Some scored unsupported-claim text actually expresses that evidence is absent, but is marked wrong because of inconsistent JSON abstention fields. Strict rubric counts must not be called human-judged hallucination rates."
+  ]
+}
