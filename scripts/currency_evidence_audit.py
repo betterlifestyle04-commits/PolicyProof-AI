@@ -52,7 +52,7 @@ RULES = {
     ),
     "EUR": (
         r"(?<!\w)EUR(?!\w)|\beuros?\b|"
-        r"(?<!\w)€(?!\w)|\beuro\b|يورو"
+        r"€|\beuro\b|يورو"
     ),
 }
 _COMPILED = {
