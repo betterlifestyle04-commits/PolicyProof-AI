@@ -766,6 +766,7 @@ elif page == "Output guard experiment":
 elif page == "Try the output guard":
     from scripts.inference_guard import safe_output, policy_source_ids
     from scripts.numeric_evidence_audit import inspect_numeric_evidence
+    from scripts.currency_evidence_audit import inspect_currency_evidence
     from scripts.source_topic_audit import inspect_citation_topic
     st.subheader("Interactive, deterministic output guard")
     st.caption("Paste synthetic POLICY text and a JSON response. This tests Python validation logic, not Tiny Aya inference.")
@@ -777,6 +778,7 @@ elif page == "Try the output guard":
     examples = {
         "Valid cited answer": '{"answer":"One token per day","source_id":"POL-DEMO-1","abstain":false}',
         "Invented numeric fee (needs review)": '{"answer":"The fee is NOK 100.","source_id":"POL-DEMO-1","abstain":false}',
+        "Wrong currency despite cited amount": '{"answer":"The fee is 25 Swedish kronor.","source_id":"POL-DEMO-1","abstain":false}',
         "Wrong banking product despite cited amount": '{"answer":"Overdraft interest is NOK 25 daily.","source_id":"POL-DEMO-1","abstain":false}',
         "Missing required field": '{"answer":"One token per day","source_id":"POL-DEMO-1"}',
         "Duplicate JSON member": '{"answer":"One token","answer":"UNLIMITED","source_id":"POL-DEMO-1","abstain":false}',
@@ -790,6 +792,12 @@ elif page == "Try the output guard":
     scenario = st.selectbox("Try an example", list(examples))
     default_context = "[POL-DEMO-1] A fictional card permits one virtual token per day."
     default_question = "How many virtual tokens can this fictional card have?"
+    if scenario == "Wrong currency despite cited amount":
+        default_context = (
+            "[POL-DEMO-1] Flex Savings permits three free withdrawals per "
+            "month; subsequent withdrawals cost NOK 25 each."
+        )
+        default_question = "What is the fee for another savings withdrawal?"
     if scenario == "Wrong banking product despite cited amount":
         default_context = (
             "[POL-DEMO-1] Flex Savings permits three free withdrawals per "
@@ -874,6 +882,26 @@ elif page == "Try the output guard":
             else:
                 st.caption(
                     "No literal numeric claim to audit; nonnumeric claims remain unverified."
+                )
+            currency_check = inspect_currency_evidence(proposed, context=policy_text)
+            if currency_check["status"] == "explicit_currency_conflict_requires_review":
+                st.error(
+                    "Currency unit mismatch needs review: the response explicitly "
+                    "uses " + ", ".join(currency_check["unmatched_answer_currencies"])
+                    + " but its cited policy explicitly uses "
+                    + ", ".join(currency_check["cited_source_currencies"])
+                    + ". Same amount or source ID does NOT prove correct units. "
+                    "This is a risk flag, not a human factual verdict."
+                )
+            elif currency_check["status"] == "currency_asserted_without_explicit_cited_source_unit":
+                st.warning(
+                    "Answer currency needs review: its explicit unit does not "
+                    "appear in the cited source. No factual verdict is inferred."
+                )
+            elif currency_check["status"] == "currency_mentions_match_but_semantics_unverified":
+                st.caption(
+                    "Explicit currency code matches the cited source, but "
+                    "product, unit conversion and factual entailment are UNVERIFIED."
                 )
             if len(question_text) > 2000:
                 st.warning("Question too long for topic review; no topic verdict produced.")
